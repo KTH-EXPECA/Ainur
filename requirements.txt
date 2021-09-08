@@ -1,0 +1,5 @@
+pip
+ansible
+jsonschema
+pyyaml
+click
