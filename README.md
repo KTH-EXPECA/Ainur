@@ -52,7 +52,6 @@ Likewise, this software will create and shape the virtual world in which workloa
 
 3. Install the required packages as specified by `requirements.txt`: `pip install -Ur requirements.txt`.
 
-
 ### Working with submodules
 
 Linked submodules are "frozen" on a specific commit, not a branch as you might otherwise expect.
