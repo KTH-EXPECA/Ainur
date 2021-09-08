@@ -1,0 +1,3 @@
+[submodule "workload-definition-schema"]
+	path = workload-definition-schema
+	url = git@github.com:KTH-EXPECA/workload-definition-schema.git
