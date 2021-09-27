@@ -3,3 +3,4 @@ ansible
 jsonschema
 pyyaml
 click
+ansible-runner
