@@ -4,3 +4,4 @@ jsonschema
 pyyaml
 click
 ansible-runner
+marshmallow

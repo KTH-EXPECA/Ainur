@@ -1,0 +1,45 @@
+---
+- name: Set up swarm on manager
+  hosts: manager
+  gather_facts: yes
+  become: no
+  tasks:
+    - name: Initialize the Swarm
+      register: swarm_info
+      community.docker.docker_swarm:
+        state: present
+        advertise_addr: "{{ workload_ip }}"
+
+    - name: Extract worker join token from docker_swarm output
+      set_fact:
+        worker_join_token: "{{ swarm_info.swarm_facts.JoinTokens.Worker }}"
+
+
+- name: Connect client nodes to Swarm
+  gather_facts: yes
+  vars:
+    worker_join_token: "{{ hostvars.cloudlet.worker_join_token }}"
+  become: no
+  hosts: clients
+  tasks:
+    - name: Attach client node
+      community.docker.docker_swarm:
+        state: join
+        join_token: "{{ worker_join_token }}"
+        remote_addrs:
+          - "{{ hostvars.cloudlet.ip_swarm }}"
+        advertise_addr: "{{ workload_ip }}"
+
+#- name: Set swarm node labels
+#  hosts: all
+#  become: yes
+#  serial: 1
+#  gather_facts: no
+#  tasks:
+#    - name: Set labels
+#      delegate_to: galadriel
+#      community.docker.docker_node:
+#        hostname: "{{ inventory_hostname }}"
+#        labels: "{{ swarm_node_labels }}"
+#        labels_state: replace
+...

@@ -1,0 +1,21 @@
+---
+- name: Remove all client nodes from swarm
+  gather_facts: no
+  become: yes
+  hosts: clients
+  tasks:
+    - name: Remove client node
+      community.docker.docker_swarm:
+        state: absent
+
+- name: Delete the swarm
+  gather_facts: no
+  hosts: cloudlet
+  become: yes
+  tasks:
+    - name: Remove the cloudlet from the swarm
+      community.docker.docker_swarm:
+        state: absent
+        force: yes
+
+...
