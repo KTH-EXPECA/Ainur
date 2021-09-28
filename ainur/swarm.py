@@ -1,35 +1,40 @@
-import os
-import tempfile
+from __future__ import annotations
+
+from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Collection
+from typing import Collection, Optional, Set
 
 import ansible_runner
-import yaml
+
+from ainur.util import ansible_temp_dir
 
 
 @dataclass
 class Host:
+    # TODO: move somewhere else?
     name: str
     ansible_host: str
     workload_ip: str
 
 
-@dataclass
-class DockerSwarm:
-    manager: Host
-    nodes: Collection[Host]
-    join_token: str
+def _make_inventory(manager: Host, clients: Collection[Host]) -> dict:
+    """
+    Creates a valid Ansible inventory for swarm deployment.
 
+    Parameters
+    ----------
+    manager
+        Manager host
+    clients
+        Collection of client hosts
 
-def deploy_workload_swarm(manager: Host,
-                          clients: Collection[Host],
-                          playbook_dir: Path) -> DockerSwarm:
-    # TODO: documentation
-    # TODO: pretty logging
-
-    # build a temporary Ansible inventory
-    inventory = {
+    Returns
+    -------
+    dict
+        A valid Ansible inventory.
+    """
+    return {
         'all': {
             'hosts'   : {
                 'manager': asdict(manager),
@@ -44,51 +49,91 @@ def deploy_workload_swarm(manager: Host,
         },
     }
 
-    # ansible-runner is stupid and expects everything to be an *actual* file
-    # we will trick it by using temporary directories and files
-    # on Linux this should all happen in a tmpfs, so no disk writes necessary
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_dir = Path(tmp_dir)
 
-        # set up the file structure ansible-runner expects, inside the tmpdir
-        proj_dir = tmp_dir / 'project'
-        proj_dir.mkdir(parents=True)
+class DockerSwarm(AbstractContextManager):
+    def __init__(self,
+                 manager: Host,
+                 clients: Collection[Host],
+                 playbook_dir: Path):
+        # TODO: documentation
+        # TODO: pretty logging
 
-        inv_dir = tmp_dir / 'inventory'
-        inv_dir.mkdir(parents=True)
+        # build a temporary Ansible inventory
+        self._inventory = _make_inventory(manager, clients)
 
-        # link the playbook to the temp dir
-        # shutil.copy(playbook_dir / 'swarm_up.yml', proj_dir)
-        os.symlink(playbook_dir.resolve() / 'swarm_up.yml',
-                   proj_dir / 'swarm_up.yml')
+        # ansible-runner is stupid and expects everything to be an *actual* file
+        # we will trick it by using temporary directories and files
+        # on Linux this should all happen in a tmpfs, so no disk writes
+        # necessary
+        with ansible_temp_dir(inventory=self._inventory,
+                              playbooks=['swarm_up.yml'],
+                              base_playbook_dir=playbook_dir) as tmp_dir:
+            # now we can run shit
+            # initialize the swarm
+            init_res = ansible_runner.run(
+                playbook='swarm_up.yml',
+                json_mode=True,
+                private_data_dir=str(tmp_dir),
+                quiet=True,
+            )
 
-        # dump the inventory
-        with (inv_dir / 'hosts').open('w') as fp:
-            yaml.safe_dump(inventory, stream=fp)
-
-        # now we can run shit
-        # initialize the swarm
-        init_res = ansible_runner.run(
-            playbook='swarm_up.yml',
-            json_mode=True,
-            private_data_dir=str(tmp_dir),
-            quiet=True,
-        )
-
-        try:
+            # TODO: better error checking
             assert init_res.status != 'failed'
-        except AssertionError:
-            input(tmp_dir)
-            raise RuntimeError()
 
-        # extract worker join token to store it
-        events = list(init_res.host_events('manager'))
-        join_token = events[-1]['event_data'] \
-            ['res']['ansible_facts']['worker_join_token']
+            # extract worker join token to store it
+            events = list(init_res.host_events('manager'))
+            join_token = events[-1]['event_data'] \
+                ['res']['ansible_facts']['worker_join_token']
 
-        return DockerSwarm(manager=manager,
-                           nodes=clients,
-                           join_token=join_token)
+        self._manager = manager
+        self._nodes = set(clients)
+        self._token = join_token
+        self._playbook_dir = playbook_dir
+        self._torn_down = False
+
+    def __str__(self) -> str:
+        return str({
+            'manager'   : self._manager,
+            'nodes'     : [n for n in self._nodes],
+            'join_token': self._token
+        })
+
+    @property
+    def manager(self) -> Host:
+        return Host(**asdict(self._manager))
+
+    @property
+    def nodes(self) -> Set[Host]:
+        return {Host(**asdict(n)) for n in self._nodes}
+
+    @property
+    def join_token(self) -> str:
+        return self._token
+
+    def tear_down(self) -> bool:
+        if self._torn_down:
+            return False
+
+        with ansible_temp_dir(inventory=self._inventory,
+                              playbooks=['swarm_down.yml'],
+                              base_playbook_dir=self._playbook_dir) as tmp_dir:
+            # tear it all down!
+            res = ansible_runner.run(
+                playbook='swarm_down.yml',
+                json_mode=True,
+                private_data_dir=str(tmp_dir),
+                quiet=True,
+            )
+            assert res.status != 'failed'
+            return True
+
+    def __enter__(self) -> DockerSwarm:
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> Optional[bool]:
+        super(DockerSwarm, self).__exit__(exc_type, exc_value, traceback)
+        self.tear_down()
+        return False
 
 
 if __name__ == '__main__':
@@ -96,7 +141,6 @@ if __name__ == '__main__':
                 ansible_host='localhost',
                 workload_ip='192.168.50.3')
 
-    swarm = deploy_workload_swarm(manager=host, clients=[],
-                                  playbook_dir=Path('../playbooks'))
-
-    print(swarm)
+    with DockerSwarm(manager=host, clients=[],
+                     playbook_dir=Path('../playbooks')) as swarm:
+        print(swarm)
