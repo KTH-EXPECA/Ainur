@@ -166,3 +166,28 @@ def workload_network_ctx(
     network = bring_up_workload_network(ip_hosts, playbook_dir)
     yield network
     tear_down_workload_network(network, playbook_dir)
+
+
+# TODO: need a way to test this locally somehow?
+if __name__ == '__main__':
+    ip_hosts = {
+        IPv4Interface('10.0.0.1/16'):
+            DisconnectedWorkloadHost('elrond', 'elrond.expeca',
+                                     workload_nic='enp4s0'),
+        IPv4Interface('10.0.1.10/16'):
+            DisconnectedWorkloadHost('client10', 'workload-client-10.expeca',
+                                     workload_nic='eth0'),
+        IPv4Interface('10.0.1.11/16'):
+            DisconnectedWorkloadHost('client11', 'workload-client-11.expeca',
+                                     workload_nic='eth0'),
+        IPv4Interface('10.0.1.12/16'):
+            DisconnectedWorkloadHost('client12', 'workload-client-12.expeca',
+                                     workload_nic='eth0'),
+    }
+
+    pbook_dir = Path('./playbooks')
+
+    with workload_network_ctx(ip_hosts, pbook_dir) as network:
+        input(str(network))
+
+
