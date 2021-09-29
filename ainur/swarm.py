@@ -1,24 +1,18 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Collection, Optional, Set
 
 import ansible_runner
 
+from ainur.hosts import WorkloadHost
 from ainur.util import ansible_temp_dir
 
 
-@dataclass
-class Host:
-    # TODO: move somewhere else?
-    name: str
-    ansible_host: str
-    workload_ip: str
-
-
-def _make_inventory(manager: Host, clients: Collection[Host]) -> dict:
+def _make_inventory(manager: WorkloadHost,
+                    clients: Collection[WorkloadHost]) -> dict:
     """
     Creates a valid Ansible inventory for swarm deployment.
 
@@ -52,8 +46,8 @@ def _make_inventory(manager: Host, clients: Collection[Host]) -> dict:
 
 class DockerSwarm(AbstractContextManager):
     def __init__(self,
-                 manager: Host,
-                 clients: Collection[Host],
+                 manager: WorkloadHost,
+                 clients: Collection[WorkloadHost],
                  playbook_dir: Path):
         # TODO: documentation
         # TODO: pretty logging
@@ -99,12 +93,12 @@ class DockerSwarm(AbstractContextManager):
         })
 
     @property
-    def manager(self) -> Host:
-        return Host(**asdict(self._manager))
+    def manager(self) -> WorkloadHost:
+        return self.manager
 
     @property
-    def nodes(self) -> Set[Host]:
-        return {Host(**asdict(n)) for n in self._nodes}
+    def nodes(self) -> Set[WorkloadHost]:
+        return self._nodes
 
     @property
     def join_token(self) -> str:
@@ -137,9 +131,9 @@ class DockerSwarm(AbstractContextManager):
 
 
 if __name__ == '__main__':
-    host = Host(name='localhost',
-                ansible_host='localhost',
-                workload_ip='192.168.50.3')
+    host = WorkloadHost(name='localhost',
+                        ansible_host='localhost',
+                        workload_ip='192.168.50.3')
 
     with DockerSwarm(manager=host, clients=[],
                      playbook_dir=Path('../playbooks')) as swarm:

@@ -1,24 +1,18 @@
-import re
+from __future__ import annotations
 
-from marshmallow import Schema, fields
-
-_ip_regex = re.compile('((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}')
+from dataclasses import asdict, dataclass
 
 
-class IPv4Address(Schema):
-    address = fields.Str(validate=lambda v: _ip_regex.match(v) is None)
-    prefix = fields.Int(validate=lambda v: 0 < v <= 32)
+@dataclass(frozen=True)
+class Host:
+    name: str
+    ansible_host: str
 
 
-class NetworkInterface(Schema):
-    name = fields.Str()
-    ip = fields.Nested(IPv4Address)
-
-
-class Host(Schema):
-    name = fields.Str()
-    mgmt_nic = fields.Nested(NetworkInterface)
-
-
+@dataclass(frozen=True)
 class WorkloadHost(Host):
-    wkld_nic = fields.Nested(NetworkInterface)
+    workload_ip: str
+
+    @classmethod
+    def from_host(cls, host: Host) -> WorkloadHost:
+        return WorkloadHost(**asdict(host))
