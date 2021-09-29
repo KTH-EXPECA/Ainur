@@ -1,0 +1,36 @@
+---
+- name: Set up a workload network
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Write netplan config
+      ansible.builtin.copy:
+        dest: /etc/netplan/99-ansible-workload-network_{{ workload_nic }}.yaml
+        # language=YAML
+        content: |
+          #######################################################
+          # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
+          #######################################################
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              {{ workload_nic }}:
+                addresses:
+                 - {{ workload_ip }}
+                dhcp4: no
+                # no routes, stub network
+                routes: []
+                routing-policy: []
+        mode: 0644
+
+    - name: Apply the netplan config
+      command: netplan apply
+
+
+    - name: Verify that hosts can ping each other.
+      when: item != ansible_hostname
+      ansible.builtin.command: "ping -c 3 {{ item }}"
+      loop: "{{ ansible_play_batch }}"
+...

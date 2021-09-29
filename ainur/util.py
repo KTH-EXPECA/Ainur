@@ -1,17 +1,10 @@
 import os
-import re
 import tempfile
 from collections import Collection, Generator
 from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
-
-_ip_regex = re.compile('((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}')
-
-
-def validate_ip(address: str) -> bool:
-    return _ip_regex.match(address) is not None
 
 
 @contextmanager
@@ -20,6 +13,8 @@ def ansible_temp_dir(
         playbooks: Collection[str] = (),
         base_playbook_dir: Path = Path('../playbooks')
 ) -> Generator[Path, None, None]:
+    # TODO: maybe make an object?
+
     # ansible-runner is stupid and expects everything to be an *actual* file
     # we will trick it by using temporary directories and files
     # on Linux this should all happen in a tmpfs, so no disk writes necessary

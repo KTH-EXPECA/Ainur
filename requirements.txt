@@ -5,3 +5,4 @@ pyyaml
 click
 ansible-runner
 marshmallow
+dacite
