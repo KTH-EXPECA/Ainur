@@ -73,6 +73,15 @@ In case the submodule was updated separately and you wish to add those changes t
 5. Move back out into the main directory of this repository.
 6. Add, commit, and push the modified submodule: `git add <submodule dir> && git commit -m <updated submodule X> && git push`.
 
+
+## Prerequisites
+
+Below is an incomplete list of prerequisites/assumptions Ainur makes with respect to the execution environment:
+
+- Ansible is set up to be able to access the hosts.
+- The Docker daemon on all hosts is configured to listen both locally (on a Unix socket), and remotely on a socket bound to port `2375/tcp`.
+- TODO
+
 ## Copyright & License
 
 © Copyright 2021 -- ExPECA Project Members, KTH Royal Institute of Technology.
