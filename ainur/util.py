@@ -1,8 +1,8 @@
 import os
 import tempfile
-from collections import Collection, Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Collection, Generator
 
 import yaml
 
