@@ -11,6 +11,8 @@ import ansible_runner
 from ainur.hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 from ainur.util import ansible_temp_dir
 
+# TODO: needs testing
+
 
 @dataclass(frozen=True, eq=True)
 class WorkloadNetwork:
@@ -21,7 +23,24 @@ class WorkloadNetwork:
 def bring_up_workload_network(
         ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
         playbook_dir: Path) -> WorkloadNetwork:
-    # TODO: document
+    """
+    Bring up the workload network, assigning the desired IP addresses to the
+    given hosts.
+
+    Parameters
+    ----------
+    ip_hosts
+        Mapping from desired IP addresses (given as IPv4 interfaces,
+        i.e. addresses plus network masks) to hosts. Note that
+        all given IP addresses must, be in the same network segment.
+    playbook_dir
+        TODO: remove
+
+    Returns
+    -------
+    WorkloadNetwork
+        A WorkloadNetwork object containing details of the created network.
+    """
 
     # NOTE: mapping is ip -> host, and not host -> ip, since ip addresses are
     # unique in a network but a host may have more than one ip.
@@ -77,6 +96,17 @@ def bring_up_workload_network(
 
 def tear_down_workload_network(network: WorkloadNetwork,
                                playbook_dir: Path) -> None:
+    """
+    Tears down a workload network.
+
+    Parameters
+    ----------
+    network
+        The WorkloadNetwork to tear down.
+    playbook_dir
+        TODO: remove
+    """
+
     # build a temporary ansible inventory
     inventory = {
         'all': {
@@ -112,6 +142,26 @@ def tear_down_workload_network(network: WorkloadNetwork,
 def workload_network_ctx(
         ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
         playbook_dir: Path) -> Generator[WorkloadNetwork, None, None]:
+    """
+    Context manager for easy deployment and automatic teardown of workload
+    networks.
+
+    The created network instance is bound to the name given to the 'as' keyword.
+
+    Parameters
+    ----------
+    ip_hosts
+        Mapping from desired IP addresses (given as IPv4 interfaces,
+        i.e. addresses plus network masks) to hosts. Note that
+        all given IP addresses must, be in the same network segment.
+    playbook_dir
+        TODO: remove
+
+    Yields
+    ------
+    WorkloadNetwork
+        The created network instance.
+    """
     # context manager for network, to simplify our lives a bit
     network = bring_up_workload_network(ip_hosts, playbook_dir)
     yield network
