@@ -1,15 +1,15 @@
 import functools
-from collections import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import Generator, Tuple
+from typing import Generator, Mapping, Tuple
 
 import ansible_runner
 
 from ainur.hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 from ainur.util import ansible_temp_dir
+
 
 # TODO: needs testing
 
