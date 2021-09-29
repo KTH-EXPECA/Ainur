@@ -1,9 +1,10 @@
 import functools
 from collections import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import Tuple
+from typing import Generator, Tuple
 
 import ansible_runner
 
@@ -17,7 +18,7 @@ class WorkloadNetwork:
     hosts: Tuple[ConnectedWorkloadHost]
 
 
-def build_workload_network(
+def bring_up_workload_network(
         ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
         playbook_dir: Path) -> WorkloadNetwork:
     # TODO: document
@@ -72,3 +73,46 @@ def build_workload_network(
                 for i, h in ip_hosts.items()
             ])
         )
+
+
+def tear_down_workload_network(network: WorkloadNetwork,
+                               playbook_dir: Path) -> None:
+    # build a temporary ansible inventory
+    inventory = {
+        'all': {
+            'hosts': {
+                host.name: {
+                    'ansible_host': host.ansible_host,
+                    'workload_nic': host.workload_nic,
+                    'workload_ip' : str(host.workload_ip)  # {ip}/{netmask}
+                } for host in network.hosts
+            }
+        }
+    }
+
+    # prepare a temp ansible environment and run the appropriate playbook
+    with ansible_temp_dir(
+            inventory=inventory,
+            playbooks=['net_down.yml'],
+            base_playbook_dir=playbook_dir
+    ) as tmp_dir:
+        res = ansible_runner.run(
+            playbook='net_down.yml',
+            json_mode=True,
+            private_data_dir=str(tmp_dir),
+            quiet=True,
+        )
+
+        # TODO: better error checking
+        assert res.status != 'failed'
+        # network is down
+
+
+@contextmanager
+def workload_network_ctx(
+        ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
+        playbook_dir: Path) -> Generator[WorkloadNetwork, None, None]:
+    # context manager for network, to simplify our lives a bit
+    network = bring_up_workload_network(ip_hosts, playbook_dir)
+    yield network
+    tear_down_workload_network(network, playbook_dir)
