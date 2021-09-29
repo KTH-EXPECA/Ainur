@@ -1,4 +1,3 @@
-import functools
 from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
@@ -46,9 +45,10 @@ def bring_up_workload_network(
     # unique in a network but a host may have more than one ip.
 
     # sanity check: all the addresses should be in the same subnet
-    if not functools.reduce(lambda l, r: l == r, [k.network for k in ip_hosts]):
+    subnets = [k.network for k in ip_hosts]
+    if not len(set(subnets)) == 1:
         raise RuntimeError('Provided IPv4 interfaces should all belong to the '
-                           'same network.')
+                           f'same network. Subnets: {subnets}')
 
     # build an Ansible inventory
     inventory = {
@@ -171,7 +171,7 @@ def workload_network_ctx(
 # TODO: need a way to test this locally somehow?
 if __name__ == '__main__':
     ip_hosts = {
-        IPv4Interface('10.0.0.1/16'):
+        IPv4Interface('10.0.0.1/16') :
             DisconnectedWorkloadHost('elrond', 'elrond.expeca',
                                      workload_nic='enp4s0'),
         IPv4Interface('10.0.1.10/16'):
@@ -189,5 +189,3 @@ if __name__ == '__main__':
 
     with workload_network_ctx(ip_hosts, pbook_dir) as network:
         input(str(network))
-
-
