@@ -30,7 +30,7 @@
 
 
     - name: Verify that hosts can ping each other.
-      when: item != ansible_hostname
+      when: item != ansible_host
       ansible.builtin.command: "ping -c 3 {{ item }}"
       loop: "{{ ansible_play_batch }}"
 ...
