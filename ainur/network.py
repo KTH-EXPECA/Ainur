@@ -7,8 +7,8 @@ from typing import Generator, Mapping, Tuple
 
 import ansible_runner
 
-from ainur.hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
-from ainur.util import ansible_temp_dir
+from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
+from .util import ansible_temp_dir
 
 
 # TODO: needs testing

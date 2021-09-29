@@ -7,8 +7,13 @@ from typing import Collection, Optional, Set
 
 import ansible_runner
 
-from ainur.hosts import WorkloadHost
-from ainur.util import ansible_temp_dir
+from .hosts import WorkloadHost
+from .util import ansible_temp_dir
+
+
+# TODO: rework. Use functions, skip Swarm object. Pass Workload Network
+#  object. Don't use Ansible --- python-on-whales or docker-py should do the
+#  trick; maybe need to set up docker daemons to listen on TCP though.
 
 
 def _make_inventory(manager: WorkloadHost,
