@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import Generator, Mapping, Tuple
+from typing import FrozenSet, Generator, Mapping
 
 import ansible_runner
 
@@ -16,7 +16,7 @@ from .util import ansible_temp_dir
 @dataclass(frozen=True, eq=True)
 class WorkloadNetwork:
     network_addr: IPv4Network
-    hosts: Tuple[ConnectedWorkloadHost]
+    hosts: FrozenSet[ConnectedWorkloadHost]
 
 
 def bring_up_workload_network(
@@ -82,7 +82,7 @@ def bring_up_workload_network(
         # network is now up and running
         return WorkloadNetwork(
             network_addr=list(ip_hosts.keys())[0].network,
-            hosts=tuple([
+            hosts=frozenset([
                 ConnectedWorkloadHost(
                     name=h.name,
                     ansible_host=h.ansible_host,

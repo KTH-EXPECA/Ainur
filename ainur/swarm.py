@@ -1,145 +1,132 @@
 from __future__ import annotations
 
-from contextlib import AbstractContextManager
-from dataclasses import asdict
-from pathlib import Path
-from typing import Collection, Optional, Set
-
-import ansible_runner
-
-from .hosts import WorkloadHost
-from .util import ansible_temp_dir
-
-
 # TODO: rework. Use functions, skip Swarm object. Pass Workload Network
 #  object. Don't use Ansible --- python-on-whales or docker-py should do the
 #  trick; maybe need to set up docker daemons to listen on TCP though.
+import warnings
+from contextlib import AbstractContextManager
+from typing import Collection
 
-
-def _make_inventory(manager: WorkloadHost,
-                    clients: Collection[WorkloadHost]) -> dict:
-    """
-    Creates a valid Ansible inventory for swarm deployment.
-
-    Parameters
-    ----------
-    manager
-        Manager host
-    clients
-        Collection of client hosts
-
-    Returns
-    -------
-    dict
-        A valid Ansible inventory.
-    """
-    return {
-        'all': {
-            'hosts'   : {
-                'manager': asdict(manager),
-            },
-            'children': {
-                'clients': {
-                    'hosts': {
-                        c.name: asdict(c) for c in clients
-                    }
-                }
-            }
-        },
-    }
+from ainur.hosts import ConnectedWorkloadHost
+from ainur.network import WorkloadNetwork
+from ainur.util import docker_client_context
 
 
 class DockerSwarm(AbstractContextManager):
+    _docker_port = 2375
+
+    class Warning(Warning):
+        pass
+
     def __init__(self,
-                 manager: WorkloadHost,
-                 clients: Collection[WorkloadHost],
-                 playbook_dir: Path):
-        # TODO: documentation
-        # TODO: pretty logging
+                 network: WorkloadNetwork,
+                 managers: Collection[str]):
+        super(DockerSwarm, self).__init__()
 
-        # build a temporary Ansible inventory
-        self._inventory = _make_inventory(manager, clients)
+        # filter out the managers
+        mgr_hosts = set([h for h in network.hosts if h.name in managers])
+        workers = network.hosts.difference(mgr_hosts)
 
-        # ansible-runner is stupid and expects everything to be an *actual* file
-        # we will trick it by using temporary directories and files
-        # on Linux this should all happen in a tmpfs, so no disk writes
-        # necessary
-        with ansible_temp_dir(inventory=self._inventory,
-                              playbooks=['swarm_up.yml'],
-                              base_playbook_dir=playbook_dir) as tmp_dir:
-            # now we can run shit
+        # initialize some containers to store nodes
+        self._managers = set()
+        self._workers = set()
+
+        # initialize the swarm on a arbitrary first manager,
+        # make the others join afterwards
+        first_mgr = mgr_hosts.pop()
+
+        # connect to the docker daemon on the node
+        # note that we connect from the management network, but the Swarm is
+        # built on top of the workload network.
+        with docker_client_context(
+                base_url=f'{first_mgr.ansible_host}:{self._docker_port}') \
+                as client:
             # initialize the swarm
-            init_res = ansible_runner.run(
-                playbook='swarm_up.yml',
-                json_mode=True,
-                private_data_dir=str(tmp_dir),
-                quiet=True,
+            client.swarm.init(
+                advertise_addr=str(first_mgr.workload_ip),
+                listen_addr=str(first_mgr.workload_ip)
             )
 
-            # TODO: better error checking
-            assert init_res.status != 'failed'
+            # extract tokens
+            tokens = client.swarm.attrs['JoinTokens']
+            self._worker_token = tokens['Worker']
+            self._manager_token = tokens['Manager']
 
-            # extract worker join token to store it
-            events = list(init_res.host_events('manager'))
-            join_token = events[-1]['event_data'] \
-                ['res']['ansible_facts']['worker_join_token']
+            # save the first manager
+            self._managers.add(first_mgr)
 
-        self._manager = manager
-        self._nodes = set(clients)
-        self._token = join_token
-        self._playbook_dir = playbook_dir
-        self._torn_down = False
+        # attach the rest of the nodes (if any)
+        for manager in mgr_hosts:
+            self.add_manager(manager)
 
-    def __str__(self) -> str:
-        return str({
-            'manager'   : self._manager,
-            'nodes'     : [n for n in self._nodes],
-            'join_token': self._token
-        })
+        for worker in workers:
+            self.add_worker(worker)
 
-    @property
-    def manager(self) -> WorkloadHost:
-        return self.manager
+    def _add_node(self, node: ConnectedWorkloadHost, join_token: str) -> None:
+        # grab an arbitrary manager
+        manager = self._managers.pop()
 
-    @property
-    def nodes(self) -> Set[WorkloadHost]:
-        return self._nodes
+        with docker_client_context(
+                base_url=f'{node.ansible_host}:{self._docker_port}') as client:
+            if not client.swarm.join(
+                    remote_addrs=[str(manager.workload_ip)],
+                    join_token=join_token,
+                    listen_addr=str(node.workload_ip),
+                    advertise_addr=str(node.workload_ip)
+            ):
+                # TODO: custom exception here?
+                raise RuntimeError(f'{node} could not join swarm.')
 
-    @property
-    def join_token(self) -> str:
-        return self._token
+        # return the manager to the pool
+        self._managers.add(manager)
 
-    def tear_down(self) -> bool:
-        if self._torn_down:
-            return False
+    def add_worker(self, node: ConnectedWorkloadHost) -> None:
+        self._add_node(node, self._worker_token)
 
-        with ansible_temp_dir(inventory=self._inventory,
-                              playbooks=['swarm_down.yml'],
-                              base_playbook_dir=self._playbook_dir) as tmp_dir:
-            # tear it all down!
-            res = ansible_runner.run(
-                playbook='swarm_down.yml',
-                json_mode=True,
-                private_data_dir=str(tmp_dir),
-                quiet=True,
-            )
-            assert res.status != 'failed'
-            return True
+    def add_manager(self, node: ConnectedWorkloadHost) -> None:
+        self._add_node(node, self._manager_token)
+
+    def remove_node(self, node: ConnectedWorkloadHost) -> None:
+        # check that node is actually part of swarm
+        # this of course only counts nodes added to the swarm through this
+        # object
+        if node in self._workers:
+            with docker_client_context(
+                    base_url=f'{node.ansible_host}:{self._docker_port}') \
+                    as client:
+                if not client.swarm.leave():
+                    # TODO: custom exception here?
+                    raise RuntimeError(f'{node} could not leave swarm.')
+            self._workers.remove(node)
+
+        elif node in self._managers:
+            with docker_client_context(
+                    base_url=f'{node.ansible_host}:{self._docker_port}') \
+                    as client:
+                if not client.swarm.leave(force=True):
+                    # TODO: custom exception here?
+                    raise RuntimeError(f'{node} could not leave swarm.')
+
+            self._managers.remove(node)
+
+            if len(self._managers) == 0:
+                # if last manager, raise a warning
+                # also remove all the workers
+                warnings.warn(
+                    'Last remaining manager has been removed; '
+                    'swarm is now invalid.', self.Warning
+                )
+                self._workers.clear()
+        else:
+            # no-op if the node isn't part of the Swarm
+            return
 
     def __enter__(self) -> DockerSwarm:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> Optional[bool]:
-        super(DockerSwarm, self).__exit__(exc_type, exc_value, traceback)
-        self.tear_down()
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        # on exit, we delete this swarm
+        for manager in self._managers:
+            self.remove_node(manager)
+
         return False
-
-
-if __name__ == '__main__':
-    host = WorkloadHost(name='localhost',
-                        ansible_host='localhost',
-                        workload_ip='192.168.50.3')
-
-    with DockerSwarm(manager=host, clients=[],
-                     playbook_dir=Path('../playbooks')) as swarm:
-        print(swarm)
