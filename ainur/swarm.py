@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-# TODO: rework. Use functions, skip Swarm object. Pass Workload Network
-#  object. Don't use Ansible --- python-on-whales or docker-py should do the
-#  trick; maybe need to set up docker daemons to listen on TCP though.
 import warnings
 from contextlib import AbstractContextManager
 from typing import Collection
@@ -13,6 +10,12 @@ from ainur.util import docker_client_context
 
 
 class DockerSwarm(AbstractContextManager):
+    """
+    Implements an simple interface to a Docker swarm, built on top of a
+    workload network. Can be used as a context manager, in which case the
+    swarm is torn down at the end.
+    """
+
     _docker_port = 2375
 
     class Warning(Warning):
@@ -21,6 +24,16 @@ class DockerSwarm(AbstractContextManager):
     def __init__(self,
                  network: WorkloadNetwork,
                  managers: Collection[str]):
+        """
+        Parameters
+        ----------
+        network
+            The WorkloadNetwork on top of which to build this swarm.
+
+        managers
+            The name identifiers of the manager nodes.
+        """
+
         super(DockerSwarm, self).__init__()
 
         # filter out the managers
@@ -57,12 +70,14 @@ class DockerSwarm(AbstractContextManager):
 
         # attach the rest of the nodes (if any)
         for manager in mgr_hosts:
-            self.add_manager(manager)
+            self.attach_manager(manager)
 
         for worker in workers:
-            self.add_worker(worker)
+            self.attach_worker(worker)
 
     def _add_node(self, node: ConnectedWorkloadHost, join_token: str) -> None:
+        # TODO: Add the host to the underlying network for consistency?
+
         # grab an arbitrary manager
         manager = self._managers.pop()
 
@@ -80,13 +95,37 @@ class DockerSwarm(AbstractContextManager):
         # return the manager to the pool
         self._managers.add(manager)
 
-    def add_worker(self, node: ConnectedWorkloadHost) -> None:
+    def attach_worker(self, node: ConnectedWorkloadHost) -> None:
+        """
+        Attach a host in a worker capacity to this swarm.
+
+        Parameters
+        ----------
+        node
+        """
         self._add_node(node, self._worker_token)
 
-    def add_manager(self, node: ConnectedWorkloadHost) -> None:
+    def attach_manager(self, node: ConnectedWorkloadHost) -> None:
+        """
+        Attach a host in a manager capacity to this swarm.
+
+        Parameters
+        ----------
+        node
+        """
         self._add_node(node, self._manager_token)
 
     def remove_node(self, node: ConnectedWorkloadHost) -> None:
+        """
+        Remove a node from this swarm.
+
+        No-op if the node is not actually a part of the swarm.
+
+        Parameters
+        ----------
+        node
+        """
+
         # check that node is actually part of swarm
         # this of course only counts nodes added to the swarm through this
         # object
@@ -121,12 +160,19 @@ class DockerSwarm(AbstractContextManager):
             # no-op if the node isn't part of the Swarm
             return
 
+    def tear_down(self) -> None:
+        """
+        Convenience method to fully tear down this swarm.
+        This object will be in an invalid state afterwards and should not be
+        used any more.
+        """
+        for manager in self._managers:
+            self.remove_node(manager)
+
     def __enter__(self) -> DockerSwarm:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        # on exit, we delete this swarm
-        for manager in self._managers:
-            self.remove_node(manager)
-
+        # on exit, we tear down this swarm
+        self.tear_down()
         return False
