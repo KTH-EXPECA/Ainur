@@ -4,6 +4,7 @@ import warnings
 from contextlib import AbstractContextManager, contextmanager
 from typing import Collection, Generator
 
+import docker.errors
 from docker import DockerClient
 from loguru import logger
 
@@ -127,7 +128,8 @@ class DockerSwarm(AbstractContextManager):
         for worker in workers:
             self.attach_worker(worker)
 
-    def _add_node(self, node: ConnectedWorkloadHost, join_token: str) -> None:
+    def _attach_node(self, node: ConnectedWorkloadHost,
+                     join_token: str) -> None:
         # TODO: Add the host to the underlying network for consistency?
 
         # grab an arbitrary manager
@@ -150,6 +152,10 @@ class DockerSwarm(AbstractContextManager):
                 ):
                     # TODO: custom exception here?
                     raise RuntimeError(f'{node} could not join swarm.')
+        except docker.errors.APIError:
+            # on error, we just tear down the whole thing
+            self.tear_down()
+            raise
         finally:
             # always return the manager to the pool
             self._managers.add(manager)
@@ -162,7 +168,8 @@ class DockerSwarm(AbstractContextManager):
         ----------
         node
         """
-        self._add_node(node, self._worker_token)
+        self._attach_node(node, self._worker_token)
+        self._workers.add(node)
 
     def attach_manager(self, node: ConnectedWorkloadHost) -> None:
         """
@@ -172,7 +179,8 @@ class DockerSwarm(AbstractContextManager):
         ----------
         node
         """
-        self._add_node(node, self._manager_token)
+        self._attach_node(node, self._manager_token)
+        self._managers.add(node)
 
     def remove_node(self, node: ConnectedWorkloadHost) -> None:
         """
