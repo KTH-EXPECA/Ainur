@@ -93,8 +93,8 @@ class DockerSwarm(AbstractContextManager):
                 as client:
             # initialize the swarm
             client.swarm.init(
-                advertise_addr=str(first_mgr.workload_ip),
-                listen_addr=str(first_mgr.workload_ip)
+                advertise_addr=str(first_mgr.workload_ip.ip),
+                listen_addr=str(first_mgr.workload_ip.ip)
             )
 
             # extract tokens
@@ -122,10 +122,10 @@ class DockerSwarm(AbstractContextManager):
                     base_url=f'{node.ansible_host}:{self._docker_port}'
             ) as client:
                 if not client.swarm.join(
-                        remote_addrs=[str(manager.workload_ip)],
+                        remote_addrs=[str(manager.workload_ip.ip)],
                         join_token=join_token,
-                        listen_addr=str(node.workload_ip),
-                        advertise_addr=str(node.workload_ip)
+                        listen_addr=str(node.workload_ip.ip),
+                        advertise_addr=str(node.workload_ip.ip)
                 ):
                     # TODO: custom exception here?
                     raise RuntimeError(f'{node} could not join swarm.')
