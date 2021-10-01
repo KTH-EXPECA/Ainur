@@ -11,21 +11,27 @@ if __name__ == '__main__':
     # build up a workload network
     hosts = {
         IPv4Interface('10.0.0.1/16') : DisconnectedWorkloadHost(
-            name='cloudlet', ansible_host='elrond.expeca', workload_nic='enp4s0'
+            name='cloudlet',
+            ansible_host='elrond.expeca',
+            management_ip=IPv4Interface('192.168.1.4'),
+            workload_nic='enp4s0'
         ),
         IPv4Interface('10.0.1.10/16'): DisconnectedWorkloadHost(
             name='client10',
             ansible_host='workload-client-10.expeca',
+            management_ip=IPv4Interface('192.168.1.110'),
             workload_nic='eth0'
         ),
         IPv4Interface('10.0.1.11/16'): DisconnectedWorkloadHost(
             name='client11',
             ansible_host='workload-client-11.expeca',
+            management_ip=IPv4Interface('192.168.1.111'),
             workload_nic='eth0'
         ),
         IPv4Interface('10.0.1.12/16'): DisconnectedWorkloadHost(
             name='client12',
             ansible_host='workload-client-12.expeca',
+            management_ip=IPv4Interface('192.168.1.112'),
             workload_nic='eth0'
         ),
     }

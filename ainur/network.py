@@ -61,7 +61,7 @@ class WorkloadNetwork(AbstractContextManager):
             'all': {
                 'hosts': {
                     host.name: {
-                        'ansible_host': host.ansible_host,
+                        'ansible_host': host.management_ip,
                         'workload_nic': host.workload_nic,
                         'workload_ip' : str(interface)  # {ip}/{netmask}
                     } for interface, host in ip_hosts.items()
@@ -90,7 +90,8 @@ class WorkloadNetwork(AbstractContextManager):
                 name=h.name,
                 ansible_host=h.ansible_host,
                 workload_nic=h.workload_nic,
-                workload_ip=i
+                workload_ip=i,
+                management_ip=h.management_ip
             )
             for i, h in ip_hosts.items()
         )

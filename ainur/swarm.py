@@ -44,6 +44,9 @@ class DockerSwarm(AbstractContextManager):
     workload network. Can be used as a context manager, in which case the
     created instance is bound to the 'as' variable.
 
+    Note that the Swarm is built up such that data traverses the workload
+    network but management traffic stays on the management network.
+
     Example usage::
 
         with DockerSwarm(network, managers) as swarm:
@@ -55,7 +58,7 @@ class DockerSwarm(AbstractContextManager):
 
     """
 
-    _docker_port = 2375
+    _daemon_port = 2375
 
     class Warning(Warning):
         pass
@@ -101,13 +104,16 @@ class DockerSwarm(AbstractContextManager):
         # note that we connect from the management network, but the Swarm is
         # built on top of the workload network.
         with docker_client_context(
-                base_url=f'{first_mgr.ansible_host}:{self._docker_port}') \
+                base_url=f'{first_mgr.management_ip}:{self._daemon_port}') \
                 as client:
             logger.info(f'Initializing the Swarm on host {first_mgr}.')
             # initialize the swarm
+            # listen and advertise Swarm management on the management
+            # network, but send data through the workload network.
             client.swarm.init(
-                advertise_addr=str(first_mgr.workload_ip.ip),
-                listen_addr=str(first_mgr.workload_ip.ip)
+                listen_addr=str(first_mgr.management_ip.ip),
+                advertise_addr=str(first_mgr.management_ip.ip),
+                data_path_addr=str(first_mgr.workload_ip.ip)
             )
 
             # extract tokens
@@ -128,7 +134,8 @@ class DockerSwarm(AbstractContextManager):
         for worker in workers:
             self.attach_worker(worker)
 
-    def _attach_node(self, node: ConnectedWorkloadHost,
+    def _attach_node(self,
+                     node: ConnectedWorkloadHost,
                      join_token: str) -> None:
         # TODO: Add the host to the underlying network for consistency?
 
@@ -142,13 +149,14 @@ class DockerSwarm(AbstractContextManager):
         logger.info(f'Attaching node {node} to the swarm.')
         try:
             with docker_client_context(
-                    base_url=f'{node.ansible_host}:{self._docker_port}'
+                    base_url=f'{node.management_ip}:{self._daemon_port}'
             ) as client:
                 if not client.swarm.join(
-                        remote_addrs=[str(manager.workload_ip.ip)],
+                        remote_addrs=[str(manager.management_ip.ip)],
                         join_token=join_token,
-                        listen_addr=str(node.workload_ip.ip),
-                        advertise_addr=str(node.workload_ip.ip)
+                        listen_addr=str(node.management_ip.ip),
+                        advertise_addr=str(node.management_ip.ip),
+                        data_path_addr=str(node.workload_ip.ip)
                 ):
                     # TODO: custom exception here?
                     raise RuntimeError(f'{node} could not join swarm.')
@@ -199,7 +207,7 @@ class DockerSwarm(AbstractContextManager):
         if node in self._workers:
             logger.info(f'Removing worker {node} from the Swarm.')
             with docker_client_context(
-                    base_url=f'{node.ansible_host}:{self._docker_port}') \
+                    base_url=f'{node.management_ip}:{self._daemon_port}') \
                     as client:
                 if not client.swarm.leave(force=True):
                     # TODO: custom exception here?
@@ -209,7 +217,7 @@ class DockerSwarm(AbstractContextManager):
         elif node in self._managers:
             logger.info(f'Removing manager {node} from the Swarm.')
             with docker_client_context(
-                    base_url=f'{node.ansible_host}:{self._docker_port}') \
+                    base_url=f'{node.management_ip}:{self._daemon_port}') \
                     as client:
                 if not client.swarm.leave(force=True):
                     # TODO: custom exception here?
@@ -269,7 +277,7 @@ class DockerSwarm(AbstractContextManager):
         self._managers.add(mgr)
 
         with docker_client_context(
-                base_url=f'{mgr.ansible_host}:{self._docker_port}'
+                base_url=f'{mgr.management_ip}:{self._daemon_port}'
         ) as client:
             yield client
 

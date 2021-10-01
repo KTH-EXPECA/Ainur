@@ -15,6 +15,7 @@ class AnsibleHost:
 
 @dataclass(frozen=True, eq=True)
 class DisconnectedWorkloadHost(AnsibleHost):
+    management_ip: IPv4Interface
     workload_nic: str
 
 
