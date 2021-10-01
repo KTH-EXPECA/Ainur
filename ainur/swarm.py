@@ -204,7 +204,10 @@ class DockerSwarm(AbstractContextManager):
         This object will be in an invalid state afterwards and should not be
         used any more.
         """
-        for manager in self._managers:
+
+        # need to copy, can't modify container during iteration
+        managers = self._managers.copy()
+        for manager in managers:
             self.remove_node(manager)
 
     @contextmanager
