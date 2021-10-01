@@ -9,6 +9,9 @@ from ainur.network import WorkloadNetwork
 from ainur.util import docker_client_context
 
 
+# TODO: check that added nodes belong to the original network?
+
+
 class DockerSwarm(AbstractContextManager):
     """
     Implements an simple interface to a Docker swarm, built on top of a

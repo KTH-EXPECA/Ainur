@@ -1,13 +1,12 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
-from pathlib import Path
 from typing import FrozenSet, Generator, Mapping
 
 import ansible_runner
 
-from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
-from .util import ansible_temp_dir
+from ainur.ansible import AnsibleContext
+from ainur.hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 
 
 # TODO: needs testing
@@ -21,7 +20,7 @@ class WorkloadNetwork:
 
 def bring_up_workload_network(
         ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
-        playbook_dir: Path) -> WorkloadNetwork:
+        ansible_context: AnsibleContext) -> WorkloadNetwork:
     """
     Bring up the workload network, assigning the desired IP addresses to the
     given hosts.
@@ -32,8 +31,8 @@ def bring_up_workload_network(
         Mapping from desired IP addresses (given as IPv4 interfaces,
         i.e. addresses plus network masks) to hosts. Note that
         all given IP addresses must, be in the same network segment.
-    playbook_dir
-        TODO: remove
+    ansible_context:
+        Ansible context to use.
 
     Returns
     -------
@@ -64,11 +63,7 @@ def bring_up_workload_network(
     }
 
     # prepare a temp ansible environment and run the appropriate playbook
-    with ansible_temp_dir(
-            inventory=inventory,
-            playbooks=['net_up.yml'],
-            base_playbook_dir=playbook_dir
-    ) as tmp_dir:
+    with ansible_context(inventory) as tmp_dir:
         res = ansible_runner.run(
             playbook='net_up.yml',
             json_mode=True,
@@ -95,7 +90,7 @@ def bring_up_workload_network(
 
 
 def tear_down_workload_network(network: WorkloadNetwork,
-                               playbook_dir: Path) -> None:
+                               ansible_context: AnsibleContext) -> None:
     """
     Tears down a workload network.
 
@@ -103,8 +98,8 @@ def tear_down_workload_network(network: WorkloadNetwork,
     ----------
     network
         The WorkloadNetwork to tear down.
-    playbook_dir
-        TODO: remove
+    ansible_context
+        Ansible context to use.
     """
 
     # build a temporary ansible inventory
@@ -121,11 +116,7 @@ def tear_down_workload_network(network: WorkloadNetwork,
     }
 
     # prepare a temp ansible environment and run the appropriate playbook
-    with ansible_temp_dir(
-            inventory=inventory,
-            playbooks=['net_down.yml'],
-            base_playbook_dir=playbook_dir
-    ) as tmp_dir:
+    with ansible_context(inventory) as tmp_dir:
         res = ansible_runner.run(
             playbook='net_down.yml',
             json_mode=True,
@@ -141,7 +132,8 @@ def tear_down_workload_network(network: WorkloadNetwork,
 @contextmanager
 def workload_network_ctx(
         ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
-        playbook_dir: Path) -> Generator[WorkloadNetwork, None, None]:
+        ansible_context: AnsibleContext) \
+        -> Generator[WorkloadNetwork, None, None]:
     """
     Context manager for easy deployment and automatic teardown of workload
     networks.
@@ -154,8 +146,8 @@ def workload_network_ctx(
         Mapping from desired IP addresses (given as IPv4 interfaces,
         i.e. addresses plus network masks) to hosts. Note that
         all given IP addresses must, be in the same network segment.
-    playbook_dir
-        TODO: remove
+    ansible_context
+        Ansible context to use.
 
     Yields
     ------
@@ -163,29 +155,8 @@ def workload_network_ctx(
         The created network instance.
     """
     # context manager for network, to simplify our lives a bit
-    network = bring_up_workload_network(ip_hosts, playbook_dir)
+    network = bring_up_workload_network(ip_hosts, ansible_context)
     yield network
-    tear_down_workload_network(network, playbook_dir)
+    tear_down_workload_network(network, ansible_context)
 
-
-# TODO: need a way to test this locally somehow?
-if __name__ == '__main__':
-    ip_hosts = {
-        IPv4Interface('10.0.0.1/16') :
-            DisconnectedWorkloadHost('elrond', 'elrond.expeca',
-                                     workload_nic='enp4s0'),
-        IPv4Interface('10.0.1.10/16'):
-            DisconnectedWorkloadHost('client10', 'workload-client-10.expeca',
-                                     workload_nic='eth0'),
-        IPv4Interface('10.0.1.11/16'):
-            DisconnectedWorkloadHost('client11', 'workload-client-11.expeca',
-                                     workload_nic='eth0'),
-        IPv4Interface('10.0.1.12/16'):
-            DisconnectedWorkloadHost('client12', 'workload-client-12.expeca',
-                                     workload_nic='eth0'),
-    }
-
-    pbook_dir = Path('./playbooks')
-
-    with workload_network_ctx(ip_hosts, pbook_dir) as network:
-        input(str(network))
+# TODO: need a way to test network locally
