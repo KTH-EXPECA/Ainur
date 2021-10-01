@@ -104,7 +104,7 @@ class DockerSwarm(AbstractContextManager):
         # note that we connect from the management network, but the Swarm is
         # built on top of the workload network.
         with docker_client_context(
-                base_url=f'{first_mgr.management_ip}:{self._daemon_port}') \
+                base_url=f'{first_mgr.management_ip.ip}:{self._daemon_port}') \
                 as client:
             logger.info(f'Initializing the Swarm on host {first_mgr}.')
             # initialize the swarm
@@ -149,7 +149,7 @@ class DockerSwarm(AbstractContextManager):
         logger.info(f'Attaching node {node} to the swarm.')
         try:
             with docker_client_context(
-                    base_url=f'{node.management_ip}:{self._daemon_port}'
+                    base_url=f'{node.management_ip.ip}:{self._daemon_port}'
             ) as client:
                 if not client.swarm.join(
                         remote_addrs=[str(manager.management_ip.ip)],
@@ -207,7 +207,7 @@ class DockerSwarm(AbstractContextManager):
         if node in self._workers:
             logger.info(f'Removing worker {node} from the Swarm.')
             with docker_client_context(
-                    base_url=f'{node.management_ip}:{self._daemon_port}') \
+                    base_url=f'{node.management_ip.ip}:{self._daemon_port}') \
                     as client:
                 if not client.swarm.leave(force=True):
                     # TODO: custom exception here?
@@ -217,7 +217,7 @@ class DockerSwarm(AbstractContextManager):
         elif node in self._managers:
             logger.info(f'Removing manager {node} from the Swarm.')
             with docker_client_context(
-                    base_url=f'{node.management_ip}:{self._daemon_port}') \
+                    base_url=f'{node.management_ip.ip}:{self._daemon_port}') \
                     as client:
                 if not client.swarm.leave(force=True):
                     # TODO: custom exception here?
@@ -277,7 +277,7 @@ class DockerSwarm(AbstractContextManager):
         self._managers.add(mgr)
 
         with docker_client_context(
-                base_url=f'{mgr.management_ip}:{self._daemon_port}'
+                base_url=f'{mgr.management_ip.ip}:{self._daemon_port}'
         ) as client:
             yield client
 
