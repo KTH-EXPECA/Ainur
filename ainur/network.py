@@ -67,7 +67,7 @@ class WorkloadNetwork(AbstractContextManager):
                 playbook='net_up.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=True,
+                quiet=False,
             )
 
             # TODO: better error checking
@@ -107,7 +107,7 @@ class WorkloadNetwork(AbstractContextManager):
                 playbook='net_down.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=True,
+                quiet=False,
             )
 
             # TODO: better error checking
