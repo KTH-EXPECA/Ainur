@@ -1,22 +1,56 @@
 from __future__ import annotations
 
 import warnings
-from contextlib import AbstractContextManager
-from typing import Collection
+from contextlib import AbstractContextManager, contextmanager
+from typing import Collection, Generator
+
+from docker import DockerClient
 
 from .hosts import ConnectedWorkloadHost
 from .network import WorkloadNetwork
-from .util import docker_client_context
 
 
 # TODO: check that added nodes belong to the original network?
+
+@contextmanager
+def docker_client_context(*args, **kwargs) \
+        -> Generator[DockerClient, None, None]:
+    """
+    Utility context manager which simply creates a DockerClient with the
+    provided arguments, binds it to the 'as' argument, and makes sure to
+    close it on exiting the context.
+
+    Parameters
+    ----------
+    args
+
+    kwargs
+
+    Yields
+    ------
+    DockerClient
+        An initialized Docker client instance.
+    """
+    client = DockerClient(*args, **kwargs)
+    yield client
+    client.close()
 
 
 class DockerSwarm(AbstractContextManager):
     """
     Implements an simple interface to a Docker swarm, built on top of a
     workload network. Can be used as a context manager, in which case the
-    swarm is torn down at the end.
+    created instance is bound to the 'as' variable.
+
+    Example usage::
+
+        with DockerSwarm(network, managers) as swarm:
+            ...
+            with swarm.manager_client_ctx() as client:
+                client.services.ls()
+
+            ...
+
     """
 
     _docker_port = 2375
@@ -83,20 +117,21 @@ class DockerSwarm(AbstractContextManager):
 
         # grab an arbitrary manager
         manager = self._managers.pop()
-
-        with docker_client_context(
-                base_url=f'{node.ansible_host}:{self._docker_port}') as client:
-            if not client.swarm.join(
-                    remote_addrs=[str(manager.workload_ip)],
-                    join_token=join_token,
-                    listen_addr=str(node.workload_ip),
-                    advertise_addr=str(node.workload_ip)
-            ):
-                # TODO: custom exception here?
-                raise RuntimeError(f'{node} could not join swarm.')
-
-        # return the manager to the pool
-        self._managers.add(manager)
+        try:
+            with docker_client_context(
+                    base_url=f'{node.ansible_host}:{self._docker_port}'
+            ) as client:
+                if not client.swarm.join(
+                        remote_addrs=[str(manager.workload_ip)],
+                        join_token=join_token,
+                        listen_addr=str(node.workload_ip),
+                        advertise_addr=str(node.workload_ip)
+                ):
+                    # TODO: custom exception here?
+                    raise RuntimeError(f'{node} could not join swarm.')
+        finally:
+            # always return the manager to the pool
+            self._managers.add(manager)
 
     def attach_worker(self, node: ConnectedWorkloadHost) -> None:
         """
@@ -171,6 +206,29 @@ class DockerSwarm(AbstractContextManager):
         """
         for manager in self._managers:
             self.remove_node(manager)
+
+    @contextmanager
+    def manager_client_ctx(self) -> Generator[DockerClient, None, None]:
+        """
+        Returns a Docker client to a manager node wrapped in a context manager.
+
+        Example usage::
+
+            with swarm.manager_client_ctx() as client:
+                client.services.ls()
+
+        Yields
+        ------
+        DockerClient
+            A Docker client attached to an arbitrary manager node.
+        """
+        mgr = self._managers.pop()
+        self._managers.add(mgr)
+
+        with docker_client_context(
+                base_url=f'{mgr.ansible_host}:{self._docker_port}'
+        ) as client:
+            yield client
 
     def __enter__(self) -> DockerSwarm:
         return self
