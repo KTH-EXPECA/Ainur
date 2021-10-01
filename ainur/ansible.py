@@ -16,7 +16,31 @@ def _check_dir_exists(d: Path):
 # TODO: test
 
 class AnsibleContext:
+    """
+    Utility class for easy execution of ansible-runner in temporary contexts.
+    Ansible-runner tends to generate and cache a lot of "junk", and this
+    class implements a way of avoiding that.
+
+    Usage example::
+
+        ansible_ctx = AnsibleContext(...)
+        ...
+        with ansible_ctx(inventory) as tmp_dir:
+                ansible_runner.run(
+                    playbook='test.yml',
+                    private_data_dir=str(tmp_dir)
+                )
+    """
+
     def __init__(self, base_dir: Path):
+        """
+        Parameters
+        ----------
+        base_dir
+            Base directory for the Ansible runner configuration. Should have
+            env and project subdirectories.
+        """
+
         super(AnsibleContext, self).__init__()
 
         # check structure of dir
@@ -42,7 +66,6 @@ class AnsibleContext:
                     playbook='test.yml',
                     private_data_dir=str(tmp_dir)
                 )
-
 
         Parameters
         ----------
