@@ -178,4 +178,4 @@ class DockerSwarm(AbstractContextManager):
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         # on exit, we tear down this swarm
         self.tear_down()
-        return False
+        return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)

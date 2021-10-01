@@ -1,5 +1,6 @@
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Mapping
 
@@ -11,6 +12,8 @@ def _check_dir_exists(d: Path):
         raise RuntimeError(
             f'{d} either does not exist or is not a directory.')
 
+
+# TODO: test
 
 class AnsibleContext:
     def __init__(self, base_dir: Path):
@@ -26,6 +29,7 @@ class AnsibleContext:
         _check_dir_exists(self._env_dir)
         _check_dir_exists(self._proj_dir)
 
+    @contextmanager
     def __call__(self, inventory: Mapping) -> Generator[Path, None, None]:
         """
         Creates a temporary environment to use in combination with
