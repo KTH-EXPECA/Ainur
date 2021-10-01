@@ -44,12 +44,13 @@ class AnsibleContext:
         super(AnsibleContext, self).__init__()
 
         # check structure of dir
-        self._base_dir = base_dir
+        # we need full path 
+        self._base_dir = base_dir.resolve()
         _check_dir_exists(self._base_dir)
 
         # necessary subdirs are ./env and ./project
-        self._env_dir = base_dir / 'env'
-        self._proj_dir = base_dir / 'project'
+        self._env_dir = (base_dir / 'env').resolve()
+        self._proj_dir = (base_dir / 'project').resolve()
         _check_dir_exists(self._env_dir)
         _check_dir_exists(self._proj_dir)
 

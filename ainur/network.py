@@ -23,7 +23,8 @@ class WorkloadNetwork(AbstractContextManager):
 
     def __init__(self,
                  ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
-                 ansible_context: AnsibleContext):
+                 ansible_context: AnsibleContext,
+                 ansible_quiet: bool = True):
         """
         Parameters
         ----------
@@ -47,6 +48,7 @@ class WorkloadNetwork(AbstractContextManager):
                 f'same network. Subnets: {subnets}')
 
         self._ansible_context = ansible_context
+        self._quiet = ansible_quiet
 
         # build an Ansible inventory
         self._inventory = {
@@ -67,7 +69,7 @@ class WorkloadNetwork(AbstractContextManager):
                 playbook='net_up.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=False,
+                quiet=self._quiet,
             )
 
             # TODO: better error checking
@@ -107,7 +109,7 @@ class WorkloadNetwork(AbstractContextManager):
                 playbook='net_down.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=False,
+                quiet=self._quiet,
             )
 
             # TODO: better error checking
