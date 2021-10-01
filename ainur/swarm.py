@@ -5,6 +5,7 @@ from contextlib import AbstractContextManager, contextmanager
 from typing import Collection, Generator
 
 from docker import DockerClient
+from loguru import logger
 
 from .hosts import ConnectedWorkloadHost
 from .network import WorkloadNetwork
@@ -73,9 +74,15 @@ class DockerSwarm(AbstractContextManager):
 
         super(DockerSwarm, self).__init__()
 
+        logger.info(f'Setting up a Docker Swarm on top of workload network '
+                    f'{network.address}.')
+
         # filter out the managers
         mgr_hosts = set([h for h in network.hosts if h.name in managers])
         workers = network.hosts.difference(mgr_hosts)
+
+        logger.info(f'Docker Swarm manager hosts: '
+                    f'{[h.workload_ip for h in mgr_hosts]}')
 
         # initialize some containers to store nodes
         self._managers = set()
@@ -83,7 +90,11 @@ class DockerSwarm(AbstractContextManager):
 
         # initialize the swarm on a arbitrary first manager,
         # make the others join afterwards
-        first_mgr = mgr_hosts.pop()
+        try:
+            first_mgr = mgr_hosts.pop()
+        except KeyError:
+            # TODO: custom exception?
+            raise RuntimeError('Need at least one manager node!')
 
         # connect to the docker daemon on the node
         # note that we connect from the management network, but the Swarm is
@@ -91,6 +102,7 @@ class DockerSwarm(AbstractContextManager):
         with docker_client_context(
                 base_url=f'{first_mgr.ansible_host}:{self._docker_port}') \
                 as client:
+            logger.info(f'Initializing the Swarm on host {first_mgr}.')
             # initialize the swarm
             client.swarm.init(
                 advertise_addr=str(first_mgr.workload_ip.ip),
@@ -101,6 +113,9 @@ class DockerSwarm(AbstractContextManager):
             tokens = client.swarm.attrs['JoinTokens']
             self._worker_token = tokens['Worker']
             self._manager_token = tokens['Manager']
+
+            logger.info(f'Swarm worker token: {self._worker_token}')
+            logger.info(f'Swarm manager token: {self._manager_token}')
 
             # save the first manager
             self._managers.add(first_mgr)
@@ -116,7 +131,13 @@ class DockerSwarm(AbstractContextManager):
         # TODO: Add the host to the underlying network for consistency?
 
         # grab an arbitrary manager
-        manager = self._managers.pop()
+        try:
+            manager = self._managers.pop()
+        except KeyError:
+            # TODO: custom exception
+            raise RuntimeError('Swarm has no managers!')
+
+        logger.info(f'Attaching node {node} to the swarm.')
         try:
             with docker_client_context(
                     base_url=f'{node.ansible_host}:{self._docker_port}'
@@ -168,6 +189,7 @@ class DockerSwarm(AbstractContextManager):
         # this of course only counts nodes added to the swarm through this
         # object
         if node in self._workers:
+            logger.info(f'Removing worker {node} from the Swarm.')
             with docker_client_context(
                     base_url=f'{node.ansible_host}:{self._docker_port}') \
                     as client:
@@ -177,6 +199,7 @@ class DockerSwarm(AbstractContextManager):
             self._workers.remove(node)
 
         elif node in self._managers:
+            logger.info(f'Removing manager {node} from the Swarm.')
             with docker_client_context(
                     base_url=f'{node.ansible_host}:{self._docker_port}') \
                     as client:
@@ -205,6 +228,8 @@ class DockerSwarm(AbstractContextManager):
         used any more.
         """
 
+        logger.warning('Tearing down Swarm!')
+
         # need to copy, can't modify container during iteration
         workers = self._workers.copy()
         managers = self._managers.copy()
@@ -214,6 +239,8 @@ class DockerSwarm(AbstractContextManager):
 
         for manager in managers:
             self.remove_node(manager)
+
+        logger.warning('Swarm has been torn down.')
 
     @contextmanager
     def manager_client_ctx(self) -> Generator[DockerClient, None, None]:

@@ -5,6 +5,7 @@ from ipaddress import IPv4Interface, IPv4Network
 from typing import FrozenSet, Mapping
 
 import ansible_runner
+from loguru import logger
 
 from .ansible import AnsibleContext
 from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
@@ -35,17 +36,22 @@ class WorkloadNetwork(AbstractContextManager):
         ansible_context:
             Ansible context to use.
         """
+        logger.info('Setting up workload network.')
 
         # NOTE: mapping is ip -> host, and not host -> ip, since ip addresses
         # are
         # unique in a network but a host may have more than one ip.
 
         # sanity check: all the addresses should be in the same subnet
-        subnets = [k.network for k in ip_hosts]
-        if not len(set(subnets)) == 1:
+        subnets = set([k.network for k in ip_hosts])
+        if not len(subnets) == 1:
             raise RuntimeError(
                 'Provided IPv4 interfaces should all belong to the '
                 f'same network. Subnets: {subnets}')
+
+        subnet = subnets.pop()
+        logger.info(f'Workload network subnet: {subnet}')
+        logger.info(f'Workload network hosts: {[k for k in ip_hosts]}')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
@@ -65,6 +71,7 @@ class WorkloadNetwork(AbstractContextManager):
 
         # prepare a temp ansible environment and run the appropriate playbook
         with self._ansible_context(self._inventory) as tmp_dir:
+            logger.info('Bringing up the network.')
             res = ansible_runner.run(
                 playbook='net_up.yml',
                 json_mode=True,
@@ -104,6 +111,7 @@ class WorkloadNetwork(AbstractContextManager):
         """
 
         # prepare a temp ansible environment and run the appropriate playbook
+        logger.warning('Tearing down workload network!')
         with self._ansible_context(self._inventory) as tmp_dir:
             res = ansible_runner.run(
                 playbook='net_down.yml',
@@ -118,6 +126,7 @@ class WorkloadNetwork(AbstractContextManager):
 
         self._address = None
         self._hosts.clear()
+        logger.warning('Workload network has been torn down.')
 
     def __enter__(self) -> WorkloadNetwork:
         return self

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Generator, Mapping
 
 import yaml
+from loguru import logger
 
 
 def _check_dir_exists(d: Path):
@@ -44,7 +45,7 @@ class AnsibleContext:
         super(AnsibleContext, self).__init__()
 
         # check structure of dir
-        # we need full path 
+        # we need full path
         self._base_dir = base_dir.resolve()
         _check_dir_exists(self._base_dir)
 
@@ -53,6 +54,8 @@ class AnsibleContext:
         self._proj_dir = (base_dir / 'project').resolve()
         _check_dir_exists(self._env_dir)
         _check_dir_exists(self._proj_dir)
+
+        logger.debug(f'Initialized Ansible context at {self._base_dir}')
 
     @contextmanager
     def __call__(self, inventory: Mapping) -> Generator[Path, None, None]:
@@ -93,4 +96,8 @@ class AnsibleContext:
             with (inv_dir / 'hosts').open('w') as fp:
                 yaml.safe_dump(inventory, stream=fp)
 
+            logger.debug(f'Created temporary Ansible '
+                         f'execution context at {tmp_dir}')
             yield tmp_dir
+            logger.debug(f'Tearing down temporary Ansible '
+                         f'execution context at {tmp_dir}')
