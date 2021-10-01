@@ -511,6 +511,10 @@ celerybeat.pid
 .env
 .venv
 env/
+
+# explicitly unignore ansible env
+!ansible_env/env
+
 venv/
 ENV/
 env.bak/
