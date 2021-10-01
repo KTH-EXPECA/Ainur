@@ -206,7 +206,12 @@ class DockerSwarm(AbstractContextManager):
         """
 
         # need to copy, can't modify container during iteration
+        workers = self._workers.copy()
         managers = self._managers.copy()
+
+        for worker in workers:
+            self.remove_node(worker)
+
         for manager in managers:
             self.remove_node(manager)
 
