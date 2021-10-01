@@ -193,7 +193,7 @@ class DockerSwarm(AbstractContextManager):
             with docker_client_context(
                     base_url=f'{node.ansible_host}:{self._docker_port}') \
                     as client:
-                if not client.swarm.leave():
+                if not client.swarm.leave(force=True):
                     # TODO: custom exception here?
                     raise RuntimeError(f'{node} could not leave swarm.')
             self._workers.remove(node)
