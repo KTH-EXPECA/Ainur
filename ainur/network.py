@@ -6,8 +6,8 @@ from typing import FrozenSet, Mapping
 
 import ansible_runner
 
-from ainur.ansible import AnsibleContext
-from ainur.hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
+from .ansible import AnsibleContext
+from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 
 
 # TODO: needs testing

@@ -4,9 +4,9 @@ import warnings
 from contextlib import AbstractContextManager
 from typing import Collection
 
-from ainur.hosts import ConnectedWorkloadHost
-from ainur.network import WorkloadNetwork
-from ainur.util import docker_client_context
+from .hosts import ConnectedWorkloadHost
+from .network import WorkloadNetwork
+from .util import docker_client_context
 
 
 # TODO: check that added nodes belong to the original network?
