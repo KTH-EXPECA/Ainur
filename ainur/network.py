@@ -39,8 +39,7 @@ class WorkloadNetwork(AbstractContextManager):
         logger.info('Setting up workload network.')
 
         # NOTE: mapping is ip -> host, and not host -> ip, since ip addresses
-        # are
-        # unique in a network but a host may have more than one ip.
+        # are unique in a network but a host may have more than one ip.
 
         # sanity check: all the addresses should be in the same subnet
         subnets = set([k.network for k in ip_hosts])

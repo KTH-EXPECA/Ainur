@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import abc
 import warnings
 from contextlib import AbstractContextManager, contextmanager
-from typing import Collection, Generator
+from dataclasses import asdict, dataclass, field
+from typing import Dict, Generator, Literal, Mapping, Set
 
-import docker.errors
+from bidict import MutableBidirectionalMapping as BiDict, bidict
 from docker import DockerClient
 from loguru import logger
 
 from .hosts import ConnectedWorkloadHost
 from .network import WorkloadNetwork
 
-
-# TODO: check that added nodes belong to the original network?
 
 @contextmanager
 def docker_client_context(*args, **kwargs) \
@@ -38,6 +38,241 @@ def docker_client_context(*args, **kwargs) \
     client.close()
 
 
+class SwarmWarning(Warning):
+    pass
+
+
+# Low-level API, do not expose
+
+@dataclass
+class _NodeSpec:
+    Name: str
+    Role: Literal['manager', 'worker']
+    Labels: Dict[str, str] = field(default_factory={})
+    Availability: str = field(default='active')
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True, eq=True)
+class _SwarmNode(abc.ABC):
+    node_id: str
+    swarm_id: str
+    host: ConnectedWorkloadHost
+    daemon_port: int
+    is_manager: bool = field(default=False, init=False)
+
+    @abc.abstractmethod
+    def leave_swarm(self) -> None:
+        pass
+
+
+@dataclass(frozen=True, eq=True)
+class _WorkerNode(_SwarmNode):
+    is_manager = False
+    manager_host: ConnectedWorkloadHost
+
+    def leave_swarm(self) -> None:
+        logger.info(f'Worker {self.host} is leaving the Swarm.')
+        with docker_client_context(
+                base_url=f'{self.host.management_ip.ip}:{self.daemon_port}') \
+                as client:
+            if not client.swarm.leave():
+                # TODO: custom exception here?
+                raise RuntimeError(f'{self.host} could not leave swarm.')
+        logger.info(f'Host {self.host} has left the Swarm.')
+
+
+@dataclass(frozen=True, eq=True)
+class _ManagerNode(_SwarmNode):
+    manager_token: str
+    worker_token: str
+    is_manager = True
+
+    @classmethod
+    def init_swarm(cls,
+                   host: ConnectedWorkloadHost,
+                   labels: Dict[str, str],
+                   daemon_port: int = 2375) -> _ManagerNode:
+        """
+        Initializes a new swarm and returns a ManagerNode attached to it.
+
+        Parameters
+        ----------
+        host
+        labels
+        daemon_port
+
+        Returns
+        -------
+        _ManagerNode
+            A manager attached to the newly created swarm.
+        """
+
+        # note that we connect from the management network, but the Swarm is
+        # built on top of the workload network.
+        with docker_client_context(
+                base_url=f'{host.management_ip.ip}:{daemon_port}') as client:
+            logger.info(f'Initializing a Swarm on host {host}.')
+            # initialize the swarm
+            # listen and advertise Swarm management on the management
+            # network, but send data through the workload network.
+            client.swarm.init(
+                listen_addr=str(host.management_ip.ip),
+                advertise_addr=str(host.management_ip.ip),
+                data_path_addr=str(host.workload_ip.ip)
+            )
+
+            # save the first manager
+            # get some contextual info from the client
+            swarm_info = client.info()['Swarm']
+            node_id = swarm_info['NodeID']
+
+            cluster_id = swarm_info['Cluster']['ID']
+            logger.info(f'Initialized Swarm with cluster ID: '
+                        f'{cluster_id}')
+            logger.info(f'Registered manager on Swarm, node ID: {node_id}')
+
+            # extract tokens
+            tokens = client.swarm.attrs['JoinTokens']
+            worker_token = tokens['Worker']
+            manager_token = tokens['Manager']
+
+            logger.info(f'Swarm worker token: {worker_token}')
+            logger.info(f'Swarm manager token: {manager_token}')
+
+            # set node spec
+            node_spec = _NodeSpec(
+                Name=host.name,
+                Role='manager',
+                Labels=labels
+            )
+
+            swarm_node = client.nodes.get(node_id)
+            swarm_node.update(node_spec.to_dict())
+            logger.info(f'Set node spec for {host}.')
+
+        return _ManagerNode(
+            node_id=node_id,
+            swarm_id=cluster_id,
+            host=host,
+            manager_token=manager_token,
+            worker_token=worker_token,
+            daemon_port=daemon_port
+        )
+
+    def _attach_host(self,
+                     host: ConnectedWorkloadHost,
+                     token: str,
+                     node_spec: _NodeSpec,
+                     daemon_port: int = 2375) -> str:
+        logger.info(f'Attaching host {host} to swarm managed by {self.host}.')
+        try:
+            with docker_client_context(
+                    base_url=f'{host.management_ip.ip}:{daemon_port}'
+            ) as client:
+                if not client.swarm.join(
+                        remote_addrs=[self.host.management_ip.ip],
+                        join_token=token,
+                        listen_addr=str(host.management_ip.ip),
+                        advertise_addr=str(host.management_ip.ip),
+                        data_path_addr=str(host.workload_ip.ip)
+                ):
+                    # TODO: custom exception here?
+                    raise RuntimeError(f'{host} could not join swarm.')
+
+                # joined the swarm, get the node ID now
+                node_id = client.info()['Swarm']['NodeID']
+                logger.info(f'{host} joined the swarm, assigned ID: {node_id}.')
+
+            # set the node spec, from the manager
+            with docker_client_context(
+                    base_url=f'{self.host.management_ip.ip}:{daemon_port}'
+            ) as client:
+                new_node = client.nodes.get(node_id)
+                new_node.update(node_spec.to_dict())
+                logger.info(f'Set node spec for {host}.')
+
+            return node_id
+        except:
+            logger.critical(f'Failed to attach node {host} to the Swarm!')
+            raise
+
+    def attach_manager(self,
+                       host: ConnectedWorkloadHost,
+                       labels: Dict[str, str],
+                       daemon_port: int = 2375) -> _ManagerNode:
+        node_spec = _NodeSpec(
+            Name=host.name,
+            Role='manager',
+            Labels=labels
+        )
+        node_id = self._attach_host(host, self.manager_token,
+                                    node_spec, daemon_port)
+
+        return _ManagerNode(
+            node_id=node_id,
+            swarm_id=self.swarm_id,
+            host=host,
+            manager_token=self.manager_token,
+            worker_token=self.worker_token,
+            daemon_port=daemon_port
+        )
+
+    def attach_worker(self,
+                      host: ConnectedWorkloadHost,
+                      labels: Dict[str, str],
+                      daemon_port: int = 2375) -> _WorkerNode:
+        node_spec = _NodeSpec(
+            Name=host.name,
+            Role='worker',
+            Labels=labels
+        )
+        node_id = self._attach_host(host, self.worker_token,
+                                    node_spec, daemon_port)
+
+        return _WorkerNode(
+            node_id=node_id,
+            swarm_id=self.swarm_id,
+            host=host,
+            manager_host=self.host,
+            daemon_port=daemon_port
+        )
+
+    def leave_swarm(self) -> None:
+        logger.info(f'Manager {self.host} is leaving the Swarm.')
+
+        with docker_client_context(
+                base_url=f'{self.host.management_ip.ip}:{self.daemon_port}') \
+                as client:
+
+            # raise a warning if we're the last manager
+            manager_nodes = client.nodes.list(filter={'role': 'manager'})
+            last_mgr = (len(manager_nodes) == 1)
+
+            if not client.swarm.leave(force=True):
+                # TODO: custom exception here?
+                raise RuntimeError(f'{self.host} could not leave swarm.')
+
+        logger.info(f'Host {self.host} has left the Swarm.')
+        if last_mgr:
+            warnings.warn(
+                f'{self.host} was the last manager of Swarm {self.swarm_id}.'
+                f'Swarm is now invalid!',
+                SwarmWarning
+            )
+
+    @contextmanager
+    def client_context(self) -> Generator[DockerClient, None, None]:
+        with docker_client_context(
+                base_url=f'{self.host.management_ip.ip}:{self.daemon_port}') \
+                as client:
+            yield client
+
+
+# end of low-level API
+
 class DockerSwarm(AbstractContextManager):
     """
     Implements an simple interface to a Docker swarm, built on top of a
@@ -60,12 +295,10 @@ class DockerSwarm(AbstractContextManager):
 
     _daemon_port = 2375
 
-    class Warning(Warning):
-        pass
-
     def __init__(self,
                  network: WorkloadNetwork,
-                 managers: Collection[str]):
+                 managers: Set[str],
+                 labels: Mapping[str, str]):
         """
         Parameters
         ----------
@@ -86,11 +319,12 @@ class DockerSwarm(AbstractContextManager):
         workers = network.hosts.difference(mgr_hosts)
 
         logger.info(f'Docker Swarm manager hosts: '
-                    f'{[h.workload_ip for h in mgr_hosts]}')
+                    f'{[h.workload_ip for n, h in mgr_hosts]}')
 
         # initialize some containers to store nodes
-        self._managers = set()
-        self._workers = set()
+        # bidirectional mappings for future proofing
+        self._managers: BiDict[_ManagerNode, str] = bidict()
+        self._workers: BiDict[_WorkerNode, str] = bidict()
 
         # initialize the swarm on a arbitrary first manager,
         # make the others join afterwards
@@ -103,139 +337,35 @@ class DockerSwarm(AbstractContextManager):
         # connect to the docker daemon on the node
         # note that we connect from the management network, but the Swarm is
         # built on top of the workload network.
-        with docker_client_context(
-                base_url=f'{first_mgr.management_ip.ip}:{self._daemon_port}') \
-                as client:
-            logger.info(f'Initializing the Swarm on host {first_mgr}.')
-            # initialize the swarm
-            # listen and advertise Swarm management on the management
-            # network, but send data through the workload network.
-            client.swarm.init(
-                listen_addr=str(first_mgr.management_ip.ip),
-                advertise_addr=str(first_mgr.management_ip.ip),
-                data_path_addr=str(first_mgr.workload_ip.ip)
-            )
 
-            # extract tokens
-            tokens = client.swarm.attrs['JoinTokens']
-            self._worker_token = tokens['Worker']
-            self._manager_token = tokens['Manager']
+        first_manager_node = _ManagerNode.init_swarm(
+            host=first_mgr,
+            labels=labels.get(first_mgr.name, {}),
+            daemon_port=self._daemon_port
+        )
 
-            logger.info(f'Swarm worker token: {self._worker_token}')
-            logger.info(f'Swarm manager token: {self._manager_token}')
+        self._managers[first_manager_node] = first_manager_node.node_id
 
-            # save the first manager
-            self._managers.add(first_mgr)
-
-        # attach the rest of the nodes (if any)
-        for manager in mgr_hosts:
-            self.attach_manager(manager)
-
-        for worker in workers:
-            self.attach_worker(worker)
-
-    def _attach_node(self,
-                     node: ConnectedWorkloadHost,
-                     join_token: str) -> None:
-        # TODO: Add the host to the underlying network for consistency?
-
-        # grab an arbitrary manager
+        # add the rest of the nodes
         try:
-            manager = self._managers.pop()
-        except KeyError:
-            # TODO: custom exception
-            raise RuntimeError('Swarm has no managers!')
+            for manager_host in mgr_hosts:
+                new_manager = first_manager_node.attach_manager(
+                    host=manager_host,
+                    labels=labels.get(manager_host.name, {}),
+                    daemon_port=self._daemon_port
+                )
+                self._managers[new_manager] = new_manager.node_id
 
-        logger.info(f'Attaching node {node} to the swarm.')
-        try:
-            with docker_client_context(
-                    base_url=f'{node.management_ip.ip}:{self._daemon_port}'
-            ) as client:
-                if not client.swarm.join(
-                        remote_addrs=[str(manager.management_ip.ip)],
-                        join_token=join_token,
-                        listen_addr=str(node.management_ip.ip),
-                        advertise_addr=str(node.management_ip.ip),
-                        data_path_addr=str(node.workload_ip.ip)
-                ):
-                    # TODO: custom exception here?
-                    raise RuntimeError(f'{node} could not join swarm.')
-        except docker.errors.APIError:
-            # on error, we just tear down the whole thing
+            for worker_host in workers:
+                new_worker = first_manager_node.attach_worker(
+                    host=worker_host,
+                    labels=labels.get(worker_host.name, {}),
+                    daemon_port=self._daemon_port
+                )
+                self._workers[new_worker] = new_worker.node_id
+        except:
             self.tear_down()
             raise
-        finally:
-            # always return the manager to the pool
-            self._managers.add(manager)
-
-    def attach_worker(self, node: ConnectedWorkloadHost) -> None:
-        """
-        Attach a host in a worker capacity to this swarm.
-
-        Parameters
-        ----------
-        node
-        """
-        self._attach_node(node, self._worker_token)
-        self._workers.add(node)
-
-    def attach_manager(self, node: ConnectedWorkloadHost) -> None:
-        """
-        Attach a host in a manager capacity to this swarm.
-
-        Parameters
-        ----------
-        node
-        """
-        self._attach_node(node, self._manager_token)
-        self._managers.add(node)
-
-    def remove_node(self, node: ConnectedWorkloadHost) -> None:
-        """
-        Remove a node from this swarm.
-
-        No-op if the node is not actually a part of the swarm.
-
-        Parameters
-        ----------
-        node
-        """
-
-        # check that node is actually part of swarm
-        # this of course only counts nodes added to the swarm through this
-        # object
-        if node in self._workers:
-            logger.info(f'Removing worker {node} from the Swarm.')
-            with docker_client_context(
-                    base_url=f'{node.management_ip.ip}:{self._daemon_port}') \
-                    as client:
-                if not client.swarm.leave(force=True):
-                    # TODO: custom exception here?
-                    raise RuntimeError(f'{node} could not leave swarm.')
-            self._workers.remove(node)
-
-        elif node in self._managers:
-            logger.info(f'Removing manager {node} from the Swarm.')
-            with docker_client_context(
-                    base_url=f'{node.management_ip.ip}:{self._daemon_port}') \
-                    as client:
-                if not client.swarm.leave(force=True):
-                    # TODO: custom exception here?
-                    raise RuntimeError(f'{node} could not leave swarm.')
-
-            self._managers.remove(node)
-
-            if len(self._managers) == 0:
-                # if last manager, raise a warning
-                # also remove all the workers
-                warnings.warn(
-                    'Last remaining manager has been removed; '
-                    'swarm is now invalid.', self.Warning
-                )
-                self._workers.clear()
-        else:
-            # no-op if the node isn't part of the Swarm
-            return
 
     def tear_down(self) -> None:
         """
@@ -246,15 +376,11 @@ class DockerSwarm(AbstractContextManager):
 
         logger.warning('Tearing down Swarm!')
 
-        # need to copy, can't modify container during iteration
-        workers = self._workers.copy()
-        managers = self._managers.copy()
+        for worker in self._workers:
+            worker.leave_swarm()
 
-        for worker in workers:
-            self.remove_node(worker)
-
-        for manager in managers:
-            self.remove_node(manager)
+        for manager in self._managers:
+            manager.leave_swarm()
 
         logger.warning('Swarm has been torn down.')
 
@@ -273,12 +399,10 @@ class DockerSwarm(AbstractContextManager):
         DockerClient
             A Docker client attached to an arbitrary manager node.
         """
-        mgr = self._managers.pop()
-        self._managers.add(mgr)
+        mgr, mgr_id = self._managers.popitem()
+        self._managers[mgr] = mgr_id
 
-        with docker_client_context(
-                base_url=f'{mgr.management_ip.ip}:{self._daemon_port}'
-        ) as client:
+        with mgr.client_context() as client:
             yield client
 
     def __enter__(self) -> DockerSwarm:
@@ -288,3 +412,5 @@ class DockerSwarm(AbstractContextManager):
         # on exit, we tear down this swarm
         self.tear_down()
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
+
+    # TODO: add methods to deploy workloads

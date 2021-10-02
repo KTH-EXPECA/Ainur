@@ -39,7 +39,7 @@ if __name__ == '__main__':
     # bring up the network
     with WorkloadNetwork(hosts, ansible_ctx) as network:
         # bring up the swarm
-        with DockerSwarm(network, managers=['cloudlet']) as swarm:
+        with DockerSwarm(network, managers={'cloudlet'}, labels={}) as swarm:
             with swarm.manager_client_ctx() as client:
                 import pprint
 

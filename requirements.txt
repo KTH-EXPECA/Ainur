@@ -8,3 +8,5 @@ marshmallow
 dacite
 docker
 loguru
+bidict
+plum-dispatch
