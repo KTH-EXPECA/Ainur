@@ -173,7 +173,7 @@ class _ManagerNode(_SwarmNode):
                     base_url=f'{host.management_ip.ip}:{daemon_port}'
             ) as client:
                 if not client.swarm.join(
-                        remote_addrs=[self.host.management_ip.ip],
+                        remote_addrs=[str(self.host.management_ip.ip)],
                         join_token=token,
                         listen_addr=str(host.management_ip.ip),
                         advertise_addr=str(host.management_ip.ip),
