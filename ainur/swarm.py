@@ -4,6 +4,7 @@ import abc
 import warnings
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field
+from multiprocessing import Pool
 from typing import Dict, Generator, Literal, Mapping, Set
 
 from bidict import MutableBidirectionalMapping as BiDict, bidict
@@ -376,11 +377,22 @@ class DockerSwarm(AbstractContextManager):
 
         logger.warning('Tearing down Swarm!')
 
-        for worker in self._workers:
-            worker.leave_swarm()
+        # save a final manager to disconnect at the end, to ensure a
+        # consistent state across the operation
+        manager, manager_id = self._managers.popitem()
 
-        for manager in self._managers:
-            manager.leave_swarm()
+        with Pool() as pool:
+            pool.map(_WorkerNode.leave_swarm, self._workers.keys())
+            pool.map(_ManagerNode.leave_swarm, self._managers.keys())
+
+        # final manager leaves
+        manager.leave_swarm()
+
+        # for worker in self._workers:
+        #     worker.leave_swarm()
+        #
+        # for manager in self._managers:
+        #     manager.leave_swarm()
 
         self._workers.clear()
         self._managers.clear()
