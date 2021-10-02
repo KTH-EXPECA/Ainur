@@ -248,7 +248,7 @@ class _ManagerNode(_SwarmNode):
                 as client:
 
             # raise a warning if we're the last manager
-            manager_nodes = client.nodes.list(filter={'role': 'manager'})
+            manager_nodes = client.nodes.list(filters={'role': 'manager'})
             last_mgr = (len(manager_nodes) == 1)
 
             if not client.swarm.leave(force=True):
