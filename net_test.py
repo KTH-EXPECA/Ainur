@@ -38,12 +38,20 @@ if __name__ == '__main__':
 
     # bring up the network
     with WorkloadNetwork(hosts, ansible_ctx) as network:
+        input('NETWORK IS UP.')
+
         # bring up the swarm
-        with DockerSwarm(network, managers={'cloudlet'}, labels={}) as swarm:
+        with DockerSwarm(network,
+                         managers={'cloudlet'},
+                         labels={}) as swarm:
             with swarm.manager_client_ctx() as client:
                 import pprint
 
                 pprint.PrettyPrinter(indent=4).pprint(client.swarm.attrs)
+
+            input('SWARM IS UP.')
+
+        input('SWARM IS DOWN.')
 
         # swarm is down
 
