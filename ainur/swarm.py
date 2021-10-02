@@ -319,7 +319,7 @@ class DockerSwarm(AbstractContextManager):
         workers = network.hosts.difference(mgr_hosts)
 
         logger.info(f'Docker Swarm manager hosts: '
-                    f'{[h.workload_ip for n, h in mgr_hosts]}')
+                    f'{[h.workload_ip for h in mgr_hosts]}')
 
         # initialize some containers to store nodes
         # bidirectional mappings for future proofing
