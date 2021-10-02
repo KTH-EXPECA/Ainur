@@ -258,7 +258,7 @@ class _ManagerNode(_SwarmNode):
         logger.info(f'Host {self.host} has left the Swarm.')
         if last_mgr:
             warnings.warn(
-                f'{self.host} was the last manager of Swarm {self.swarm_id}.'
+                f'{self.host} was the last manager of Swarm {self.swarm_id}. '
                 f'Swarm is now invalid!',
                 SwarmWarning
             )
