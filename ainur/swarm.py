@@ -349,21 +349,41 @@ class DockerSwarm(AbstractContextManager):
 
         # add the rest of the nodes
         try:
-            for manager_host in mgr_hosts:
-                new_manager = first_manager_node.attach_manager(
-                    host=manager_host,
-                    labels=labels.get(manager_host.name, {}),
-                    daemon_port=self._daemon_port
+            with Pool() as pool:
+                new_managers = pool.starmap(
+                    func=first_manager_node.attach_manager,
+                    iterable=[(m, labels.get(m.name, {}), self._daemon_port)
+                              for m in mgr_hosts]
                 )
-                self._managers[new_manager] = new_manager.node_id
 
-            for worker_host in workers:
-                new_worker = first_manager_node.attach_worker(
-                    host=worker_host,
-                    labels=labels.get(worker_host.name, {}),
-                    daemon_port=self._daemon_port
+                new_workers = pool.starmap(
+                    func=first_manager_node.attach_worker,
+                    iterable=[(w, labels.get(w.name, {}), self._daemon_port)
+                              for w in workers]
+
                 )
-                self._workers[new_worker] = new_worker.node_id
+
+                for nm in new_managers:
+                    self._managers[nm] = nm.node_id
+
+                for nw in new_workers:
+                    self._workers[nw] = nw.node_id
+
+            # for manager_host in mgr_hosts:
+            #     new_manager = first_manager_node.attach_manager(
+            #         host=manager_host,
+            #         labels=labels.get(manager_host.name, {}),
+            #         daemon_port=self._daemon_port
+            #     )
+            #     self._managers[new_manager] = new_manager.node_id
+            #
+            # for worker_host in workers:
+            #     new_worker = first_manager_node.attach_worker(
+            #         host=worker_host,
+            #         labels=labels.get(worker_host.name, {}),
+            #         daemon_port=self._daemon_port
+            #     )
+            #     self._workers[new_worker] = new_worker.node_id
         except:
             self.tear_down()
             raise
