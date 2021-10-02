@@ -382,6 +382,8 @@ class DockerSwarm(AbstractContextManager):
         for manager in self._managers:
             manager.leave_swarm()
 
+        self._workers.clear()
+        self._managers.clear()
         logger.warning('Swarm has been torn down.')
 
     @contextmanager
