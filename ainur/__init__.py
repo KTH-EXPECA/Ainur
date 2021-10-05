@@ -1,11 +1,11 @@
 from .ansible import AnsibleContext
 from .network import WorkloadNetwork
 from .swarm import DockerSwarm
-from .hosts import DisconnectedWorkloadHost, ConnectedWorkloadHost, AnsibleHost
+from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadInterface,WorkloadInterface,Wire,SoftwareDefinedWiFiRadio,WiFiRadio,Phy,SwitchConnection
 
 __all__ = [
     'AnsibleContext',
     'WorkloadNetwork',
     'DockerSwarm',
-    'DisconnectedWorkloadHost', 'ConnectedWorkloadHost', 'AnsibleHost'
+    'WorkloadHost','AnsibleHost','ConnectedWorkloadInterface','WorkloadInterface','Wire','SoftwareDefinedWiFiRadio','WiFiRadio','Phy','SwitchConnection'
 ]

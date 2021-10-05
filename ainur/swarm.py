@@ -11,7 +11,7 @@ from bidict import MutableBidirectionalMapping as BiDict, bidict
 from docker import DockerClient
 from loguru import logger
 
-from .hosts import ConnectedWorkloadHost
+from .hosts import WorkloadHost
 from .network import WorkloadNetwork
 
 

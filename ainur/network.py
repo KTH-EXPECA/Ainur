@@ -8,7 +8,7 @@ import ansible_runner
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
+from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadInterface,WorkloadInterface,Wire,SoftwareDefinedWiFiRadio,WiFiRadio,Phy,SwitchConnection
 
 
 # TODO: needs testing
@@ -23,7 +23,7 @@ class WorkloadNetwork(AbstractContextManager):
     """
 
     def __init__(self,
-                 ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
+                 ip_hosts: Mapping[Tuple[IPv4Interface,Phy], WorkloadHost],
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
@@ -42,7 +42,7 @@ class WorkloadNetwork(AbstractContextManager):
         # are unique in a network but a host may have more than one ip.
 
         # sanity check: all the addresses should be in the same subnet
-        subnets = set([k.network for k in ip_hosts])
+        subnets = set([k[0].network for k in ip_hosts])
         if not len(subnets) == 1:
             raise RuntimeError(
                 'Provided IPv4 interfaces should all belong to the '
@@ -50,7 +50,7 @@ class WorkloadNetwork(AbstractContextManager):
 
         subnet = subnets.pop()
         logger.info(f'Workload network subnet: {subnet}')
-        logger.info(f'Workload network hosts: {[k for k in ip_hosts]}')
+        logger.info(f'Workload network hosts: {[k[0] for k in ip_hosts]}')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
@@ -59,11 +59,31 @@ class WorkloadNetwork(AbstractContextManager):
         self._inventory = {
             'all': {
                 'hosts': {
-                    host.name: {
-                        'ansible_host': str(host.management_ip.ip),
-                        'workload_nic': host.workload_nic,
-                        'workload_ip' : str(interface)  # {ip}/{netmask}
-                    } for interface, host in ip_hosts.items()
+                    host.ansible_host: {
+                        'workload_interface': {
+                            'type':host.workload_interface.type_name,
+                            'name':host.workload_interface.name,
+                            'ip':str(if_tup[0]),
+                            'mac':host.workload_interface.mac_addr,
+                            'switch': ('' if host.workload_interface.switch is None else {
+                                'name':host.workload_interface.switch.name,
+                                'port':host.workload_interface.switch.port,
+                            }),
+                        },
+                        'workload_phy': ({
+                            'type': if_tup[1].type_name,
+                            'radio': if_tup[1].sdr_name,
+                            'ssid': if_tup[1].ssid,
+                            'mac': if_tup[1].mac_addr,
+                            'preset' : if_tup[1].preset,
+                        } if type(if_tup[1]) is SoftwareDefinedWiFiRadio else ({
+                                'type': if_tup[1].type_name,
+                                'ssid': if_tup[1].ssid,
+                                'preset': if_tup[1].preset,
+                        } if type(if_tup[1]) is WiFiRadio else {
+                                'type': if_tup[1].type_name,
+                        })),
+                    } for if_tup, host in ip_hosts.items()
                 }
             }
         }
@@ -81,22 +101,29 @@ class WorkloadNetwork(AbstractContextManager):
             # TODO: better error checking
             assert res.status != 'failed'
 
-            # network is now up and running
 
-        self._address = list(ip_hosts.keys())[0].network
+        # network is now up and running
+
+        self._address = list(ip_hosts.keys())[0][0].network
         self._hosts = set(
-            ConnectedWorkloadHost(
+            WorkloadHost(
                 name=h.name,
                 ansible_host=h.ansible_host,
-                workload_nic=h.workload_nic,
-                workload_ip=i,
-                management_ip=h.management_ip
+                management_ip=h.management_ip,
+                workload_interface= ConnectedWorkloadInterface( 
+                    type_name=h.workload_interface.type_name,
+                    name=h.workload_interface.name,
+                    mac_addr=h.workload_interface.mac_addr,
+                    switch=h.workload_interface.switch,
+                    ip=i[0],
+                    phy=i[1],
+                )
             )
             for i, h in ip_hosts.items()
         )
 
     @property
-    def hosts(self) -> FrozenSet[ConnectedWorkloadHost]:
+    def hosts(self) -> FrozenSet[WorkloadHost]:
         return frozenset(self._hosts)
 
     @property

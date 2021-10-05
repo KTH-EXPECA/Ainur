@@ -1,13 +1,22 @@
 ---
-- name: Set up a workload network
-  hosts: all
+#ansible-playbook -i 'workload-client-07','workload-client-08','workload-client-09' ainur/ansible/config_workload_ip.yml --extra-vars '{ "hostvars": { "workload-client-07": { "workload_interface": { "type":"ethernets", "name":"eth0", "ip":"10.0.0.7/24" } }, "workload-client-08": { "workload_interface": { "type":"wifis", "name":"wlan1", "ip":"10.0.0.8/24", "ssid":"ExpecaNetwork" } }, "workload-client-09": { "workload_interface": { "type":"wifis", "name":"wlan1", "ip":"10.0.0.9/24", "ssid":"ExpecaNetwork" }}}}'
+
+- hosts: all
   become: yes
   gather_facts: no
+  remote_user: expeca
+  vars:
+    netplan_file: 99-ansible-workload-network.yaml
   tasks:
-    - name: Write netplan config
-      ansible.builtin.copy:
-        dest: /etc/netplan/99-ansible-workload-network_{{ workload_nic }}.yaml
-        # language=YAML
+    - name: Delete the previous netplan config file
+      file:
+        state: absent
+        path: "/etc/netplan/{{ netplan_file }}"
+
+    - name: Append wlan netplan config file
+      copy:
+        dest: "/etc/netplan/{{ netplan_file }}"
+        mode: 0644
         content: |
           #######################################################
           # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
@@ -15,21 +24,30 @@
           network:
             version: 2
             renderer: networkd
-            ethernets:
-              {{ workload_nic }}:
-                addresses:
-                 - {{ workload_ip }}
+            "{{ hostvars[inventory_hostname].workload_interface.type }}":
+              "{{  hostvars[inventory_hostname].workload_interface.name }}":
                 dhcp4: no
-                # no routes, stub network
-                routes: []
-                routing-policy: []
-        mode: 0644
+                dhcp6: no
+                addresses: [{{ hostvars[inventory_hostname].workload_interface.ip }}]
 
-    - name: Apply the netplan config
+
+    - name: Append wlan netplan config lines
+      blockinfile:
+        dest: "/etc/netplan/{{ netplan_file }}"
+        marker: ""
+        content: |2
+                access-points:
+                  "{{  hostvars[inventory_hostname].workload_phy.ssid }}": {}
+      when: hostvars[inventory_hostname].workload_interface.type == "wifis"
+
+    - name: Remove blank lines blockinfile put in
+      lineinfile :
+        path: "/etc/netplan/{{ netplan_file }}"
+        state: absent
+        regexp: '^$'
+
+    - name: Generate netplan
+      command: netplan generate
+
+    - name: Restart netplan
       command: netplan apply
-
-#    - name: Verify that hosts can ping each other.
-#      when: item != ansible_host
-#      ansible.builtin.command: "ping -c 3 {{ item }}"
-#      loop: "{{ ansible_play_batch }}"
-...
