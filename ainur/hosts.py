@@ -18,16 +18,16 @@ class Phy:
 @dataclass(frozen=True, eq=True)
 class WiFiRadio(Phy):
     ssid: str
+    channel: int
     preset: str
 
 @dataclass(frozen=True, eq=True)
 class SoftwareDefinedWiFiRadio(WiFiRadio):
-    mac_addr: str
-    sdr_name: str
+    radio: SoftwareDefinedRadio 
     
 @dataclass(frozen=True, eq=True)
 class Wire(Phy):
-    connect_to: SwitchConnection
+    switch: SwitchConnection
 
 @dataclass(frozen=True, eq=True)
 class WorkloadInterface:
@@ -50,5 +50,12 @@ class AnsibleHost:
 class WorkloadHost(AnsibleHost):
     management_ip: IPv4Interface
     workload_interface: WorkloadInterface
+
+@dataclass(frozen=True, eq=True)
+class SoftwareDefinedRadio:
+    name: str
+    mac_addr: str
+    management_ip: IPv4Interface
+    switch: SwitchConnection
 
 

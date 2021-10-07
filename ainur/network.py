@@ -6,10 +6,11 @@ from typing import FrozenSet, Mapping
 
 import ansible_runner
 from loguru import logger
+import json
 
 from .ansible import AnsibleContext
 from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadInterface,WorkloadInterface,Wire,SoftwareDefinedWiFiRadio,WiFiRadio,Phy,SwitchConnection
-
+from .switch import ManagedSwitch
 
 # TODO: needs testing
 
@@ -24,6 +25,8 @@ class WorkloadNetwork(AbstractContextManager):
 
     def __init__(self,
                  ip_hosts: Mapping[Tuple[IPv4Interface,Phy], WorkloadHost],
+                 switch: ManagedSwitch,
+                 sdrnetwork: SDRNetwork,
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
@@ -72,10 +75,10 @@ class WorkloadNetwork(AbstractContextManager):
                         },
                         'workload_phy': ({
                             'type': if_tup[1].type_name,
-                            'radio': if_tup[1].sdr_name,
                             'ssid': if_tup[1].ssid,
-                            'mac': if_tup[1].mac_addr,
                             'preset' : if_tup[1].preset,
+                            'mac': if_tup[1].radio.mac_addr,
+                            'radio': if_tup[1].radio.name,
                         } if type(if_tup[1]) is SoftwareDefinedWiFiRadio else ({
                                 'type': if_tup[1].type_name,
                                 'ssid': if_tup[1].ssid,
@@ -99,7 +102,48 @@ class WorkloadNetwork(AbstractContextManager):
             )
 
             # TODO: better error checking
-            assert res.status != 'failed'
+            assert res.status != 'failed'        
+
+        
+        # make network switch vlans
+        for i, h in ip_hosts.items():
+            ports = []
+            if type(i[1])==SoftwareDefinedWiFiRadio:
+                assert h.workload_interface.type_name == 'ethernets'
+                ports.append(h.workload_interface.switch.port)
+                ports.append(i[1].radio.switch.port)
+                vlan_name = h.name+'_to_sdr_'+i[1].radio.name
+            else:
+                continue
+
+            switch.make_vlan(ports=ports,name=vlan_name)
+
+        # Setup up the SDR network
+        # find wlan_ap
+        # find sdr station wifis and foreign_sta_macs
+        ap_wifi = None
+        sta_wifis = []
+        foreign_sta_macs = []
+        for i, h in ip_hosts.items():
+            if type(i[1])==SoftwareDefinedWiFiRadio:
+                if i[1].type_name == 'SDR_AP':
+                    ap_wifi = i[1]
+                elif i[1].type_name == 'SDR_STA':
+                    sta_wifis.append(i[1])
+            elif type(i[1])==WiFiRadio:
+                if i[1].type_name == 'NATIVE_STA':
+                    foreign_sta_macs.append(h.workload_interface.mac_addr)
+
+        print(foreign_sta_macs)
+        if(ap_wifi is not None):
+            sta_wifis = []
+            foreign_sta_macs = ['00:e0:4c:35:53:25','00:e0:4c:37:a2:65']
+
+            sdrnetwork.start_network(
+                ap_wifi = ap_wifi,
+                sta_wifis = sta_wifis,
+                foreign_sta_macs = foreign_sta_macs,
+            )
 
 
         # network is now up and running
