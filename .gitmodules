@@ -7,3 +7,5 @@
 [submodule "EchoWorkload"]
 	path = DemoWorkload
 	url = git@github.com:KTH-EXPECA/EchoWorkload.git
+[submodule "DemoWorkload"]
+	url = git@github.com:KTH-EXPECA/DemoWorkload.git
