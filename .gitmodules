@@ -5,5 +5,5 @@
 	path = TestbedConfig
 	url = git@github.com:KTH-EXPECA/TestbedConfig.git
 [submodule "EchoWorkload"]
-	path = EchoWorkload
+	path = DemoWorkload
 	url = git@github.com:KTH-EXPECA/EchoWorkload.git
