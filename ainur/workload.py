@@ -33,7 +33,7 @@ class WorkloadProcessDefinition:
         services: Deque[WorkloadProcess] = deque()
         for swarm_node in self.nodes:
             serv = client.services.create(
-                image=self.image,
+                image=f'{self.image}:{self.tag}',
                 name=self.service_name,
                 labels={'name': self.name},
                 env=dict(self.environment),
