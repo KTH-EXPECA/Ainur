@@ -83,7 +83,10 @@ class Workload:
         with swarm.manager_client_ctx() as client:
             logger.info(f'Creating exclusive overlay network for workload...')
 
-            net_name = f'workload-{self.name}-{uuid.uuid4()}-network'
+            # TODO: move this somewhere else
+            max_name_len = 62 - len(str(uuid.uuid4()))
+
+            net_name = f'{self.name[:max_name_len]}-{uuid.uuid4()}'
             workload_overlay_net = client.networks.create(
                 name=net_name,
                 driver='overlay',
