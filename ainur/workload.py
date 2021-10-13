@@ -85,7 +85,8 @@ class Workload:
 
         # TODO: remove this ffs
         # TODO: JUST FOR DEMO
-        time.sleep(tparse(self.duration, granularity='seconds'))
+        # time.sleep(tparse(self.duration, granularity='seconds'))
+        input('Press any key to exit.')
         with swarm.manager_client_ctx() as client:
             for rproc in running_procs:
                 rproc.tear_down(client)
