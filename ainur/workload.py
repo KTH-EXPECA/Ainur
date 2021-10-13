@@ -113,7 +113,7 @@ class Workload:
             network = client.networks.get(workload_overlay_net.id)
             network.remove()
 
-            logger.info('Removed exclusive overlay network {net_name}.')
+            logger.info(f'Removed exclusive overlay network {net_name}.')
 
         logger.info(f'Workload {self.name} ({self.id}) on swarm '
                     f'{swarm.id}: DONE')
