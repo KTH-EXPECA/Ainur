@@ -56,7 +56,7 @@ if __name__ == '__main__':
                     name='prime-server',
                     image='expeca/primeworkload',
                     tag='server',
-                    nodes=swarm.managers,
+                    nodes=frozenset(swarm.managers),
                     environment=frozendict(PORT=5000)
                 )
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
                     name='prime-client',
                     image='expeca/primeworkload',
                     tag='client',
-                    nodes={worker},
+                    nodes=frozenset([worker]),
                     environment=frozendict(SERVER_ADDR=server_proc.service_name,
                                            SERVER_PORT=5000)
                 )
@@ -73,7 +73,7 @@ if __name__ == '__main__':
             workload = Workload(
                 name=f'TestWorkload-{i}',
                 duration='30s',
-                process_defs=process_defs,
+                process_defs=frozenset(process_defs),
             )
             workload.deploy_to_swarm(swarm)
 
