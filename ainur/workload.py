@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Deque, FrozenSet, Mapping, Tuple
 
 from docker import DockerClient
+from docker.models.networks import Network
 from frozendict import frozendict
 from loguru import logger
-from pytimeparse import parse as tparse
 
 from .swarm import DockerSwarm, SwarmNode
 
@@ -29,7 +28,9 @@ class WorkloadProcessDefinition:
     # TODO: use Docker swarm scaling??
     # TODO: use labels for deploying
 
-    def deploy(self, client: DockerClient) -> Tuple[WorkloadProcess]:
+    def deploy(self,
+               client: DockerClient,
+               network: Network) -> Tuple[WorkloadProcess]:
         services: Deque[WorkloadProcess] = deque()
         for swarm_node in self.nodes:
             serv = client.services.create(
@@ -38,7 +39,8 @@ class WorkloadProcessDefinition:
                 labels={'name': self.name},
                 env=dict(self.environment),
                 constraints=[f'node.id=={swarm_node.node_id}'],
-                maxreplicas=1
+                maxreplicas=1,
+                networks=[network.id]
             )
             logger.info(f'Deployed workload process {self.name} '
                         f'(service name {self.service_name} on Docker Swarm '
@@ -79,9 +81,23 @@ class Workload:
 
         running_procs: Deque[WorkloadProcess] = deque()
         with swarm.manager_client_ctx() as client:
+            logger.info(f'Creating exclusive overlay network for workload...')
+
+            net_name = f'workload-{self.name}-{uuid.uuid4()}-network'
+            workload_overlay_net = client.networks.create(
+                name=net_name,
+                driver='overlay',
+                check_duplicate=True,
+                internal=True,
+                scope='swarm'
+            )
+
+            logger.info(f'Created exclusive overlay network {net_name}.')
+
             # TODO: synchronize start
             for proc_def in self.process_defs:
-                running_procs.extend(proc_def.deploy(client))
+                running_procs.extend(proc_def.deploy(client,
+                                                     workload_overlay_net))
 
         # TODO: remove this ffs
         # TODO: JUST FOR DEMO
@@ -90,6 +106,11 @@ class Workload:
         with swarm.manager_client_ctx() as client:
             for rproc in running_procs:
                 rproc.tear_down(client)
+
+            network = client.networks.get(workload_overlay_net.id)
+            network.remove()
+
+            logger.info('Removed exclusive overlay network {net_name}.')
 
         logger.info(f'Workload {self.name} ({self.id}) on swarm '
                     f'{swarm.id}: DONE')
