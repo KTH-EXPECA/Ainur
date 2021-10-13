@@ -70,7 +70,7 @@ class Workload:
     name: str
     duration: str
     process_defs: FrozenSet[WorkloadProcessDefinition]
-    id: uuid.UUID = field(init=False, default_factory=uuid.uuid4())
+    id: uuid.UUID = field(init=False, default_factory=uuid.uuid4)
 
     def deploy_to_swarm(self, swarm: DockerSwarm) -> None:
         logger.info(f'Deploying workload {self.name} ({self.id}) to swarm '
