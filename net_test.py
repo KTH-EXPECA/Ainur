@@ -1,7 +1,11 @@
 from ipaddress import IPv4Interface
 from pathlib import Path
 
+from frozendict import frozendict
+from loguru import logger
+
 from ainur import *
+from ainur.workload import Workload, WorkloadProcessDefinition
 
 if __name__ == '__main__':
     # quick test to verify network + swarm work
@@ -38,21 +42,44 @@ if __name__ == '__main__':
 
     # bring up the network
     with WorkloadNetwork(hosts, ansible_ctx) as network:
-        input('NETWORK IS UP.')
+        logger.warning('Network is up.')
 
         # bring up the swarm
         with DockerSwarm(network,
                          managers={'cloudlet'},
                          labels={}) as swarm:
-            with swarm.manager_client_ctx() as client:
-                import pprint
+            logger.warning('Swarm is up.')
 
-                pprint.PrettyPrinter(indent=4).pprint(client.swarm.attrs)
+            process_defs = set()
+            for i, worker in enumerate(swarm.workers):
+                server_proc = WorkloadProcessDefinition(
+                    name='prime-server',
+                    image='expeca/primeworkload',
+                    tag='server',
+                    nodes=swarm.managers,
+                    environment=frozendict(PORT=5000)
+                )
 
-            input('SWARM IS UP.')
+                client_proc = WorkloadProcessDefinition(
+                    name='prime-client',
+                    image='expeca/primeworkload',
+                    tag='client',
+                    nodes={worker},
+                    environment=frozendict(SERVER_ADDR=server_proc.service_name,
+                                           SERVER_PORT=5000)
+                )
+                process_defs.update({server_proc, client_proc})
 
-        input('SWARM IS DOWN.')
+            workload = Workload(
+                name=f'TestWorkload-{i}',
+                duration='30s',
+                process_defs=process_defs,
+            )
+            workload.deploy_to_swarm(swarm)
+
+        logger.warning('Swarm is down.')
 
         # swarm is down
 
+    logger.warning('Network is down.')
     # network is down

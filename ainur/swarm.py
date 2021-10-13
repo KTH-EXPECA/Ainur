@@ -57,7 +57,7 @@ class _NodeSpec:
 
 
 @dataclass(frozen=True, eq=True)
-class _SwarmNode(abc.ABC):
+class SwarmNode(abc.ABC):
     node_id: str
     swarm_id: str
     host: ConnectedWorkloadHost
@@ -70,7 +70,7 @@ class _SwarmNode(abc.ABC):
 
 
 @dataclass(frozen=True, eq=True)
-class _WorkerNode(_SwarmNode):
+class WorkerNode(SwarmNode):
     is_manager = False
     manager_host: ConnectedWorkloadHost
 
@@ -86,7 +86,7 @@ class _WorkerNode(_SwarmNode):
 
 
 @dataclass(frozen=True, eq=True)
-class _ManagerNode(_SwarmNode):
+class ManagerNode(SwarmNode):
     manager_token: str
     worker_token: str
     is_manager = True
@@ -95,7 +95,7 @@ class _ManagerNode(_SwarmNode):
     def init_swarm(cls,
                    host: ConnectedWorkloadHost,
                    labels: Dict[str, str],
-                   daemon_port: int = 2375) -> _ManagerNode:
+                   daemon_port: int = 2375) -> ManagerNode:
         """
         Initializes a new swarm and returns a ManagerNode attached to it.
 
@@ -107,7 +107,7 @@ class _ManagerNode(_SwarmNode):
 
         Returns
         -------
-        _ManagerNode
+        ManagerNode
             A manager attached to the newly created swarm.
         """
 
@@ -154,7 +154,7 @@ class _ManagerNode(_SwarmNode):
             swarm_node.update(node_spec.to_dict())
             logger.info(f'Set node spec for {host}.')
 
-        return _ManagerNode(
+        return ManagerNode(
             node_id=node_id,
             swarm_id=cluster_id,
             host=host,
@@ -203,7 +203,7 @@ class _ManagerNode(_SwarmNode):
     def attach_manager(self,
                        host: ConnectedWorkloadHost,
                        labels: Dict[str, str],
-                       daemon_port: int = 2375) -> _ManagerNode:
+                       daemon_port: int = 2375) -> ManagerNode:
         node_spec = _NodeSpec(
             Name=host.name,
             Role='manager',
@@ -212,7 +212,7 @@ class _ManagerNode(_SwarmNode):
         node_id = self._attach_host(host, self.manager_token,
                                     node_spec, daemon_port)
 
-        return _ManagerNode(
+        return ManagerNode(
             node_id=node_id,
             swarm_id=self.swarm_id,
             host=host,
@@ -224,7 +224,7 @@ class _ManagerNode(_SwarmNode):
     def attach_worker(self,
                       host: ConnectedWorkloadHost,
                       labels: Dict[str, str],
-                      daemon_port: int = 2375) -> _WorkerNode:
+                      daemon_port: int = 2375) -> WorkerNode:
         node_spec = _NodeSpec(
             Name=host.name,
             Role='worker',
@@ -233,7 +233,7 @@ class _ManagerNode(_SwarmNode):
         node_id = self._attach_host(host, self.worker_token,
                                     node_spec, daemon_port)
 
-        return _WorkerNode(
+        return WorkerNode(
             node_id=node_id,
             swarm_id=self.swarm_id,
             host=host,
@@ -324,8 +324,8 @@ class DockerSwarm(AbstractContextManager):
 
         # initialize some containers to store nodes
         # bidirectional mappings for future proofing
-        self._managers: BiDict[_ManagerNode, str] = bidict()
-        self._workers: BiDict[_WorkerNode, str] = bidict()
+        self._managers: BiDict[ManagerNode, str] = bidict()
+        self._workers: BiDict[WorkerNode, str] = bidict()
 
         # initialize the swarm on a arbitrary first manager,
         # make the others join afterwards
@@ -339,12 +339,13 @@ class DockerSwarm(AbstractContextManager):
         # note that we connect from the management network, but the Swarm is
         # built on top of the workload network.
 
-        first_manager_node = _ManagerNode.init_swarm(
+        first_manager_node = ManagerNode.init_swarm(
             host=first_mgr,
             labels=labels.get(first_mgr.name, {}),
             daemon_port=self._daemon_port
         )
 
+        self._id = first_manager_node.swarm_id
         self._managers[first_manager_node] = first_manager_node.node_id
 
         # add the rest of the nodes
@@ -388,6 +389,10 @@ class DockerSwarm(AbstractContextManager):
             self.tear_down()
             raise
 
+    @property
+    def id(self) -> str:
+        return self._id
+
     def tear_down(self) -> None:
         """
         Convenience method to fully tear down this swarm.
@@ -402,8 +407,8 @@ class DockerSwarm(AbstractContextManager):
         manager, manager_id = self._managers.popitem()
 
         with Pool() as pool:
-            pool.map(_WorkerNode.leave_swarm, self._workers.keys())
-            pool.map(_ManagerNode.leave_swarm, self._managers.keys())
+            pool.map(WorkerNode.leave_swarm, self._workers.keys())
+            pool.map(ManagerNode.leave_swarm, self._managers.keys())
 
         # final manager leaves
         manager.leave_swarm()
@@ -447,4 +452,10 @@ class DockerSwarm(AbstractContextManager):
         self.tear_down()
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
 
-    # TODO: add methods to deploy workloads
+    @property
+    def managers(self) -> Set[ManagerNode]:
+        return set(self._managers.keys())
+
+    @property
+    def workers(self) -> Set[WorkerNode]:
+        return set(self._workers.keys())

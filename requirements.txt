@@ -10,3 +10,5 @@ docker
 loguru
 bidict
 plum-dispatch
+pytimeparse
+frozendict
