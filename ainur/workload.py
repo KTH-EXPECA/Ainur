@@ -21,7 +21,8 @@ class WorkloadProcessDefinition:
     nodes: FrozenSet[SwarmNode]
     environment: Mapping[str, Any] = field(default_factory=frozendict)
     tag: str = field(default='latest')
-    service_name: str = field(init=False, default_factory=uuid.uuid4)
+    service_name: str = field(init=False,
+                              default_factory=lambda: str(uuid.uuid4()))
 
     # TODO: log_driver
     # TODO: bunch of options
