@@ -4,7 +4,7 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Set, Tuple
+from typing import Any, Deque, Mapping, Set, Tuple
 
 from docker import DockerClient
 from frozendict import frozendict
@@ -19,7 +19,7 @@ class WorkloadProcessDefinition:
     name: str
     image: str
     nodes: Set[SwarmNode]
-    environment: frozendict = field(default=frozendict())
+    environment: Mapping[str, Any] = field(default_factory=frozendict)
     tag: str = field(default='latest')
     service_name: str = field(init=False, default_factory=uuid.uuid4)
 
@@ -35,7 +35,7 @@ class WorkloadProcessDefinition:
                 image=self.image,
                 name=self.service_name,
                 labels={'name': self.name},
-                env=self.environment,
+                env=dict(self.environment),
                 constraints=[f'node.id=={swarm_node.node_id}'],
                 maxreplicas=1
             )
