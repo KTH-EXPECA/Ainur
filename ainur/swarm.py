@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import abc
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field
 from multiprocessing import Pool
-from typing import Dict, Generator, Literal, Mapping, Set
+from typing import Dict, Generator, Literal, Mapping, Optional, Set
 
 from bidict import MutableBidirectionalMapping as BiDict, bidict
 from docker import DockerClient
 from loguru import logger
 
 from .hosts import ConnectedWorkloadHost
-from .network import WorkloadNetwork
 
 
 @contextmanager
@@ -94,7 +94,7 @@ class ManagerNode(SwarmNode):
     @classmethod
     def init_swarm(cls,
                    host: ConnectedWorkloadHost,
-                   labels: Dict[str, str],
+                   labels: Optional[Dict[str, str]] = None,
                    daemon_port: int = 2375) -> ManagerNode:
         """
         Initializes a new swarm and returns a ManagerNode attached to it.
@@ -147,7 +147,7 @@ class ManagerNode(SwarmNode):
             node_spec = _NodeSpec(
                 Name=host.name,
                 Role='manager',
-                Labels=labels
+                Labels=labels if labels is not None else {}
             )
 
             swarm_node = client.nodes.get(node_id)
@@ -202,12 +202,12 @@ class ManagerNode(SwarmNode):
 
     def attach_manager(self,
                        host: ConnectedWorkloadHost,
-                       labels: Dict[str, str],
+                       labels: Optional[Dict[str, str]] = None,
                        daemon_port: int = 2375) -> ManagerNode:
         node_spec = _NodeSpec(
             Name=host.name,
             Role='manager',
-            Labels=labels
+            Labels=labels if labels is not None else {}
         )
         node_id = self._attach_host(host, self.manager_token,
                                     node_spec, daemon_port)
@@ -223,12 +223,12 @@ class ManagerNode(SwarmNode):
 
     def attach_worker(self,
                       host: ConnectedWorkloadHost,
-                      labels: Dict[str, str],
+                      labels: Optional[Dict[str, str]] = None,
                       daemon_port: int = 2375) -> WorkerNode:
         node_spec = _NodeSpec(
             Name=host.name,
             Role='worker',
-            Labels=labels
+            Labels=labels if labels is not None else {}
         )
         node_id = self._attach_host(host, self.worker_token,
                                     node_spec, daemon_port)
@@ -276,8 +276,8 @@ class ManagerNode(SwarmNode):
 
 class DockerSwarm(AbstractContextManager):
     """
-    Implements an simple interface to a Docker swarm, built on top of a
-    workload network. Can be used as a context manager, in which case the
+    Implements an simple interface to a Docker swarm, built on top of hosts
+    from a workload network. Can be used as a context manager, in which case the
     created instance is bound to the 'as' variable.
 
     Note that the Swarm is built up such that data traverses the workload
@@ -285,7 +285,13 @@ class DockerSwarm(AbstractContextManager):
 
     Example usage::
 
-        with DockerSwarm(network, managers) as swarm:
+        managers = {
+            mgr1: {'label1': 'value1'},
+            mgr2: None,
+            mgr3: {}
+        }
+
+        with DockerSwarm(managers) as swarm:
             ...
             with swarm.manager_client_ctx() as client:
                 client.services.ls()
@@ -297,51 +303,56 @@ class DockerSwarm(AbstractContextManager):
     _daemon_port = 2375
 
     def __init__(self,
-                 network: WorkloadNetwork,
-                 managers: Set[str],
-                 labels: Mapping[str, str]):
+                 managers: Mapping[ConnectedWorkloadHost,
+                                   Optional[Mapping[str, str]]],
+                 workers: Optional[Mapping[ConnectedWorkloadHost,
+                                           Optional[Mapping[str, str]]]] = None,
+                 ):
         """
         Parameters
         ----------
-        network
-            The WorkloadNetwork on top of which to build this swarm.
-
         managers
-            The name identifiers of the manager nodes.
+            A mapping from ConnectedWorkloadHost to labels.
+            The hosts contained herein will be configured as managers of the
+            swarm.
+
+        workers.
+            A mapping from ConnectedWorkloadHost to labels.
+            The hosts contained herein will be configured as workers of the
+            swarm.
         """
+
+        # TODO: fix labels
 
         super(DockerSwarm, self).__init__()
 
-        logger.info(f'Setting up a Docker Swarm on top of workload network '
-                    f'{network.address}.')
-
-        # filter out the managers
-        mgr_hosts = set([h for h in network.hosts if h.name in managers])
-        workers = network.hosts.difference(mgr_hosts)
-
-        logger.info(f'Docker Swarm manager hosts: '
-                    f'{[h.workload_ip for h in mgr_hosts]}')
+        logger.info(f'Setting up a Docker Swarm '
+                    f'with managers {list(managers.keys())}.')
 
         # initialize some containers to store nodes
         # bidirectional mappings for future proofing
         self._managers: BiDict[ManagerNode, str] = bidict()
         self._workers: BiDict[WorkerNode, str] = bidict()
 
+        # some quick type coercion
+        managers = dict(managers)
+        workers = dict(workers) if workers is not None else {}
+
         # initialize the swarm on a arbitrary first manager,
         # make the others join afterwards
         try:
-            first_mgr = mgr_hosts.pop()
+            first_mgr, first_mgr_labels = managers.popitem()
         except KeyError:
             # TODO: custom exception?
             raise RuntimeError('Need at least one manager node!')
 
         # connect to the docker daemon on the node
-        # note that we connect from the management network, but the Swarm is
-        # built on top of the workload network.
+        # note that we connect from the management network,
+        # but Swarm service traffic is routed through the workload network
 
         first_manager_node = ManagerNode.init_swarm(
             host=first_mgr,
-            labels=labels.get(first_mgr.name, {}),
+            labels=first_mgr_labels,
             daemon_port=self._daemon_port
         )
 
@@ -350,41 +361,31 @@ class DockerSwarm(AbstractContextManager):
 
         # add the rest of the nodes
         try:
-            with Pool() as pool:
-                new_managers = pool.starmap(
-                    func=first_manager_node.attach_manager,
-                    iterable=[(m, labels.get(m.name, {}), self._daemon_port)
-                              for m in mgr_hosts]
-                )
+            with ThreadPoolExecutor() as tpool:
+                # use thread pool instead of process pool, as we only really
+                # need I/O concurrency (Docker client comms) and threads are
+                # much more lightweight
 
-                new_workers = pool.starmap(
-                    func=first_manager_node.attach_worker,
-                    iterable=[(w, labels.get(w.name, {}), self._daemon_port)
-                              for w in workers]
+                def _add_manager(host: ConnectedWorkloadHost) -> None:
+                    labels = managers[host]
+                    nm = first_manager_node.attach_manager(
+                        host, labels, daemon_port=self._daemon_port
+                    )
 
-                )
-
-                for nm in new_managers:
+                    # Python dicts should be thread-safe
                     self._managers[nm] = nm.node_id
 
-                for nw in new_workers:
+                def _add_worker(host: ConnectedWorkloadHost) -> None:
+                    labels = workers[host]
+                    nw = first_manager_node.attach_worker(
+                        host, labels, daemon_port=self._daemon_port
+                    )
+
+                    # Python dicts should be thread-safe
                     self._workers[nw] = nw.node_id
 
-            # for manager_host in mgr_hosts:
-            #     new_manager = first_manager_node.attach_manager(
-            #         host=manager_host,
-            #         labels=labels.get(manager_host.name, {}),
-            #         daemon_port=self._daemon_port
-            #     )
-            #     self._managers[new_manager] = new_manager.node_id
-            #
-            # for worker_host in workers:
-            #     new_worker = first_manager_node.attach_worker(
-            #         host=worker_host,
-            #         labels=labels.get(worker_host.name, {}),
-            #         daemon_port=self._daemon_port
-            #     )
-            #     self._workers[new_worker] = new_worker.node_id
+                tpool.map(_add_manager, managers.keys())
+                tpool.map(_add_worker, workers.keys())
         except:
             self.tear_down()
             raise
