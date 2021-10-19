@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import abc
 import warnings
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field
 from multiprocessing import Pool
-from typing import Dict, Generator, Literal, Mapping, Optional, Set
+from typing import Collection, Dict, Generator, Literal, Mapping, Optional, Set
 
 from bidict import MutableBidirectionalMapping as BiDict, bidict
 from docker import DockerClient
+from frozendict import frozendict as fdict
 from loguru import logger
 
 from .hosts import ConnectedWorkloadHost
@@ -272,8 +274,6 @@ class ManagerNode(SwarmNode):
             yield client
 
 
-# end of low-level API
-
 class DockerSwarm(AbstractContextManager):
     """
     Implements an simple interface to a Docker swarm, built on top of hosts
@@ -460,3 +460,30 @@ class DockerSwarm(AbstractContextManager):
     @property
     def workers(self) -> Set[WorkerNode]:
         return set(self._workers.keys())
+
+
+class WorkloadSwarm(DockerSwarm):
+    role_key: str = 'role'
+    role_server_val: str = 'cloudlet'
+    role_client_val: str = 'client'
+
+    def __init__(self,
+                 servers: Collection[ConnectedWorkloadHost],
+                 clients: Collection[ConnectedWorkloadHost],
+                 labels: Dict[ConnectedWorkloadHost, Dict[str, str]] = fdict()):
+        labels = defaultdict(dict, labels)
+
+        # build up mappings for base class
+        managers = {}
+        workers = {}
+        for host in servers:
+            host_labels = labels[host]
+            host_labels[self.role_key] = self.role_server_val
+            managers[host] = host_labels
+
+        for host in clients:
+            host_labels = labels[host]
+            host_labels[self.role_key] = self.role_client_val
+            workers[host] = host_labels
+
+        super(WorkloadSwarm, self).__init__(managers=managers, workers=workers)
