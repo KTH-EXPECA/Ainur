@@ -24,8 +24,10 @@ class WorkloadServiceDefinition:
 class WorkloadDefinition:
     name: str
     max_duration: str = '1d'
-    clients: frozendict = field(default_factory=frozendict)
-    servers: frozendict = field(default_factory=frozendict)
+    clients: frozendict[WorkloadServiceDefinition, int] \
+        = field(default_factory=frozendict)
+    servers: frozendict[WorkloadServiceDefinition, int] \
+        = field(default_factory=frozendict)
 
     # TODO include fluentbit container here somewhere?
 

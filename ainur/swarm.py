@@ -470,10 +470,18 @@ class WorkloadSwarm(DockerSwarm):
     role_client_val: str = 'client'
 
     def __init__(self,
+                 manager: ConnectedWorkloadHost,
                  servers: Collection[ConnectedWorkloadHost],
                  clients: Collection[ConnectedWorkloadHost],
                  labels: Dict[ConnectedWorkloadHost, Dict[str, str]] = fdict()):
         labels = defaultdict(dict, labels)
+
+        # TODO: there does not need to be a one to one mapping between
+        #  workers and clients, and servers and managers. We could have
+        #  clients deployed on managers.
+        # TODO: get rid of server/client nomenclature.
+        # TODO: free placement with sane defaults.
+        # TODO: remove this class, merge with parent!
 
         # build up mappings for base class
         managers = {}
@@ -491,9 +499,12 @@ class WorkloadSwarm(DockerSwarm):
         super(WorkloadSwarm, self).__init__(managers=managers, workers=workers)
 
     def deploy_workload(self, workload: WorkloadDefinition):
-        # first things first, set up an overlay network for the workload
-        # TODO: log name of workload
+        # sanity check: do we have enough clients to satisfy placement
+        # requirements?
+        req_clients = sum(workload.clients.items())
 
+
+        # set up an overlay network for the workload
         logger.info(f'Creating overlay network for workload {workload.name}.')
         net_name = str(uuid.uuid4())
         with self.manager_client_ctx() as client:
