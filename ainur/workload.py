@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, FrozenSet, Mapping, Tuple
+from typing import Any, Deque, FrozenSet, Mapping, Optional, Tuple
 
 from docker import DockerClient
 from docker.models.networks import Network
@@ -11,6 +11,23 @@ from frozendict import frozendict
 from loguru import logger
 
 from .swarm import DockerSwarm, SwarmNode
+
+
+@dataclass(frozen=True, eq=True)
+class WorkloadServiceDefinition:
+    name: str
+    image: str
+    environment: frozendict = field(default_factory=frozendict)
+
+
+@dataclass(frozen=True, eq=True)
+class WorkloadDefinition:
+    name: str
+    max_duration: str = '1d'
+    clients: frozendict = field(default_factory=frozendict)
+    servers: frozendict = field(default_factory=frozendict)
+
+    # TODO include fluentbit container here somewhere?
 
 
 @dataclass(frozen=True, eq=True)

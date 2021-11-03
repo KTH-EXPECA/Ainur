@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import uuid
 import warnings
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,7 @@ from frozendict import frozendict as fdict
 from loguru import logger
 
 from .hosts import ConnectedWorkloadHost
+from .workload import WorkloadDefinition
 
 
 @contextmanager
@@ -487,3 +489,24 @@ class WorkloadSwarm(DockerSwarm):
             workers[host] = host_labels
 
         super(WorkloadSwarm, self).__init__(managers=managers, workers=workers)
+
+    def deploy_workload(self, workload: WorkloadDefinition):
+        # first things first, set up an overlay network for the workload
+        # TODO: log name of workload
+
+        logger.info(f'Creating overlay network for workload {workload.name}.')
+        net_name = str(uuid.uuid4())
+        with self.manager_client_ctx() as client:
+            overlay_net = client.networks.create(
+                name=net_name,
+                driver='overlay',
+                check_duplicate=True,
+                internal=True,
+                scope='swarm'
+            )
+
+            logger.info(f'Overlay network {net_name} created for workload '
+                        f'{workload.name}.')
+
+
+
