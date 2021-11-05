@@ -1,0 +1,23 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  remote_user: expeca
+  tasks:
+    - name: Start irtt server
+      ansible.builtin.command: timeout 22 irtt server -b :2552 -i 0
+      when: hostvars[inventory_hostname].type == "server"
+      async: 22
+      poll: 0
+
+    - name: Pause for 1 second until the servers are up
+      pause:
+        seconds: 1
+
+    - name: irtt client
+      ansible.builtin.command: irtt client -q -i 1ms -l 50000 -d 19s --fill=rand --sfill=rand {{ hostvars[hostvars[inventory_hostname].target].workload_ip }}:2552
+      when: hostvars[inventory_hostname].type == "endnode"
+      register: irtt_res
+
+    - name: report
+      debug: msg="{{ irtt_res.stdout }}"
+      when: hostvars[inventory_hostname].type == "endnode"

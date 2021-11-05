@@ -11,10 +11,6 @@ from operator import attrgetter
 import ansible_runner
 from loguru import logger
 
-from .ansible import AnsibleContext
-from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadInterface,WorkloadInterface,Wire,SoftwareDefinedWiFiRadio,WiFiRadio,Phy,SwitchConnection
-
-
 import pexpect
 
 @dataclass(frozen=True, eq=True)
@@ -40,39 +36,24 @@ class ManagedSwitch(AbstractContextManager):
                  timeout: int,
                  quiet: bool = True):
 
-        logger.info('Contacting the network switch.')
+        # we do login - logout for every command since there is a timeout for
+        # each login session on the cisco switch
 
-        #Second argument is assigned to the variable user
-        user = credentials[0]
-        #Third argument is assigned to the variable password
-        password = credentials[1]
-
-
-        #This spawns the telnet program and connects it to the variable name
-        child = pexpect.spawn("telnet %s" % name, timeout=timeout)
-
-        #The script expects login
-        child.expect_exact("Username:")
-        child.send(user+"\n")
-
-        #The script expects Password
-        child.expect_exact("Password:")
-        child.send(password+"\n")
-
-        child.expect_exact(name+"#")
-        
-        self._child = child
         self._name = name
-        self._credentials = credentials
         self._address = address
         self._timeout = timeout
         self._quiet = quiet
 
-        #self.hard_remove_vlan(id_num=4)
-        
+        #Second argument is assigned to the variable user
+        self._user = credentials[0]
+        #Third argument is assigned to the variable password
+        self._password = credentials[1]
+
+        logger.info('Contacting the network switch.')
+
+        # update vlans table
         self.update_vlans()
 
-        
 
     @property
     def vlans(self) -> FrozenSet[Vlan]:
@@ -94,14 +75,39 @@ class ManagedSwitch(AbstractContextManager):
     def timeout(self) -> int:
         return self._timeout
 
+    def login(self):
+
+        #This spawns the telnet program and connects it to the variable name
+        child = pexpect.spawn("telnet %s" % self._name, timeout=self._timeout)
+
+        #The script expects login
+        child.expect_exact("Username:")
+        child.send(self._user+"\n")
+
+        #The script expects Password
+        child.expect_exact("Password:")
+        child.send(self._password+"\n")
+
+        child.expect_exact(self._name+"#")
+
+        # telnet connection is ready
+        return child
+
+    def logout(self,child):
+
+        # assume we are in login state
+        child.send("exit\n")
+        child.send("exit\n")
+        child.expect(pexpect.EOF)
 
     def update_vlans(self):
 
+        child = self.login()
+
         vlans = []
-        child = self._child
-        
         child.send("show vlan\n")
 
+        # go to config mode (necessary for having one line after the table)
         child.send("configure terminal\n")
         child.expect_exact(self._name+'(config)#')
 
@@ -140,6 +146,13 @@ class ManagedSwitch(AbstractContextManager):
                 print('Vlan #%d id: %d, name: %s, ports: %s' % (idx,vlan_id,vlan_name,vlan_ports))#If it all goes pear shaped the script will timeout after 20 seconds.
         
         self._vlans = vlans
+        
+        # go back to login mode
+        child.send("exit\n")
+        child.expect_exact(self._name+"#")
+
+        self.logout(child)
+        
         logger.info('Default vlans loaded.')
 
 
@@ -149,7 +162,11 @@ class ManagedSwitch(AbstractContextManager):
         biggest_vlan_id = max(self._vlans, key=attrgetter("id_num"))
         vlanid = biggest_vlan_id.id_num+1
 
-        child = self._child
+        child = self.login()
+        
+        # go to config mode
+        child.send("configure terminal\n")
+        child.expect_exact(self._name+'(config)#')
 
         child.send("vlan %d\n" % vlanid)
 
@@ -175,6 +192,10 @@ class ManagedSwitch(AbstractContextManager):
             
         child.expect_exact(self._name+'(config)#')
 
+        # go back to login mode
+        child.send("exit\n")
+        child.expect_exact(self._name+"#")
+
         new_vlan = Vlan(name=name,id_num=vlanid,ports=ports,switch_name=self._name, default=False)
         self._vlans.append(new_vlan)
         logger.info('New vlan with id: %d added.'% vlanid)
@@ -182,13 +203,21 @@ class ManagedSwitch(AbstractContextManager):
     
     def hard_remove_vlan(self,id_num: int):
 
-        child = self._child
-        
+        child = self.login()
+
+        # go to config mode
         child.send("configure terminal\n")
         child.expect_exact(self._name+'(config)#')
 
+        # remove it
         child.send("no vlan %d\n" % id_num)
         child.expect_exact(self._name+"(config)")
+
+        # go back to login mode
+        child.send("exit\n")
+        child.expect_exact(self._name+"#")
+
+        self.logout(child)
 
         logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
 
@@ -199,9 +228,19 @@ class ManagedSwitch(AbstractContextManager):
             return
         vlan = vlan[0]
 
-        child = self._child
+        child = self.login()
+        
+        # go to config mode
+        child.send("configure terminal\n")
+        child.expect_exact(self._name+'(config)#')
+
+        # remove it
         child.send("no vlan %d\n" % id_num)
         child.expect_exact(self._name+"(config)")
+
+        # go back to login mode
+        child.send("exit\n")
+        child.expect_exact(self._name+"#")
 
         self._vlans.remove(vlan)
         logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
@@ -214,18 +253,12 @@ class ManagedSwitch(AbstractContextManager):
         invalid state and should not be used any more.
         """
         logger.warning('Removing workload switch vlans.')
-        child = self._child
-    
+
         non_defalut_vlan_ids = [ vl.id_num for vl in self._vlans if vl.default == False]
         # remove all non default vlans
         for nd_id_num in non_defalut_vlan_ids:
             self.remove_vlan(nd_id_num)
 
-        child.send("exit\n")
-        child.send("exit\n")
-        child.send("exit\n")
-        child.send("exit\n")
-        child.expect(pexpect.EOF)
         logger.warning('Workload switch non default vlans removed.')
 
     def __enter__(self) -> ManagedSwitch:

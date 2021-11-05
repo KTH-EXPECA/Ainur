@@ -1,0 +1,16 @@
+---
+#ansible-playbook -i 'workload-client-08' ainur/ansible/check_connection.yml
+
+- hosts: all
+  become: yes
+  gather_facts: no
+  remote_user: expeca
+  tasks:
+    - name: Wait 10 seconds for the connection to the host
+      wait_for:
+        host: "{{ item.ip }}"
+        port: 22
+        state: started
+        timeout: 10
+      with_items:
+        - "{{ hostvars[inventory_hostname].targets }}"

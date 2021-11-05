@@ -14,4 +14,11 @@
 
     - name: Apply the netplan config
       command: netplan apply
+
+    - name: Bring down the interface
+      ansible.builtin.shell: ip link set {{  hostvars[inventory_hostname].workload_interface.name }} down
+    
+    - name: Flush ip address
+      ansible.builtin.shell: ip addr flush dev {{  hostvars[inventory_hostname].workload_interface.name }}
+
 ...

@@ -37,7 +37,7 @@
         marker: ""
         content: |2
                 access-points:
-                  "{{  hostvars[inventory_hostname].workload_phy.ssid }}": {}
+                  "{{  hostvars[inventory_hostname].workload_interface.ssid }}": {}
       when: hostvars[inventory_hostname].workload_interface.type == "wifis"
 
     - name: Remove blank lines blockinfile put in

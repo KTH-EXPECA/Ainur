@@ -13,7 +13,7 @@ from loguru import logger
 import socket
 import sys
 
-from .hosts import SoftwareDefinedRadio, SoftwareDefinedWiFiRadio
+from .hosts import SoftwareDefinedRadio, WiFiSDR
 
 
 #DOCKER_BASE_URL='unix://var/run/docker.sock'
@@ -63,7 +63,7 @@ class SDRNetwork(AbstractContextManager):
                             host_config=host_config,
         ) 
         # start the container
-        #self._client.start(self._container)
+        self._client.start(self._container)
         logger.info('sdr network container started.')
 
         time.sleep(1)
@@ -91,11 +91,12 @@ class SDRNetwork(AbstractContextManager):
         logger.info('SDR network manager container is up.')
 
     def start_network(self,
-            ap_wifi: SoftwareDefinedWiFiRadio,
-            sta_wifis : List[SoftwareDefinedWiFiRadio],
+            ap_wifi: WiFiSDRAP,
+            sta_wifis : List[WiFiSDR],
             foreign_sta_macs : List[str],
             ):
 
+        logger.info(f'Starting SDR network with ssid: {ap_wifi.network.ssid} on access point {ap_wifi.radio.name}.')
         # make start network command dict
         sta_sdr_names_dict = {}
         for idx,sta_wifi in enumerate(sta_wifis):
@@ -111,18 +112,18 @@ class SDRNetwork(AbstractContextManager):
 
         start_sdrs_cmd = {
             'general' : { 
-                'ssid' : ap_wifi.ssid,
-                'channel' : str(ap_wifi.channel),
-                'beacon_interval' : str(BEACON_INTERVAL),
+                'ssid' : ap_wifi.network.ssid,
+                'channel' : str(ap_wifi.network.channel),
+                'beacon_interval' : ap_wifi.network.beacon_interval,
+                'ht_capable' : ap_wifi.network.ht_capable,
                 'ap_sdr_name' : ap_wifi.radio.name,
             },
             'sta_sdr_names' : sta_sdr_names_dict,
             'foreign_sta_macs' : foreign_sta_macs_dict,
-            'config' : ap_wifi.preset,
         }
        
         self.send_command('start',start_sdrs_cmd)
-        logger.info('SDR network with ssid: %s is up.' % ap_wifi.ssid)
+        logger.info(f'SDR network with ssid: {ap_wifi.network.ssid} is up.')
 
     def send_command(self,
             command_type: str,

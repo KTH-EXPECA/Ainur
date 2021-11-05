@@ -1,0 +1,11 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  remote_user: expeca
+  tasks:
+    - name: Run the script
+      script: /home/ssmos/Ainur/get_traffic_info.sh {{ hostvars[inventory_hostname].interface_name }}
+      register: traffic_info
+    
+    - name: report
+      debug: msg="{{ traffic_info.stdout }}"
