@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 import abc
-import uuid
 import warnings
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field
-from multiprocessing import Pool
-from typing import Collection, Dict, Generator, Literal, Mapping, Optional, Set
+from typing import Any, Dict, Generator, Literal, Optional, \
+    Set
 
-from bidict import MutableBidirectionalMapping as BiDict, bidict
 from docker import DockerClient
-from frozendict import frozendict as fdict
 from loguru import logger
 
+from . import WorkloadNetwork
 from .hosts import ConnectedWorkloadHost
-from .workload import WorkloadDefinition
 
 
 @contextmanager
@@ -47,6 +43,10 @@ class SwarmWarning(Warning):
     pass
 
 
+class SwarmException(Exception):
+    pass
+
+
 # Low-level API, do not expose
 
 @dataclass
@@ -69,7 +69,7 @@ class SwarmNode(abc.ABC):
     is_manager: bool = field(default=False, init=False)
 
     @abc.abstractmethod
-    def leave_swarm(self) -> None:
+    def leave_swarm(self, force: bool = False) -> None:
         pass
 
 
@@ -78,14 +78,13 @@ class WorkerNode(SwarmNode):
     is_manager = False
     manager_host: ConnectedWorkloadHost
 
-    def leave_swarm(self) -> None:
+    def leave_swarm(self, force: bool = False) -> None:
         logger.info(f'Worker {self.host} is leaving the Swarm.')
         with docker_client_context(
                 base_url=f'{self.host.management_ip.ip}:{self.daemon_port}') \
                 as client:
-            if not client.swarm.leave():
-                # TODO: custom exception here?
-                raise RuntimeError(f'{self.host} could not leave swarm.')
+            if not client.swarm.leave(force=force):
+                raise SwarmException(f'{self.host} could not leave swarm.')
         logger.info(f'Host {self.host} has left the Swarm.')
 
 
@@ -184,8 +183,7 @@ class ManagerNode(SwarmNode):
                         advertise_addr=str(host.management_ip.ip),
                         data_path_addr=str(host.workload_ip.ip)
                 ):
-                    # TODO: custom exception here?
-                    raise RuntimeError(f'{host} could not join swarm.')
+                    raise SwarmException(f'{host} could not join swarm.')
 
                 # joined the swarm, get the node ID now
                 node_id = client.info()['Swarm']['NodeID']
@@ -245,7 +243,7 @@ class ManagerNode(SwarmNode):
             daemon_port=daemon_port
         )
 
-    def leave_swarm(self) -> None:
+    def leave_swarm(self, force: bool = False) -> None:
         logger.info(f'Manager {self.host} is leaving the Swarm.')
 
         with docker_client_context(
@@ -256,9 +254,8 @@ class ManagerNode(SwarmNode):
             manager_nodes = client.nodes.list(filters={'role': 'manager'})
             last_mgr = (len(manager_nodes) == 1)
 
-            if not client.swarm.leave(force=True):
-                # TODO: custom exception here?
-                raise RuntimeError(f'{self.host} could not leave swarm.')
+            if not client.swarm.leave(force=force):
+                raise SwarmException(f'{self.host} could not leave swarm.')
 
         logger.info(f'Host {self.host} has left the Swarm.')
         if last_mgr:
@@ -284,117 +281,111 @@ class DockerSwarm(AbstractContextManager):
 
     Note that the Swarm is built up such that data traverses the workload
     network but management traffic stays on the management network.
-
-    Example usage::
-
-        managers = {
-            mgr1: {'label1': 'value1'},
-            mgr2: None,
-            mgr3: {}
-        }
-
-        with DockerSwarm(managers) as swarm:
-            ...
-            with swarm.manager_client_ctx() as client:
-                client.services.ls()
-
-            ...
-
     """
 
     _daemon_port = 2375
 
     def __init__(self,
-                 managers: Mapping[ConnectedWorkloadHost,
-                                   Optional[Mapping[str, str]]],
-                 workers: Optional[Mapping[ConnectedWorkloadHost,
-                                           Optional[Mapping[str, str]]]] = None,
-                 ):
-        """
-        Parameters
-        ----------
-        managers
-            A mapping from ConnectedWorkloadHost to labels.
-            The hosts contained herein will be configured as managers of the
-            swarm.
+                 network: WorkloadNetwork,
+                 managers: Dict[str, Dict[str, Any]],
+                 workers: Dict[str, Dict[str, Any]]):
 
-        workers.
-            A mapping from ConnectedWorkloadHost to labels.
-            The hosts contained herein will be configured as workers of the
-            swarm.
-        """
+        logger.info('Setting up Docker Swarm.')
 
-        # TODO: fix labels
+        # sanity checks
 
-        super(DockerSwarm, self).__init__()
+        if len(managers) < 1:
+            raise SwarmException('At least one manager node is needed to '
+                                 'bring up Docker Swarm!')
 
-        logger.info(f'Setting up a Docker Swarm '
-                    f'with managers {list(managers.keys())}.')
+        for host in managers:
+            try:
+                workers.pop(host)
+                warnings.warn(f'Ambiguous Swarm definition: host {host} '
+                              f'specified both as a manager and a worker. '
+                              f'Dropping worker definition for sanity.',
+                              SwarmWarning)
+            except KeyError:
+                pass
 
-        # initialize some containers to store nodes
-        # bidirectional mappings for future proofing
-        self._managers: BiDict[ManagerNode, str] = bidict()
-        self._workers: BiDict[WorkerNode, str] = bidict()
+        logger.info(f'Docker Swarm managers: {list(managers.keys())}')
+        logger.info(f'Docker Swarm workers: {list(workers.keys())}')
 
-        # some quick type coercion
-        managers = dict(managers)
-        workers = dict(workers) if workers is not None else {}
-
-        # initialize the swarm on a arbitrary first manager,
-        # make the others join afterwards
+        # build the swarm, managers first
+        manager_nodes = dict()
+        worker_nodes = dict()
         try:
-            first_mgr, first_mgr_labels = managers.popitem()
-        except KeyError:
-            # TODO: custom exception?
-            raise RuntimeError('Need at least one manager node!')
+            try:
+                host_id, labels = managers.popitem()
+            except KeyError as e:
+                raise SwarmException('At least one manager is required for '
+                                     'Docker Swarm initialization!') from e
+            first_manager_node = ManagerNode.init_swarm(
+                host=network[host_id],
+                labels=labels,
+                daemon_port=self._daemon_port
+            )
 
-        # connect to the docker daemon on the node
-        # note that we connect from the management network,
-        # but Swarm service traffic is routed through the workload network
-
-        first_manager_node = ManagerNode.init_swarm(
-            host=first_mgr,
-            labels=first_mgr_labels,
-            daemon_port=self._daemon_port
-        )
-
-        self._id = first_manager_node.swarm_id
-        self._managers[first_manager_node] = first_manager_node.node_id
-
-        # add the rest of the nodes
-        try:
+            # rest of nodes are added in parallel
             with ThreadPoolExecutor() as tpool:
                 # use thread pool instead of process pool, as we only really
                 # need I/O concurrency (Docker client comms) and threads are
-                # much more lightweight
+                # much more lightweight than processes
 
-                def _add_manager(host: ConnectedWorkloadHost) -> None:
-                    labels = managers[host]
-                    nm = first_manager_node.attach_manager(
-                        host, labels, daemon_port=self._daemon_port
-                    )
+                def _add_node(args: Dict) -> None:
+                    if args['manager']:
+                        node = first_manager_node.attach_manager(
+                            host=args['host'],
+                            labels=args['labels'],
+                            daemon_port=self._daemon_port
+                        )
+                        manager_nodes[args['id']] = node
+                    else:
+                        node = first_manager_node.attach_worker(
+                            host=args['host'],
+                            labels=args['labels'],
+                            daemon_port=self._daemon_port
+                        )
+                        worker_nodes[args['id']] = node
 
-                    # Python dicts should be thread-safe
-                    self._managers[nm] = nm.node_id
+                tpool.map(_add_node,
+                          [
+                              {
+                                  'manager': True,
+                                  'id'     : host_id,
+                                  'host'   : network[host_id],
+                                  'labels' : labels,
+                              }
+                              for host_id, labels in managers.items()
+                          ] + [
+                              {
+                                  'manager': False,
+                                  'id'     : host_id,
+                                  'host'   : network[host_id],
+                                  'labels' : labels,
+                              }
+                              for host_id, labels in workers.items()
+                          ])
 
-                def _add_worker(host: ConnectedWorkloadHost) -> None:
-                    labels = workers[host]
-                    nw = first_manager_node.attach_worker(
-                        host, labels, daemon_port=self._daemon_port
-                    )
-
-                    # Python dicts should be thread-safe
-                    self._workers[nw] = nw.node_id
-
-                tpool.map(_add_manager, managers.keys())
-                tpool.map(_add_worker, workers.keys())
         except:
-            self.tear_down()
+            logger.error('Error when constructing Docker Swarm, gracefully '
+                         'tearing down.')
+            # in case of ANYTHING going wrong, we need to tear down the swarm
+            # on nodes on which it has already been initialized
+
+            for nodes in (worker_nodes, manager_nodes):
+                for node_id, node in nodes.items():
+                    node.leave_swarm(force=True)
+
             raise
 
-    @property
-    def id(self) -> str:
-        return self._id
+        self._managers = manager_nodes
+        self._workers = worker_nodes
+        self._torn_down = False
+
+    def _check(self) -> None:
+        if self._torn_down:
+            raise SwarmException('Swarm has been torn down.')
 
     def tear_down(self) -> None:
         """
@@ -403,24 +394,27 @@ class DockerSwarm(AbstractContextManager):
         used any more.
         """
 
+        if self._torn_down:
+            logger.warning('Trying to tear down already torn-down Swarm; '
+                           'doing nothing.')
+            return
+
         logger.warning('Tearing down Swarm!')
 
         # save a final manager to disconnect at the end, to ensure a
         # consistent state across the operation
         manager, manager_id = self._managers.popitem()
 
-        with Pool() as pool:
-            pool.map(WorkerNode.leave_swarm, self._workers.keys())
-            pool.map(ManagerNode.leave_swarm, self._managers.keys())
+        with ThreadPoolExecutor() as tpool:
+            def leave_swarm(node: SwarmNode) -> None:
+                node.leave_swarm(force=True)
+
+            tpool.map(leave_swarm,
+                      list(self._managers.values()) +
+                      list(self._workers.values()))
 
         # final manager leaves
-        manager.leave_swarm()
-
-        # for worker in self._workers:
-        #     worker.leave_swarm()
-        #
-        # for manager in self._managers:
-        #     manager.leave_swarm()
+        manager.leave_swarm(force=True)
 
         self._workers.clear()
         self._managers.clear()
@@ -441,6 +435,9 @@ class DockerSwarm(AbstractContextManager):
         DockerClient
             A Docker client attached to an arbitrary manager node.
         """
+
+        self._check()
+
         mgr, mgr_id = self._managers.popitem()
         self._managers[mgr] = mgr_id
 
@@ -448,6 +445,7 @@ class DockerSwarm(AbstractContextManager):
             yield client
 
     def __enter__(self) -> DockerSwarm:
+        self._check()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
@@ -457,67 +455,10 @@ class DockerSwarm(AbstractContextManager):
 
     @property
     def managers(self) -> Set[ManagerNode]:
+        self._check()
         return set(self._managers.keys())
 
     @property
     def workers(self) -> Set[WorkerNode]:
+        self._check()
         return set(self._workers.keys())
-
-
-class WorkloadSwarm(DockerSwarm):
-    role_key: str = 'role'
-    role_server_val: str = 'cloudlet'
-    role_client_val: str = 'client'
-
-    def __init__(self,
-                 manager: ConnectedWorkloadHost,
-                 servers: Collection[ConnectedWorkloadHost],
-                 clients: Collection[ConnectedWorkloadHost],
-                 labels: Dict[ConnectedWorkloadHost, Dict[str, str]] = fdict()):
-        labels = defaultdict(dict, labels)
-
-        # TODO: there does not need to be a one to one mapping between
-        #  workers and clients, and servers and managers. We could have
-        #  clients deployed on managers.
-        # TODO: get rid of server/client nomenclature.
-        # TODO: free placement with sane defaults.
-        # TODO: remove this class, merge with parent!
-
-        # build up mappings for base class
-        managers = {}
-        workers = {}
-        for host in servers:
-            host_labels = labels[host]
-            host_labels[self.role_key] = self.role_server_val
-            managers[host] = host_labels
-
-        for host in clients:
-            host_labels = labels[host]
-            host_labels[self.role_key] = self.role_client_val
-            workers[host] = host_labels
-
-        super(WorkloadSwarm, self).__init__(managers=managers, workers=workers)
-
-    def deploy_workload(self, workload: WorkloadDefinition):
-        # sanity check: do we have enough clients to satisfy placement
-        # requirements?
-        req_clients = sum(workload.clients.items())
-
-
-        # set up an overlay network for the workload
-        logger.info(f'Creating overlay network for workload {workload.name}.')
-        net_name = str(uuid.uuid4())
-        with self.manager_client_ctx() as client:
-            overlay_net = client.networks.create(
-                name=net_name,
-                driver='overlay',
-                check_duplicate=True,
-                internal=True,
-                scope='swarm'
-            )
-
-            logger.info(f'Overlay network {net_name} created for workload '
-                        f'{workload.name}.')
-
-
-
