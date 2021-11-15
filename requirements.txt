@@ -12,3 +12,4 @@ bidict
 plum-dispatch
 pytimeparse
 frozendict
+dataclasses-json
