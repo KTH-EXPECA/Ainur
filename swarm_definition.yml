@@ -1,0 +1,36 @@
+---
+network:
+  cidr: 10.0.0.0/16
+  hosts:
+    elrond:
+      ansible_host: elrond.expeca
+      management_ip: 192.168.1.4
+      workload_nic: enp420
+    workload-client-10:
+      ansible_host: workload-client-11.expeca
+      management_ip: 192.168.1.111
+      workload_nic: eth0
+    workload-client-11:
+      ansible_host: workload-client-11.expeca
+      management_ip: 192.168.1.111
+      workload_nic: eth0
+    workload-client-12:
+      ansible_host: workload-client-12.expeca
+      management_ip: 192.168.1.112
+      workload_nic: eth0
+swarm:
+  managers:
+    elrond:
+      type: cloudlet
+      arch: x86_64
+  workers:
+    workload-client-10:
+      type: client
+      arch: arm64
+    workload-client-11:
+      type: client
+      arch: arm64
+    workload-client-12:
+      type: client
+      arch: arm64
+...
