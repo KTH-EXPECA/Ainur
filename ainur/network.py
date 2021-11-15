@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
-from typing import Mapping, Tuple
+from typing import Any, Mapping, Tuple
 
 import ansible_runner
 from frozendict import frozendict
@@ -104,6 +104,9 @@ class WorkloadNetwork(AbstractContextManager,
 
     def __len__(self) -> int:
         return len(self._hosts)
+
+    def __contains__(self, item: Any) -> bool:
+        return item in self._hosts
 
     @property
     def is_down(self) -> bool:
