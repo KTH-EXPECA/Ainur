@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
-from typing import FrozenSet, Mapping
+from typing import Mapping, Tuple
 
 import ansible_runner
+from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
@@ -14,7 +15,8 @@ from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 # TODO: needs testing
 
 
-class WorkloadNetwork(AbstractContextManager):
+class WorkloadNetwork(AbstractContextManager,
+                      Mapping[str, ConnectedWorkloadHost]):
     """
     Represents a connected workload network.
 
@@ -23,48 +25,54 @@ class WorkloadNetwork(AbstractContextManager):
     """
 
     def __init__(self,
-                 ip_hosts: Mapping[IPv4Interface, DisconnectedWorkloadHost],
+                 cidr: IPv4Network,
+                 hosts: Mapping[str, DisconnectedWorkloadHost],
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
         Parameters
         ----------
-        ip_hosts
-            Mapping from desired IP addresses (given as IPv4 interfaces,
-            i.e. addresses plus network masks) to hosts. Note that
-            all given IP addresses must be in the same network segment.
+        cidr:
+            IP address range for this network specified as a CIDR address block.
+        hosts:
+            A mapping from strings (representing unique identifiers) to
+            hosts to add to the network.
         ansible_context:
             Ansible context to use.
+        ansible_quiet:
+            Quiet Ansible output.
         """
+
         logger.info('Setting up workload network.')
+        logger.info(f'Workload network CIDR block: {cidr}')
+        logger.info(f'Workload network hosts: {[h for h in hosts.items()]}')
 
-        # NOTE: mapping is ip -> host, and not host -> ip, since ip addresses
-        # are unique in a network but a host may have more than one ip.
-
-        # sanity check: all the addresses should be in the same subnet
-        subnets = set([k.network for k in ip_hosts])
-        if not len(subnets) == 1:
-            raise RuntimeError(
-                'Provided IPv4 interfaces should all belong to the '
-                f'same network. Subnets: {subnets}')
-
-        subnet = subnets.pop()
-        logger.info(f'Workload network subnet: {subnet}')
-        logger.info(f'Workload network hosts: {[k for k in ip_hosts]}')
+        # check that all the hosts fit in the network prefix
+        if len(hosts) > cidr.num_addresses - 2:  # exclude: network, broadcast
+            raise RuntimeError('Not enough available addresses in CIDR block '
+                               f'{cidr}. Required number of addresses = '
+                               f'{len(hosts)}; available number of addresses '
+                               f'= {cidr.num_addresses - 2}.')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
 
-        # build an Ansible inventory
+        # build a collection of (future) connected workload hosts
+        conn_hosts = frozendict({
+            name: ConnectedWorkloadHost(
+                ansible_host=host.ansible_host,
+                workload_nic=host.workload_nic,
+                workload_ip=IPv4Interface(f'{address}/{cidr.prefixlen}'),
+                management_ip=host.management_ip
+            ) for (name, host), address in zip(hosts.items(),
+                                               cidr.hosts())
+        })
+
+        # build an Ansible inventory from the hosts
         self._inventory = {
             'all': {
-                'hosts': {
-                    host.name: {
-                        'ansible_host': str(host.management_ip.ip),
-                        'workload_nic': host.workload_nic,
-                        'workload_ip' : str(interface)  # {ip}/{netmask}
-                    } for interface, host in ip_hosts.items()
-                }
+                'hosts': {name: host.to_dict() for name, host in
+                          conn_hosts.items()}
             }
         }
 
@@ -83,25 +91,31 @@ class WorkloadNetwork(AbstractContextManager):
 
             # network is now up and running
 
-        self._address = list(ip_hosts.keys())[0].network
-        self._hosts = set(
-            ConnectedWorkloadHost(
-                name=h.name,
-                ansible_host=h.ansible_host,
-                workload_nic=h.workload_nic,
-                workload_ip=i,
-                management_ip=h.management_ip
-            )
-            for i, h in ip_hosts.items()
-        )
+        self._network = cidr
+        self._hosts = conn_hosts
+        self._torn_down = False
+
+    def __iter__(self) -> Tuple[str, ConnectedWorkloadHost]:
+        for name_host in self._hosts.items():
+            yield name_host
+
+    def __getitem__(self, item: str) -> ConnectedWorkloadHost:
+        return self._hosts[item]
+
+    def __len__(self) -> int:
+        return len(self._hosts)
 
     @property
-    def hosts(self) -> FrozenSet[ConnectedWorkloadHost]:
-        return frozenset(self._hosts)
+    def is_down(self) -> bool:
+        return self._torn_down
+
+    @property
+    def hosts(self) -> frozendict[str, ConnectedWorkloadHost]:
+        return self._hosts
 
     @property
     def address(self) -> IPv4Network:
-        return self._address
+        return self._network
 
     def tear_down(self) -> None:
         """
@@ -109,6 +123,9 @@ class WorkloadNetwork(AbstractContextManager):
         Note that after calling this method, this object will be left in an
         invalid state and should not be used any more.
         """
+
+        if self._torn_down:
+            return
 
         # prepare a temp ansible environment and run the appropriate playbook
         logger.warning('Tearing down workload network!')
@@ -124,15 +141,17 @@ class WorkloadNetwork(AbstractContextManager):
             assert res.status != 'failed'
             # network is down
 
-        self._address = None
-        self._hosts.clear()
+        self._torn_down = True
         logger.warning('Workload network has been torn down.')
 
     def __enter__(self) -> WorkloadNetwork:
+        if self._torn_down:
+            raise RuntimeError('Network has already been torn down.')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.tear_down()
-        return super(WorkloadNetwork, self).__exit__(exc_type, exc_val, exc_tb)
+        return super(WorkloadNetwork, self).__exit__(exc_type, exc_val,
+                                                     exc_tb)
 
 # TODO: need a way to test network locally
