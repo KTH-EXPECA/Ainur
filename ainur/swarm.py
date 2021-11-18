@@ -13,6 +13,7 @@ from loguru import logger
 
 from . import WorkloadNetwork
 from .hosts import ConnectedWorkloadHost
+from .workload import WorkloadDefinition
 
 
 @contextmanager
@@ -462,3 +463,6 @@ class DockerSwarm(AbstractContextManager):
     def workers(self) -> Set[WorkerNode]:
         self._check()
         return set(self._workers.keys())
+
+    def deploy_workload(self, definition: WorkloadDefinition) -> Any:
+        pass
