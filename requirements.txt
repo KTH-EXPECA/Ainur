@@ -4,12 +4,8 @@ jsonschema
 pyyaml
 click
 ansible-runner
-marshmallow
-dacite
 docker
 loguru
-bidict
-plum-dispatch
 pytimeparse
 frozendict
 dataclasses-json
