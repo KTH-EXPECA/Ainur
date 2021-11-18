@@ -1,45 +1,24 @@
 from __future__ import annotations
 
 import abc
-import uuid
+import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, Generator, Literal, Optional, \
+from typing import Any, Dict, FrozenSet, Generator, Literal, Optional, \
     Set
 
 import petname
 from docker import DockerClient
+from docker.types import ServiceMode
+from frozendict import frozendict
 from loguru import logger
 
 from . import WorkloadNetwork
 from .hosts import ConnectedWorkloadHost
+from .misc import docker_client_context, ceildiv
 from .workload import WorkloadDefinition
-
-
-@contextmanager
-def docker_client_context(*args, **kwargs) \
-        -> Generator[DockerClient, None, None]:
-    """
-    Utility context manager which simply creates a DockerClient with the
-    provided arguments, binds it to the 'as' argument, and makes sure to
-    close it on exiting the context.
-
-    Parameters
-    ----------
-    args
-
-    kwargs
-
-    Yields
-    ------
-    DockerClient
-        An initialized Docker client instance.
-    """
-    client = DockerClient(*args, **kwargs)
-    yield client
-    client.close()
 
 
 class SwarmWarning(Warning):
@@ -328,6 +307,7 @@ class DockerSwarm(AbstractContextManager):
                 labels=labels,
                 daemon_port=self._daemon_port
             )
+            manager_nodes[host_id] = first_manager_node
 
             # rest of nodes are added in parallel
             with ThreadPoolExecutor() as tpool:
@@ -382,13 +362,21 @@ class DockerSwarm(AbstractContextManager):
 
             raise
 
-        self._managers = manager_nodes
-        self._workers = worker_nodes
+        self._managers = frozendict(manager_nodes)
+        self._workers = frozendict(worker_nodes)
         self._torn_down = False
+        self._n_nodes = len(self._managers) + len(self._workers)
 
     def _check(self) -> None:
         if self._torn_down:
             raise SwarmException('Swarm has been torn down.')
+
+    @property
+    def num_nodes(self) -> int:
+        return self._n_nodes
+
+    def __len__(self) -> int:
+        return self.num_nodes
 
     def tear_down(self) -> None:
         """
@@ -406,7 +394,7 @@ class DockerSwarm(AbstractContextManager):
 
         # save a final manager to disconnect at the end, to ensure a
         # consistent state across the operation
-        manager, manager_id = self._managers.popitem()
+        manager_id, manager = next(iter(self._managers.items()))
 
         with ThreadPoolExecutor() as tpool:
             def leave_swarm(node: SwarmNode) -> None:
@@ -418,9 +406,6 @@ class DockerSwarm(AbstractContextManager):
 
         # final manager leaves
         manager.leave_swarm(force=True)
-
-        self._workers.clear()
-        self._managers.clear()
         logger.warning('Swarm has been torn down.')
 
     @contextmanager
@@ -441,9 +426,7 @@ class DockerSwarm(AbstractContextManager):
 
         self._check()
 
-        mgr, mgr_id = self._managers.popitem()
-        self._managers[mgr] = mgr_id
-
+        mgr_id, mgr = next(iter(self._managers.items()))
         with mgr.client_context() as client:
             yield client
 
@@ -457,28 +440,34 @@ class DockerSwarm(AbstractContextManager):
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
 
     @property
-    def managers(self) -> Set[ManagerNode]:
+    def managers(self) -> FrozenSet[ManagerNode]:
         self._check()
-        return set(self._managers.keys())
+        return frozenset(self._managers.values())
 
     @property
-    def workers(self) -> Set[WorkerNode]:
+    def workers(self) -> FrozenSet[WorkerNode]:
         self._check()
-        return set(self._workers.keys())
+        return frozenset(self._workers.keys())
 
     def deploy_workload(self, definition: WorkloadDefinition) -> Any:
         logger.warning(f'Attempting to deploy workload '
                        f'{definition.name} to Swarm')
 
         # calculate total target number of running containers for debugging
-        total_hosts = 0
-        for s_def in definition.services:
-            # ceil(a/b) = -(a // -b), see https://stackoverflow.com/a/17511341
-            req_hosts = -(s_def.replicas // -s_def.max_reps_per_host)
-            total_hosts += req_hosts
+        total_hosts = sum([ceildiv(s_def.replicas, s_def.max_reps_per_host)
+                           for s_def in definition.services])
 
+        if total_hosts > self.num_nodes:
+            warnings.warn(
+                'Preliminary guess for required total number of hosts for '
+                f'workload {definition.name} is {total_hosts}, but Swarm has '
+                f'only {self.num_nodes} available. '
+                f'Workload might not be able to be deployed!',
+                SwarmWarning
+            )
 
         # set up an overlay network exclusively for the workload
+        # TODO: error handling
         logger.info('Initializing an overlay network for the workload.')
         net_name = f'net-{petname.generate(words=2)}'
         with self.manager_client_ctx() as client:
@@ -493,5 +482,27 @@ class DockerSwarm(AbstractContextManager):
             logger.info(f'Initialized overlay network with name {net_name} '
                         f'and ID {network.id}')
 
-        # network is up, we can proceed to service deployment
+            # network is up, we can proceed to service deployment
+            for s_def in definition.services:
+                service = client.service.create(
+                    name=s_def.name,
+                    image=s_def.image,
+                    mode=ServiceMode(mode='replicated',
+                                     replicas=s_def.replicas),
+                    maxreplicas=s_def.max_reps_per_host,
+                    env=[f'{k.upper()}={str(v).upper()}'
+                         for k, v in s_def.environment.items()],
+                    constraints=[f'{k}=={v}' for k, v
+                                 in s_def.placement.items()],
+                    networks=[network.id]
+                )
+
+                # wait until service is fully running
+                not_done = True
+                while not_done:
+                    time.sleep(0.01)
+                    for task in service.tasks():
+                        not_done = (task['status']['state'] != 'Running')
+
+                # record running workload service
 
