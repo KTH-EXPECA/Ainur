@@ -9,3 +9,4 @@ loguru
 pytimeparse
 frozendict
 dataclasses-json
+petname

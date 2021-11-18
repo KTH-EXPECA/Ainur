@@ -12,14 +12,16 @@ from frozendict import frozendict
 class WorkloadServiceDefinition:
     name: str
     image: str
+    replicas: int
     placement: frozendict[str, Any]
     environment: frozendict[str, Any] = field(default_factory=frozendict)
+    max_reps_per_host: int = 1
 
 
 @dataclass(frozen=True, eq=True)
 class WorkloadDefinition:
     name: str
-    services: frozendict[WorkloadServiceDefinition, int]
+    services: FrozenSet[WorkloadServiceDefinition]
     max_duration: str = '1d'
 
     # TODO include fluentbit container here somewhere?

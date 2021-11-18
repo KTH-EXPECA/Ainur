@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import uuid
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
@@ -8,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Generator, Literal, Optional, \
     Set
 
+import petname
 from docker import DockerClient
 from loguru import logger
 
@@ -465,4 +467,31 @@ class DockerSwarm(AbstractContextManager):
         return set(self._workers.keys())
 
     def deploy_workload(self, definition: WorkloadDefinition) -> Any:
-        pass
+        logger.warning(f'Attempting to deploy workload '
+                       f'{definition.name} to Swarm')
+
+        # calculate total target number of running containers for debugging
+        total_hosts = 0
+        for s_def in definition.services:
+            # ceil(a/b) = -(a // -b), see https://stackoverflow.com/a/17511341
+            req_hosts = -(s_def.replicas // -s_def.max_reps_per_host)
+            total_hosts += req_hosts
+
+
+        # set up an overlay network exclusively for the workload
+        logger.info('Initializing an overlay network for the workload.')
+        net_name = f'net-{petname.generate(words=2)}'
+        with self.manager_client_ctx() as client:
+            network = client.network.create(
+                name=net_name,
+                driver='overlay',
+                attachable=True,
+                scope='global',
+                check_duplicate=True
+            )
+
+            logger.info(f'Initialized overlay network with name {net_name} '
+                        f'and ID {network.id}')
+
+        # network is up, we can proceed to service deployment
+
