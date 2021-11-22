@@ -5,7 +5,7 @@ from frozendict import frozendict
 from loguru import logger
 
 from ainur import *
-from ainur.workload import Workload, WorkloadProcessDefinition
+from ainur.swarm.workload import Workload, WorkloadProcessDefinition
 
 if __name__ == '__main__':
     # quick test to verify network + swarm work

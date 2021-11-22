@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from typing import Any, Dict, FrozenSet, Generator
 
-import petname
 from docker import DockerClient
-from docker.types import RestartPolicy, ServiceMode
-from docker.types.services import RestartConditionTypesEnum
 from frozendict import frozendict
 from loguru import logger
 
 from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
-from ..misc import ceildiv
 from ..network import WorkloadNetwork
-from ..workload import WorkloadDefinition
 
 
 class DockerSwarm(AbstractContextManager):
@@ -220,70 +214,5 @@ class DockerSwarm(AbstractContextManager):
         self._check()
         return frozenset(self._workers.keys())
 
-    def deploy_workload(self, definition: WorkloadDefinition) -> Any:
-        logger.warning(f'Attempting to deploy workload '
-                       f'{definition.name} to Swarm')
-
-        # calculate total target number of running containers for debugging
-        total_hosts = sum([ceildiv(s_def.replicas, s_def.max_reps_per_host)
-                           for s_def in definition.services])
-
-        if total_hosts > self.num_nodes:
-            warnings.warn(
-                'Preliminary guess for required total number of hosts for '
-                f'workload {definition.name} is {total_hosts}, but Swarm has '
-                f'only {self.num_nodes} available. '
-                f'Might not be able to be deploy workload!',
-                SwarmWarning
-            )
-
-        # set up an overlay network exclusively for the workload
-        # TODO: error handling
-        logger.info('Initializing an overlay network for the workload.')
-        net_name = f'net-{petname.generate(words=2)}'
-        with self.manager_client_ctx() as client:
-            network = client.network.create(
-                name=net_name,
-                driver='overlay',
-                attachable=True,
-                scope='global',
-                check_duplicate=True
-            )
-
-            logger.info(f'Initialized overlay network with name {net_name} '
-                        f'and ID {network.id}')
-
-            client.swarm.reload()
-            swarm_id = client.swarm.attrs['ID']
-
-            # network is up, we can proceed to service deployment
-            running_services = set()
-            for s_def in definition.services:
-                # TODO: flexible restart condition?
-                service = client.service.create(
-                    name=s_def.name,
-                    image=s_def.image,
-                    mode=ServiceMode(mode='replicated',
-                                     replicas=s_def.replicas),
-                    maxreplicas=s_def.max_reps_per_host,
-                    env=[f'{k.upper()}={str(v).upper()}'
-                         for k, v in s_def.environment.items()],
-                    constraints=[f'{k}=={v}' for k, v
-                                 in s_def.placement.items()],
-                    networks=[network.id],
-                    restart_policy=RestartPolicy(
-                        condition=RestartConditionTypesEnum.NONE,
-                    )
-                )
-
-                # wait until service is fully running
-                ready = False
-                while not ready:
-                    time.sleep(0.01)  # FIXME: magic number
-                    ready = True
-                    for t in service.tasks():
-                        ready = (ready & (t['status']['state'] == 'Running'))
-
-                start_time = time.monotonic()
-
-                # record running workload service
+    def deploy_workload(self) -> Any:
+        pass
