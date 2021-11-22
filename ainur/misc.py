@@ -1,6 +1,7 @@
 # miscellaneous utility functions and classes
+import threading
 from contextlib import contextmanager
-from typing import Generator
+from typing import Callable, Generator
 
 from docker import DockerClient
 
@@ -36,3 +37,27 @@ def ceildiv(a: int, b: int) -> int:
 
     # ceil(a/b) = -(a // -b), see https://stackoverflow.com/a/17511341
     return -(a // -b)
+
+
+# noinspection PyUnresolvedReferences
+class RepeatingTimer(threading.Timer):
+    """
+    Repeats until cancelled or the internal function returns false.
+    """
+
+    def __init__(self,
+                 interval: float,
+                 function: Callable[..., bool],
+                 args: Optional[Tuple] = None,
+                 kwargs: Optional[Dict] = None):
+        super(RepeatingTimer, self).__init__(interval=interval,
+                                             function=function,
+                                             args=args,
+                                             kwargs=kwargs)
+
+    def run(self):
+        self.finished.wait(self.interval)
+        while not self.finished.is_set() \
+                and self.function(*self.args, **self.kwargs):
+            self.finished.wait(self.interval)
+        self.finished.set()

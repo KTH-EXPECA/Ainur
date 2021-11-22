@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import AbstractContextManager, contextmanager
-from typing import Any, Dict, FrozenSet, Generator
+from contextlib import AbstractContextManager
+from typing import Any, Dict, FrozenSet
 
-from docker import DockerClient
 from frozendict import frozendict
 from loguru import logger
+from python_on_whales import DockerClient as WhaleClient
+from pytimeparse import timeparse
 
 from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
+from .workload import WorkloadDefinition
+from ..misc import RepeatingTimer
 from ..network import WorkloadNetwork
+
+_unhealthy_task_states = ('failed', 'rejected', 'orphaned')
 
 
 class DockerSwarm(AbstractContextManager):
@@ -173,28 +179,6 @@ class DockerSwarm(AbstractContextManager):
         manager.leave_swarm(force=True)
         logger.warning('Swarm has been torn down.')
 
-    @contextmanager
-    def manager_client_ctx(self) -> Generator[DockerClient, None, None]:
-        """
-        Returns a Docker client to a manager node wrapped in a context manager.
-
-        Example usage::
-
-            with swarm.manager_client_ctx() as client:
-                client.services.ls()
-
-        Yields
-        ------
-        DockerClient
-            A Docker client attached to an arbitrary manager node.
-        """
-
-        self._check()
-
-        mgr_id, mgr = next(iter(self._managers.items()))
-        with mgr.client_context() as client:
-            yield client
-
     def __enter__(self) -> DockerSwarm:
         self._check()
         return self
@@ -214,5 +198,119 @@ class DockerSwarm(AbstractContextManager):
         self._check()
         return frozenset(self._workers.keys())
 
-    def deploy_workload(self) -> Any:
-        pass
+    def deploy_workload(self,
+                        definition: WorkloadDefinition,
+                        health_check_poll_interval: float = 10.0) -> Any:
+        logger.info(f'Deploying workload {definition.name}.')
+
+        with definition.temp_compose_file() as compose_file:
+            logger.debug(f'Using temporary docker-compose v3 at '
+                         f'{compose_file}.')
+
+            # we use python-on-whales to deploy the service stack,
+            # since docker-py is too low-level.
+
+            # grab an arbitrary manager and point a client to it
+            mgr_id, mgr_node = next(iter(self._managers.items()))
+            host_addr = f'{mgr_node.host.management_ip.ip}:' \
+                        f'{mgr_node.daemon_port}'
+
+            stack = WhaleClient(host=host_addr).stack.deploy(
+                name=definition.name,
+                compose_files=[compose_file],
+                orchestrator='swarm',
+            )
+
+            # TODO: environment files
+            # TODO: variables in compose? really useful!
+            # TODO: logging. could be handled here instead of in fluentbit
+
+            # convert the python-on-whales service objects into pure
+            # Docker-Py Service objects for more efficient health checks
+
+            with mgr_node.client_context() as client:
+                services = [client.services.get(s.id) for s in stack.services()]
+
+            # start health checks and countdown to max duration
+
+            # thread functions
+            # ----------------
+            timed_out = threading.Event()
+            unhealthy_event = threading.Event()
+            finished_event = threading.Event()
+            status_cond = threading.Condition()
+
+            def _wkld_timeout():
+                logger.warning(f'Workload {definition.name} timed out!')
+                with status_cond:
+                    timed_out.set()
+                    status_cond.notify_all()
+
+            def _health_check() -> bool:
+                complete = True
+                for serv in services:
+                    serv.reload()
+                    serv_name = serv['Spec']['Name']
+                    for task in serv.tasks():
+                        task_id = task['ID']
+                        task_state = task['Status']['State'].lower()
+                        if task_state in _unhealthy_task_states:
+                            logger.critical(
+                                f'Unhealthy task {task_id} (state: '
+                                f'{task_state} in service {serv_name}; '
+                                f'aborting workload {definition.name}!'
+                            )
+
+                            with status_cond:
+                                unhealthy_event.set()
+                                status_cond.notify_all()
+                                return False
+                        elif task_state == 'complete':
+                            logger.warning(
+                                f'Task {task_id} in service {serv_name} '
+                                f'has finished.'
+                            )
+                            complete = (complete and True)
+                        else:
+                            complete = False
+
+                if not complete:
+                    logger.info(f'Workload {definition.name} has passed health '
+                                f'check.')
+                else:
+                    logger.warning(f'All tasks in workload {definition} have '
+                                   f'finished.')
+                    with status_cond:
+                        finished_event.set()
+                        status_cond.notify_all()
+                        return False
+
+                return True
+
+            # ----------------
+
+            max_duration = timeparse.timeparse(definition.max_duration,
+                                               granularity='seconds')
+            timeout_timer = threading.Timer(interval=max_duration,
+                                            function=_wkld_timeout)
+            timeout_timer.start()
+
+            health_check_timer = RepeatingTimer(
+                interval=health_check_poll_interval,
+                function=_health_check
+            )
+            health_check_timer.start()
+
+            with status_cond:
+                while True:
+                    if timed_out.is_set():
+                        # TODO: handle timeout
+                        break
+                    elif unhealthy_event.is_set():
+                        # TODO: handle unhealthy tasks
+                        break
+                    elif finished_event.is_set():
+                        # TODO: handled workload finished
+                        break
+                    else:
+                        status_cond.wait()

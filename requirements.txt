@@ -10,3 +10,4 @@ pytimeparse
 frozendict
 dataclasses-json
 petname
+python-on-whales
