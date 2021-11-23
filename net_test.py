@@ -1,85 +1,113 @@
-from ipaddress import IPv4Interface
 from pathlib import Path
 
-from frozendict import frozendict
-from loguru import logger
+import yaml
 
 from ainur import *
-from ainur.swarm.workload import Workload, WorkloadProcessDefinition
+from ainur.swarm import WorkloadSpecification
+
+# language=yaml
+net_swarm_config = '''
+---
+network:
+  cidr: 10.0.0.0/16
+  hosts:
+    elrond:
+      ansible_host: elrond.expeca
+      management_ip: 192.168.1.4
+      workload_nic: enp420
+    workload-client-10:
+      ansible_host: workload-client-11.expeca
+      management_ip: 192.168.1.111
+      workload_nic: eth0
+    workload-client-11:
+      ansible_host: workload-client-11.expeca
+      management_ip: 192.168.1.111
+      workload_nic: eth0
+    workload-client-12:
+      ansible_host: workload-client-12.expeca
+      management_ip: 192.168.1.112
+      workload_nic: eth0
+swarm:
+  managers:
+    elrond:
+      type: cloudlet
+      arch: x86_64
+  workers:
+    workload-client-10:
+      type: client
+      arch: arm64
+    workload-client-11:
+      type: client
+      arch: arm64
+    workload-client-12:
+      type: client
+      arch: arm64
+...
+'''
+
+# language=yaml
+workload_def = '''
+---
+name: WorkloadExample
+author: "Manuel Olguín Muñoz"
+email: "molguin@kth.se"
+version: "1.0a"
+url: "expeca.proj.kth.se"
+max_duration: "3h 30m"
+compose:
+  version: "3.9"
+  services:
+    iperf3server:
+      image: taoyou/iperf3-alpine:latest
+      deploy:
+        replicas: 3
+        placement:
+          max_replicas_per_node: 3
+          constraints:
+          - "node.labels.type==cloudlet"
+  
+    iperf3client:
+      image: taoyou/iperf3-alpine:latest
+      deploy:
+        replicas: 3
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.type==client"
+      command: "-c iperf3server -t 10"
+      depends_on: iperf3server
+...
+'''
 
 if __name__ == '__main__':
     # quick test to verify network + swarm work
 
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
 
-    # build up a workload network
+    workload = WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
+
+    net_swarm = yaml.safe_load(net_swarm_config)
+
     hosts = {
-        IPv4Interface('10.0.0.1/16') : DisconnectedWorkloadHost(
-            name='cloudlet',
-            ansible_host='elrond.expeca',
-            management_ip=IPv4Interface('192.168.1.4'),
-            workload_nic='enp4s0'
-        ),
-        IPv4Interface('10.0.1.10/16'): DisconnectedWorkloadHost(
-            name='client10',
-            ansible_host='workload-client-10.expeca',
-            management_ip=IPv4Interface('192.168.1.110'),
-            workload_nic='eth0'
-        ),
-        IPv4Interface('10.0.1.11/16'): DisconnectedWorkloadHost(
-            name='client11',
-            ansible_host='workload-client-11.expeca',
-            management_ip=IPv4Interface('192.168.1.111'),
-            workload_nic='eth0'
-        ),
-        IPv4Interface('10.0.1.12/16'): DisconnectedWorkloadHost(
-            name='client12',
-            ansible_host='workload-client-12.expeca',
-            management_ip=IPv4Interface('192.168.1.112'),
-            workload_nic='eth0'
-        ),
+        name: DisconnectedWorkloadHost.from_dict(d)
+        for name, d in net_swarm['network']['hosts'].items()
     }
 
-    # bring up the network
-    with WorkloadNetwork(hosts, ansible_ctx) as network:
-        logger.warning('Network is up.')
+    managers = net_swarm['swarm']['managers']
+    workers = net_swarm['swarm']['workers']
 
-        # bring up the swarm
-        with DockerSwarm(network,
-                         managers={'cloudlet'},
-                         labels={}) as swarm:
-            logger.warning('Swarm is up.')
-
-            process_defs = set()
-            for i, worker in enumerate(swarm.workers):
-                server_proc = WorkloadProcessDefinition(
-                    name='prime-server',
-                    image='expeca/primeworkload',
-                    tag='server',
-                    nodes=frozenset(swarm.managers),
-                    environment=frozendict(PORT=5000)
-                )
-
-                client_proc = WorkloadProcessDefinition(
-                    name='prime-client',
-                    image='expeca/primeworkload',
-                    tag='client',
-                    nodes=frozenset([worker]),
-                    environment=frozendict(SERVER_ADDR=server_proc.service_name,
-                                           SERVER_PORT=5000)
-                )
-                process_defs.update({server_proc, client_proc})
-
-            workload = Workload(
-                name=f'TestWorkload-{i}',
-                duration='30s',
-                process_defs=frozenset(process_defs),
+    with WorkloadNetwork(
+            cidr=net_swarm['network']['cidr'],
+            hosts=hosts,
+            ansible_context=ansible_ctx,
+            ansible_quiet=False
+    ) as workload_net:
+        with DockerSwarm(
+                network=workload_net,
+                managers=managers,
+                workers=workers
+        ) as swarm:
+            swarm.deploy_workload(
+                specification=workload,
+                health_check_poll_interval=10.0
             )
-            workload.deploy_to_swarm(swarm)
-
-        logger.warning('Swarm is down.')
-
-        # swarm is down
-
-    logger.warning('Network is down.')
-    # network is down

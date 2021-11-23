@@ -1,7 +1,7 @@
 # miscellaneous utility functions and classes
 import threading
 from contextlib import contextmanager
-from typing import Callable, Generator
+from typing import Callable, Dict, Generator, Optional, Tuple
 
 from docker import DockerClient
 
@@ -39,7 +39,6 @@ def ceildiv(a: int, b: int) -> int:
     return -(a // -b)
 
 
-# noinspection PyUnresolvedReferences
 class RepeatingTimer(threading.Timer):
     """
     Repeats until cancelled or the internal function returns false.
@@ -55,6 +54,7 @@ class RepeatingTimer(threading.Timer):
                                              args=args,
                                              kwargs=kwargs)
 
+    # noinspection PyUnresolvedReferences
     def run(self):
         self.finished.wait(self.interval)
         while not self.finished.is_set() \
