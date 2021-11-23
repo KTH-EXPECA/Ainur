@@ -11,3 +11,4 @@ frozendict
 dataclasses-json
 petname
 python-on-whales
+docker-compose

@@ -4,3 +4,7 @@ class SwarmWarning(Warning):
 
 class SwarmException(Exception):
     pass
+
+
+class ConfigError(Exception):
+    pass

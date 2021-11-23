@@ -13,11 +13,9 @@ from pytimeparse import timeparse
 
 from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
-from .workload import WorkloadDefinition
+from .workload import WorkloadResult, WorkloadSpecification
 from ..misc import RepeatingTimer
 from ..network import WorkloadNetwork
-
-_unhealthy_task_states = ('failed', 'rejected', 'orphaned')
 
 
 class DockerSwarm(AbstractContextManager):
@@ -31,11 +29,28 @@ class DockerSwarm(AbstractContextManager):
     """
 
     _daemon_port = 2375
+    _unhealthy_task_states = ('failed', 'rejected', 'orphaned')
 
     def __init__(self,
                  network: WorkloadNetwork,
                  managers: Dict[str, Dict[str, Any]],
                  workers: Dict[str, Dict[str, Any]]):
+        """
+        Parameters
+        ----------
+        network
+            Workload network to build this Swarm on top off.
+        managers
+            Dictionary of hostnames to node labels for manager nodes. Needs
+            to contain at least one key-value pair.
+        workers
+            Dictionary of hostnames to node labels for manager nodes.
+
+        Raises
+        ------
+        SwarmException
+            If the manager dictionary contains no elements.
+        """
 
         logger.info('Setting up Docker Swarm.')
 
@@ -143,6 +158,12 @@ class DockerSwarm(AbstractContextManager):
 
     @property
     def num_nodes(self) -> int:
+        """
+        Returns
+        -------
+        int
+            The number of nodes in this Swarm.
+        """
         return self._n_nodes
 
     def __len__(self) -> int:
@@ -190,20 +211,59 @@ class DockerSwarm(AbstractContextManager):
 
     @property
     def managers(self) -> FrozenSet[ManagerNode]:
+        """
+        Returns
+        -------
+        FrozenSet
+            A view into the Manager nodes of this Swarm.
+
+        Raises
+        ------
+        SwarmException
+            If Swarm has been torn down.
+        """
         self._check()
         return frozenset(self._managers.values())
 
     @property
     def workers(self) -> FrozenSet[WorkerNode]:
+        """
+        Returns
+        -------
+        FrozenSet
+            A view into the Worker nodes of this Swarm.
+
+        Raises
+        ------
+        SwarmException
+            If Swarm has been torn down.
+        """
         self._check()
         return frozenset(self._workers.keys())
 
     def deploy_workload(self,
-                        definition: WorkloadDefinition,
-                        health_check_poll_interval: float = 10.0) -> Any:
-        logger.info(f'Deploying workload {definition.name}.')
+                        specification: WorkloadSpecification,
+                        health_check_poll_interval: float = 10.0) \
+            -> WorkloadResult:
+        """
+        Runs a workload, as described by a WorkloadDefinition object, on this
+        Swarm and waits for it to finish (or fail).
 
-        with definition.temp_compose_file() as compose_file:
+        Parameters
+        ----------
+        specification
+            The workload spec to deploy.
+        health_check_poll_interval
+            How often to check the health of the deployed services, in seconds.
+
+        Returns
+        -------
+        WorkloadResult
+            An Enum indicating the exit status of the workload.
+        """
+        logger.info(f'Deploying workload {specification.name}.')
+
+        with specification.temp_compose_file() as compose_file:
             logger.debug(f'Using temporary docker-compose v3 at '
                          f'{compose_file}.')
 
@@ -216,7 +276,7 @@ class DockerSwarm(AbstractContextManager):
                         f'{mgr_node.daemon_port}'
 
             stack = WhaleClient(host=host_addr).stack.deploy(
-                name=definition.name,
+                name=specification.name,
                 compose_files=[compose_file],
                 orchestrator='swarm',
             )
@@ -241,7 +301,7 @@ class DockerSwarm(AbstractContextManager):
             status_cond = threading.Condition()
 
             def _wkld_timeout():
-                logger.warning(f'Workload {definition.name} timed out!')
+                logger.warning(f'Workload {specification.name} timed out!')
                 with status_cond:
                     timed_out.set()
                     status_cond.notify_all()
@@ -249,16 +309,18 @@ class DockerSwarm(AbstractContextManager):
             def _health_check() -> bool:
                 complete = True
                 for serv in services:
+                    # update service status from the client,
+                    # then iterate over tasks and check if they are healthy.
                     serv.reload()
                     serv_name = serv['Spec']['Name']
                     for task in serv.tasks():
                         task_id = task['ID']
                         task_state = task['Status']['State'].lower()
-                        if task_state in _unhealthy_task_states:
+                        if task_state in self._unhealthy_task_states:
                             logger.critical(
                                 f'Unhealthy task {task_id} (state: '
                                 f'{task_state} in service {serv_name}; '
-                                f'aborting workload {definition.name}!'
+                                f'aborting workload {specification.name}!'
                             )
 
                             with status_cond:
@@ -274,12 +336,12 @@ class DockerSwarm(AbstractContextManager):
                         else:
                             complete = False
 
-                if not complete:
-                    logger.info(f'Workload {definition.name} has passed health '
-                                f'check.')
-                else:
-                    logger.warning(f'All tasks in workload {definition} have '
-                                   f'finished.')
+                logger.info(f'Workload {specification.name} has passed health '
+                            f'check.')
+                if complete:
+                    logger.warning(
+                        f'All tasks in workload {specification.name} '
+                        f'have finished.')
                     with status_cond:
                         finished_event.set()
                         status_cond.notify_all()
@@ -289,7 +351,7 @@ class DockerSwarm(AbstractContextManager):
 
             # ----------------
 
-            max_duration = timeparse.timeparse(definition.max_duration,
+            max_duration = timeparse.timeparse(specification.max_duration,
                                                granularity='seconds')
             timeout_timer = threading.Timer(interval=max_duration,
                                             function=_wkld_timeout)
@@ -301,16 +363,34 @@ class DockerSwarm(AbstractContextManager):
             )
             health_check_timer.start()
 
-            with status_cond:
-                while True:
-                    if timed_out.is_set():
-                        # TODO: handle timeout
+            # block and wait for workload to either finish, fail, or time-out.
+            result = WorkloadResult.ERROR
+            try:
+                with status_cond:
+                    while True:
+                        if timed_out.is_set():
+                            # TODO: special handling for time-out?
+                            result = WorkloadResult.TIMEOUT
+                        elif unhealthy_event.is_set():
+                            # TODO: special handling for unhealthy workload?
+                            result = WorkloadResult.ERROR
+                        elif finished_event.is_set():
+                            # TODO: special handling for clean shutdown?
+                            result = WorkloadResult.FINISHED
+                        else:
+                            status_cond.wait()
+                            continue
                         break
-                    elif unhealthy_event.is_set():
-                        # TODO: handle unhealthy tasks
-                        break
-                    elif finished_event.is_set():
-                        # TODO: handled workload finished
-                        break
-                    else:
-                        status_cond.wait()
+            finally:
+                # whatever happens, at this point we stop the threads and
+                # tear down the service stack
+                timeout_timer.cancel()
+                health_check_timer.cancel()
+                timeout_timer.join()
+                health_check_timer.join()
+
+                logger.warning('Tearing down Docker Swarm service stack for '
+                               f'workload {specification.name}.')
+                stack.remove()
+
+            return result
