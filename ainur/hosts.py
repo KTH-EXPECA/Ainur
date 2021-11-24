@@ -30,8 +30,15 @@ class DisconnectedWorkloadHost(AnsibleHost):
     workload_nic: str
     management_ip: IPv4Interface = ip_field(IPv4Interface)
 
+    def __str__(self) -> str:
+        return f'{self.ansible_host} (management address {self.management_ip})'
+
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class ConnectedWorkloadHost(DisconnectedWorkloadHost):
     workload_ip: IPv4Interface = ip_field(IPv4Interface)
+
+    def __str__(self) -> str:
+        return f'{self.ansible_host} (management address ' \
+               f'{self.management_ip}; workload address: {self.workload_ip})'

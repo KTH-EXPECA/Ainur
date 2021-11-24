@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
 from typing import Any, Mapping, Tuple
@@ -48,7 +49,13 @@ class WorkloadNetwork(AbstractContextManager,
 
         logger.info('Setting up workload network.')
         logger.info(f'Workload network CIDR block: {cidr}')
-        logger.info(f'Workload network hosts: {[h for h in hosts.items()]}')
+
+        host_info = '\n'.join([json.dumps({n: h.to_dict()},
+                                          ensure_ascii=False,
+                                          indent=2)
+                               for n, h in hosts.items()])
+
+        logger.info(f'Workload network hosts: {host_info}')
 
         # check that all the hosts fit in the network prefix
         if len(hosts) > cidr.num_addresses - 2:  # exclude: network, broadcast
