@@ -53,7 +53,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "3m"
+max_duration: "5m"
 compose:
   version: "3.9"
   services:
@@ -74,8 +74,8 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
-        restart_policy:
-          condition: none
+      #  restart_policy:
+      #    condition: none
       command: "-c iperf3server -t 90 --connect-timeout 10000"
       depends_on:
       - iperf3server
