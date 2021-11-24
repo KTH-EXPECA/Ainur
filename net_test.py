@@ -80,7 +80,7 @@ compose:
           constraints:
           - "node.labels.type==client"
         restart_policy:
-          condition: none
+          condition: any
       command: "-c $${SERVER} -b 1M"
       environment:
         SERVER: "iperf3server.{{.Task.Slot}}"
