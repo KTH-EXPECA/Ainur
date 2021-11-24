@@ -100,7 +100,7 @@ if __name__ == '__main__':
             cidr=net_swarm['network']['cidr'],
             hosts=hosts,
             ansible_context=ansible_ctx,
-            ansible_quiet=False
+            ansible_quiet=True
     ) as workload_net:
         with DockerSwarm(
                 network=workload_net,

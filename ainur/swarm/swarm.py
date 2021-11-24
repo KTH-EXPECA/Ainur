@@ -83,6 +83,7 @@ class DockerSwarm(AbstractContextManager):
                 raise SwarmException('At least one manager is required for '
                                      'Docker Swarm initialization!') from e
             first_manager_node = ManagerNode.init_swarm(
+                name=host_id,
                 host=network[host_id],
                 labels=labels,
                 daemon_port=self._daemon_port
@@ -98,6 +99,7 @@ class DockerSwarm(AbstractContextManager):
                 def _add_node(args: Dict) -> None:
                     if args['manager']:
                         node = first_manager_node.attach_manager(
+                            name=args['id'],
                             host=args['host'],
                             labels=args['labels'],
                             daemon_port=self._daemon_port
@@ -105,6 +107,7 @@ class DockerSwarm(AbstractContextManager):
                         manager_nodes[args['id']] = node
                     else:
                         node = first_manager_node.attach_worker(
+                            name=args['id'],
                             host=args['host'],
                             labels=args['labels'],
                             daemon_port=self._daemon_port

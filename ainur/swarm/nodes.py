@@ -62,6 +62,7 @@ class ManagerNode(SwarmNode):
 
     @classmethod
     def init_swarm(cls,
+                   name: str,
                    host: ConnectedWorkloadHost,
                    labels: Optional[Dict[str, str]] = None,
                    daemon_port: int = 2375) -> ManagerNode:
@@ -70,6 +71,7 @@ class ManagerNode(SwarmNode):
 
         Parameters
         ----------
+        name
         host
         labels
         daemon_port
@@ -114,7 +116,7 @@ class ManagerNode(SwarmNode):
 
             # set node spec
             node_spec = _NodeSpec(
-                Name=host.name,
+                Name=name,
                 Role='manager',
                 Labels=labels if labels is not None else {}
             )
@@ -169,11 +171,12 @@ class ManagerNode(SwarmNode):
             raise
 
     def attach_manager(self,
+                       name: str,
                        host: ConnectedWorkloadHost,
                        labels: Optional[Dict[str, str]] = None,
                        daemon_port: int = 2375) -> ManagerNode:
         node_spec = _NodeSpec(
-            Name=host.name,
+            Name=name,
             Role='manager',
             Labels=labels if labels is not None else {}
         )
@@ -190,11 +193,12 @@ class ManagerNode(SwarmNode):
         )
 
     def attach_worker(self,
+                      name: str,
                       host: ConnectedWorkloadHost,
                       labels: Optional[Dict[str, str]] = None,
                       daemon_port: int = 2375) -> WorkerNode:
         node_spec = _NodeSpec(
-            Name=host.name,
+            Name=name,
             Role='worker',
             Labels=labels if labels is not None else {}
         )
