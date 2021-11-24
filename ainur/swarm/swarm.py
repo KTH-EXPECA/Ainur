@@ -326,7 +326,7 @@ class DockerSwarm(AbstractContextManager):
                         if task_state in self._unhealthy_task_states:
                             logger.critical(
                                 f'Unhealthy task {task_id} (state: '
-                                f'{task_state} in service {serv_name}; '
+                                f'{task_state}) in service {serv_name}; '
                                 f'aborting workload {specification.name}!'
                             )
 
