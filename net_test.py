@@ -112,5 +112,6 @@ if __name__ == '__main__':
         ) as swarm:
             swarm.deploy_workload(
                 specification=workload,
-                health_check_poll_interval=10.0
+                health_check_poll_interval=10.0,
+                max_failed_checks=-1
             )

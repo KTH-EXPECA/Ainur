@@ -72,7 +72,8 @@ class ServiceHealthCheckThread(RepeatingTimer):
 
         if unhealthy:
             self._current_count += 1
-            if self._current_count >= self._grace_count:
+            if (self._grace_count > 0) and \
+                    (self._current_count >= self._grace_count):
                 logger.critical(
                     'Reached maximum number of failed health checks, aborting.'
                 )
@@ -348,7 +349,8 @@ class DockerSwarm(AbstractContextManager):
 
         logger.info(f'Max workload runtime: {max_dur_hms}')
         logger.info(f'Health check interval: {health_ival_hms}; maximum '
-                    f'allowed failed health checks: {max_failed_checks}.')
+                    f'allowed failed health checks: '
+                    f'{max_failed_checks if max_failed_checks > 0 else "∞"}.')
 
         with specification.temp_compose_file() as compose_file:
             logger.debug(f'Using temporary docker-compose v3 at '
