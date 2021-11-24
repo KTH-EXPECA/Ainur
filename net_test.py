@@ -61,26 +61,27 @@ compose:
   services:
     iperf3server:
       image: taoyou/iperf3-alpine:latest
-      privileged: yes
+      hostname: "iperf3server.{{.Task.Slot}}"
       deploy:
-        replicas: 1
+        replicas: 3
         placement:
           max_replicas_per_node: 3
           constraints:
           - "node.labels.type==cloudlet"
+      command: "-s -1"
   
     iperf3client:
       image: taoyou/iperf3-alpine:latest
       privileged: yes
       deploy:
-        replicas: 1
+        replicas: 3
         placement:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
-      #  restart_policy:
-      #    condition: none
-      command: "-c iperf3server -b 1M"
+        restart_policy:
+          condition: none
+      command: "-c iperf3server.{{.Task.Slot}} -b 1M"
       depends_on:
       - iperf3server
 ...
