@@ -308,7 +308,7 @@ class DockerSwarm(AbstractContextManager):
                     # update service status from the client,
                     # then iterate over tasks and check if they are healthy.
                     serv.reload()
-                    serv_name = serv['Spec']['Name']
+                    serv_name = serv.attrs['Spec']['Name']
                     for task in serv.tasks():
                         task_id = task['ID']
                         task_state = task['Status']['State'].lower()
