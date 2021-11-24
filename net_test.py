@@ -61,6 +61,7 @@ compose:
   services:
     iperf3server:
       image: taoyou/iperf3-alpine:latest
+      privileged: yes
       deploy:
         replicas: 3
         placement:
@@ -72,6 +73,7 @@ compose:
   
     iperf3client:
       image: taoyou/iperf3-alpine:latest
+      privileged: yes
       deploy:
         replicas: 3
         placement:
