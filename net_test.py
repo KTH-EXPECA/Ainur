@@ -65,6 +65,8 @@ compose:
           max_replicas_per_node: 3
           constraints:
           - "node.labels.type==cloudlet"
+      networks:
+      - workloadnet
   
     iperf3client:
       image: taoyou/iperf3-alpine:latest
@@ -79,6 +81,12 @@ compose:
       command: "-c iperf3server -t 90 --connect-timeout 10000"
       depends_on:
       - iperf3server
+      networks:
+      - workloadnet
+  networks:
+    workloadnet:
+      driver: overlay
+      attachable: yes
 ...
 '''
 
