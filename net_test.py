@@ -60,7 +60,7 @@ compose:
     iperf3server:
       image: taoyou/iperf3-alpine:latest
       deploy:
-        replicas: 4
+        replicas: 3
         placement:
           max_replicas_per_node: 3
           constraints:
@@ -71,14 +71,14 @@ compose:
     iperf3client:
       image: taoyou/iperf3-alpine:latest
       deploy:
-        replicas: 3
+        replicas: 1
         placement:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
       #  restart_policy:
       #    condition: none
-      command: "-c iperf3server -t 90 --connect-timeout 10000 -u -b 1M"
+      command: "-c iperf3server -u -b 1M"
       depends_on:
       - iperf3server
       networks:
