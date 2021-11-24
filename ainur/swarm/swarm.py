@@ -4,8 +4,9 @@ import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from typing import Any, Dict, FrozenSet
+from typing import Any, Collection, Dict, FrozenSet
 
+from docker.models.services import Service
 from frozendict import frozendict
 from loguru import logger
 from python_on_whales import DockerClient as WhaleClient, DockerException
@@ -16,6 +17,82 @@ from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
 from ..misc import RepeatingTimer, seconds2hms
 from ..network import WorkloadNetwork
+
+
+class ServiceHealthCheckThread(RepeatingTimer):
+    _unhealthy_task_states = ('failed', 'rejected', 'orphaned')
+
+    def __init__(self,
+                 shared_condition: threading.Condition,
+                 services: Collection[Service],
+                 check_interval: float,
+                 grace_count: int = 3):
+        super(ServiceHealthCheckThread, self).__init__(
+            interval=check_interval,
+            function=self.health_check
+        )
+        self._shared_cond = shared_condition
+        self._unhealthy = threading.Event()
+        self._finished = threading.Event()
+        self._services = services
+        self._grace_count = grace_count
+        self._current_count = 0
+
+    def is_healthy(self) -> bool:
+        return not self._unhealthy.is_set()
+
+    def is_finished(self) -> bool:
+        return self._finished.is_set()
+
+    def health_check(self) -> bool:
+        complete = True
+        unhealthy = False
+        for serv in self._services:
+            # update service status from the client,
+            # then iterate over tasks and check if they are healthy.
+            serv.reload()
+            serv_name = serv.attrs['Spec']['Name']
+            for task in serv.tasks():
+                task_id = task['ID']
+                task_state = task['Status']['State'].lower()
+                if task_state in self._unhealthy_task_states:
+                    logger.warning(
+                        f'Unhealthy task {task_id} (state: '
+                        f'{task_state}) in service {serv_name}.'
+                    )
+                    unhealthy = True
+                elif task_state == 'complete':
+                    logger.warning(
+                        f'Task {task_id} in service {serv_name} '
+                        f'has finished.'
+                    )
+                    complete = (complete and True)
+                else:
+                    complete = False
+
+        if unhealthy:
+            self._current_count += 1
+            if self._current_count >= self._grace_count:
+                logger.critical(
+                    'Reached maximum number of failed health checks, aborting.'
+                )
+                with self._shared_cond:
+                    self._unhealthy.set()
+                    self._shared_cond.notify_all()
+                    return False
+        else:
+            logger.info(f'All services have passed health check.')
+            self._current_count = 0
+
+            if complete:
+                logger.warning(
+                    f'All tasks in all services have finished.')
+                with self._shared_cond:
+                    self._finished.set()
+                    self._shared_cond.notify_all()
+                    return False
+
+            return True
 
 
 class DockerSwarm(AbstractContextManager):
@@ -29,7 +106,6 @@ class DockerSwarm(AbstractContextManager):
     """
 
     _daemon_port = 2375
-    _unhealthy_task_states = ('failed', 'rejected', 'orphaned')
 
     def __init__(self,
                  network: WorkloadNetwork,
@@ -239,7 +315,8 @@ class DockerSwarm(AbstractContextManager):
 
     def deploy_workload(self,
                         specification: WorkloadSpecification,
-                        health_check_poll_interval: float = 10.0) \
+                        health_check_poll_interval: float = 10.0,
+                        max_failed_checks: int = 3) \
             -> WorkloadResult:
         """
         Runs a workload, as described by a WorkloadDefinition object, on this
@@ -251,6 +328,8 @@ class DockerSwarm(AbstractContextManager):
             The workload spec to deploy.
         health_check_poll_interval
             How often to check the health of the deployed services, in seconds.
+        max_failed_checks
+            How many failed health checks to allow before aborting the workload.
 
         Returns
         -------
@@ -309,8 +388,6 @@ class DockerSwarm(AbstractContextManager):
             # thread functions
             # ----------------
             timed_out = threading.Event()
-            unhealthy_event = threading.Event()
-            finished_event = threading.Event()
             status_cond = threading.Condition()
 
             def _wkld_timeout():
@@ -319,58 +396,17 @@ class DockerSwarm(AbstractContextManager):
                     timed_out.set()
                     status_cond.notify_all()
 
-            def _health_check() -> bool:
-                complete = True
-                for serv in services:
-                    # update service status from the client,
-                    # then iterate over tasks and check if they are healthy.
-                    serv.reload()
-                    serv_name = serv.attrs['Spec']['Name']
-                    for task in serv.tasks():
-                        task_id = task['ID']
-                        task_state = task['Status']['State'].lower()
-                        if task_state in self._unhealthy_task_states:
-                            logger.critical(
-                                f'Unhealthy task {task_id} (state: '
-                                f'{task_state}) in service {serv_name}; '
-                                f'aborting workload {specification.name}!'
-                            )
-
-                            with status_cond:
-                                unhealthy_event.set()
-                                status_cond.notify_all()
-                                return False
-                        elif task_state == 'complete':
-                            logger.warning(
-                                f'Task {task_id} in service {serv_name} '
-                                f'has finished.'
-                            )
-                            complete = (complete and True)
-                        else:
-                            complete = False
-
-                logger.info(f'Workload {specification.name} has passed health '
-                            f'check.')
-                if complete:
-                    logger.warning(
-                        f'All tasks in workload {specification.name} '
-                        f'have finished.')
-                    with status_cond:
-                        finished_event.set()
-                        status_cond.notify_all()
-                        return False
-
-                return True
-
             # ----------------
 
             timeout_timer = threading.Timer(interval=max_duration,
                                             function=_wkld_timeout)
             timeout_timer.start()
 
-            health_check_timer = RepeatingTimer(
-                interval=health_check_poll_interval,
-                function=_health_check
+            health_check_timer = ServiceHealthCheckThread(
+                shared_condition=status_cond,
+                services=services,
+                check_interval=health_check_poll_interval,
+                grace_count=max_failed_checks
             )
             health_check_timer.start()
 
@@ -382,10 +418,10 @@ class DockerSwarm(AbstractContextManager):
                         if timed_out.is_set():
                             # TODO: special handling for time-out?
                             result = WorkloadResult.TIMEOUT
-                        elif unhealthy_event.is_set():
+                        elif not health_check_timer.is_healthy():
                             # TODO: special handling for unhealthy workload?
                             result = WorkloadResult.ERROR
-                        elif finished_event.is_set():
+                        elif health_check_timer.is_finished():
                             # TODO: special handling for clean shutdown?
                             result = WorkloadResult.FINISHED
                         else:
