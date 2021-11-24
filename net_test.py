@@ -76,7 +76,7 @@ compose:
           - "node.labels.type==client"
         restart_policy:
           condition: none
-      command: "-c iperf3server -t 90"
+      command: "-c iperf3server -t 90 --connect-timeout 10000"
       depends_on:
       - iperf3server
 ...
