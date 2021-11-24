@@ -80,7 +80,7 @@ compose:
           - "node.labels.type==client"
       #  restart_policy:
       #    condition: none
-      command: "-c iperf3server -u -b 1M"
+      command: "-c iperf3server -b 1M"
       depends_on:
       - iperf3server
       networks:
