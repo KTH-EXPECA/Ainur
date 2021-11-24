@@ -288,15 +288,16 @@ class DockerSwarm(AbstractContextManager):
             # TODO: variables in compose? really useful!
             # TODO: logging. could be handled here instead of in fluentbit
 
-            logger.warning(f'Workload {specification.name} has been deployed!')
-            logger.info(f'Max workload runtime: {max_dur_hms}')
-            logger.info(f'Health check interval: {health_ival_hms}')
-
             # convert the python-on-whales service objects into pure
             # Docker-Py Service objects for more efficient health checks
 
             with mgr_node.client_context() as client:
                 services = [client.services.get(s.id) for s in stack.services()]
+
+            logger.warning(f'Workload {specification.name} ({len(services)} '
+                           f'services) has been deployed!')
+            logger.info(f'Max workload runtime: {max_dur_hms}')
+            logger.info(f'Health check interval: {health_ival_hms}')
 
             # start health checks and countdown to max duration
 
