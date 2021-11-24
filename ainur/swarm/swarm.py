@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import warnings
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from typing import Any, Collection, Dict, FrozenSet
@@ -205,24 +206,30 @@ class DockerSwarm(AbstractContextManager):
                 # use thread pool instead of process pool, as we only really
                 # need I/O concurrency (Docker client comms) and threads are
                 # much more lightweight than processes
+                exc_lock = threading.RLock()
+                caught_exceptions = deque()
 
                 def _add_node(args: Dict) -> None:
-                    if args['manager']:
-                        node = first_manager_node.attach_manager(
-                            name=args['id'],
-                            host=args['host'],
-                            labels=args['labels'],
-                            daemon_port=self._daemon_port
-                        )
-                        manager_nodes[args['id']] = node
-                    else:
-                        node = first_manager_node.attach_worker(
-                            name=args['id'],
-                            host=args['host'],
-                            labels=args['labels'],
-                            daemon_port=self._daemon_port
-                        )
-                        worker_nodes[args['id']] = node
+                    try:
+                        if args['manager']:
+                            node = first_manager_node.attach_manager(
+                                name=args['id'],
+                                host=args['host'],
+                                labels=args['labels'],
+                                daemon_port=self._daemon_port
+                            )
+                            manager_nodes[args['id']] = node
+                        else:
+                            node = first_manager_node.attach_worker(
+                                name=args['id'],
+                                host=args['host'],
+                                labels=args['labels'],
+                                daemon_port=self._daemon_port
+                            )
+                            worker_nodes[args['id']] = node
+                    except Exception as e:
+                        with exc_lock:
+                            caught_exceptions.append(e)
 
                 # NOTE: ThreadPoolExecutor.map does not block, as opposed to
                 # ProcessPool.map; it immediately returns an iterator.
@@ -247,6 +254,10 @@ class DockerSwarm(AbstractContextManager):
                               }
                               for host_id, labels in workers.items()
                           ])
+
+            if len(caught_exceptions) > 0:
+                raise SwarmException('Could not attach all nodes to Swarm.') \
+                    from caught_exceptions.pop()
 
         except Exception as e:
             logger.error('Caught exception when constructing Docker '
