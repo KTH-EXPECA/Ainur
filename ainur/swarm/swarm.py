@@ -185,11 +185,6 @@ class DockerSwarm(AbstractContextManager):
             return
 
         logger.warning('Tearing down Swarm!')
-
-        # save a final manager to disconnect at the end, to ensure a
-        # consistent state across the operation
-        manager_id, manager = next(iter(self._managers.items()))
-
         with ThreadPoolExecutor() as tpool:
             def leave_swarm(node: SwarmNode) -> None:
                 node.leave_swarm(force=True)
@@ -199,8 +194,6 @@ class DockerSwarm(AbstractContextManager):
                       list(self._managers.values()) +
                       list(self._workers.values()))
 
-        # final manager leaves
-        manager.leave_swarm(force=True)
         logger.warning('Swarm has been torn down.')
 
     def __enter__(self) -> DockerSwarm:
