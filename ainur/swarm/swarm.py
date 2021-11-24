@@ -80,13 +80,14 @@ class ServiceHealthCheckThread(RepeatingTimer):
                     self._unhealthy.set()
                     self._shared_cond.notify_all()
                     return False
+            else:
+                return True
         else:
             logger.info(f'All services have passed health check.')
             self._current_count = 0
 
             if complete:
-                logger.warning(
-                    f'All tasks in all services have finished.')
+                logger.warning(f'All tasks in all services have finished.')
                 with self._shared_cond:
                     self._finished.set()
                     self._shared_cond.notify_all()
@@ -338,6 +339,17 @@ class DockerSwarm(AbstractContextManager):
         """
         logger.info(f'Deploying workload {specification.name}.')
 
+        # calculate  time log formats before launching to not
+        # interfere with actual duration
+        max_duration = timeparse.timeparse(specification.max_duration,
+                                           granularity='seconds')
+        max_dur_hms = seconds2hms(max_duration)
+        health_ival_hms = seconds2hms(health_check_poll_interval)
+
+        logger.info(f'Max workload runtime: {max_dur_hms}')
+        logger.info(f'Health check interval: {health_ival_hms}; maximum '
+                    f'allowed failed health checks: {max_failed_checks}.')
+
         with specification.temp_compose_file() as compose_file:
             logger.debug(f'Using temporary docker-compose v3 at '
                          f'{compose_file}.')
@@ -349,13 +361,6 @@ class DockerSwarm(AbstractContextManager):
             mgr_id, mgr_node = next(iter(self._managers.items()))
             host_addr = f'{mgr_node.host.management_ip.ip}:' \
                         f'{mgr_node.daemon_port}'
-
-            # calculate  time log formats before launching to not
-            # interfere with actual duration
-            max_duration = timeparse.timeparse(specification.max_duration,
-                                               granularity='seconds')
-            max_dur_hms = seconds2hms(max_duration)
-            health_ival_hms = seconds2hms(health_check_poll_interval)
 
             try:
                 stack = WhaleClient(host=host_addr).stack.deploy(
@@ -380,11 +385,8 @@ class DockerSwarm(AbstractContextManager):
 
             logger.warning(f'Workload {specification.name} ({len(services)} '
                            f'services) has been deployed!')
-            logger.info(f'Max workload runtime: {max_dur_hms}')
-            logger.info(f'Health check interval: {health_ival_hms}')
 
             # start health checks and countdown to max duration
-
             # thread functions
             # ----------------
             timed_out = threading.Event()
