@@ -63,19 +63,17 @@ compose:
       image: taoyou/iperf3-alpine:latest
       privileged: yes
       deploy:
-        replicas: 3
+        replicas: 1
         placement:
           max_replicas_per_node: 3
           constraints:
           - "node.labels.type==cloudlet"
-      networks:
-      - workloadnet
   
     iperf3client:
       image: taoyou/iperf3-alpine:latest
       privileged: yes
       deploy:
-        replicas: 3
+        replicas: 1
         placement:
           max_replicas_per_node: 1
           constraints:
@@ -85,12 +83,6 @@ compose:
       command: "-c iperf3server -b 1M"
       depends_on:
       - iperf3server
-      networks:
-      - workloadnet
-  networks:
-    workloadnet:
-      driver: overlay
-      attachable: yes
 ...
 '''
 
