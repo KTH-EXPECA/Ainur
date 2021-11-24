@@ -5,6 +5,8 @@ import yaml
 from ainur import *
 from ainur.swarm import WorkloadSpecification
 
+# TODO: network config needs way of checking all interfaces actually exist!!
+
 # language=yaml
 net_swarm_config = '''
 ---
@@ -14,7 +16,7 @@ network:
     elrond:
       ansible_host: elrond.expeca
       management_ip: 192.168.1.4
-      workload_nic: enp420
+      workload_nic: enp4s0
     workload-client-10:
       ansible_host: workload-client-10.expeca
       management_ip: 192.168.1.110
@@ -71,7 +73,7 @@ compose:
     iperf3client:
       image: taoyou/iperf3-alpine:latest
       deploy:
-        replicas: 1
+        replicas: 3
         placement:
           max_replicas_per_node: 1
           constraints:
