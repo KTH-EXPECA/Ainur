@@ -45,56 +45,66 @@ class ServiceHealthCheckThread(RepeatingTimer):
         return self._finished.is_set()
 
     def health_check(self) -> bool:
-        complete = True
-        unhealthy = False
-        for serv in self._services:
-            # update service status from the client,
-            # then iterate over tasks and check if they are healthy.
-            serv.reload()
-            serv_name = serv.attrs['Spec']['Name']
-            for task in serv.tasks():
-                task_id = task['ID']
-                task_state = task['Status']['State'].lower()
-                if task_state in self._unhealthy_task_states:
-                    logger.warning(
-                        f'Unhealthy task {task_id} (state: '
-                        f'{task_state}) in service {serv_name}.'
+        try:
+            complete = True
+            unhealthy = False
+            for serv in self._services:
+                # update service status from the client,
+                # then iterate over tasks and check if they are healthy.
+                serv.reload()
+                serv_name = serv.attrs['Spec']['Name']
+                for task in serv.tasks():
+                    task_id = task['ID']
+                    task_state = task['Status']['State'].lower()
+                    if task_state in self._unhealthy_task_states:
+                        logger.warning(
+                            f'Unhealthy task {task_id} (state: '
+                            f'{task_state}) in service {serv_name}.'
+                        )
+                        unhealthy = True
+                    elif task_state == 'complete':
+                        logger.warning(
+                            f'Task {task_id} in service {serv_name} '
+                            f'has finished.'
+                        )
+                        complete = (complete and True)
+                    else:
+                        complete = False
+
+            if unhealthy:
+                self._current_count += 1
+                if (self._grace_count > 0) and \
+                        (self._current_count >= self._grace_count):
+                    logger.critical(
+                        'Reached maximum number of failed health checks, '
+                        'aborting.'
                     )
-                    unhealthy = True
-                elif task_state == 'complete':
-                    logger.warning(
-                        f'Task {task_id} in service {serv_name} '
-                        f'has finished.'
-                    )
-                    complete = (complete and True)
+                    with self._shared_cond:
+                        self._unhealthy.set()
+                        self._shared_cond.notify_all()
+                        return False
                 else:
-                    complete = False
-
-        if unhealthy:
-            self._current_count += 1
-            if (self._grace_count > 0) and \
-                    (self._current_count >= self._grace_count):
-                logger.critical(
-                    'Reached maximum number of failed health checks, aborting.'
-                )
-                with self._shared_cond:
-                    self._unhealthy.set()
-                    self._shared_cond.notify_all()
-                    return False
+                    return True
             else:
+                logger.info(f'All services have passed health check.')
+                self._current_count = 0
+
+                if complete:
+                    logger.warning(f'All tasks in all services have finished.')
+                    with self._shared_cond:
+                        self._finished.set()
+                        self._shared_cond.notify_all()
+                        return False
+
                 return True
-        else:
-            logger.info(f'All services have passed health check.')
-            self._current_count = 0
-
-            if complete:
-                logger.warning(f'All tasks in all services have finished.')
-                with self._shared_cond:
-                    self._finished.set()
-                    self._shared_cond.notify_all()
-                    return False
-
-            return True
+        except Exception as e:
+            # any failure should cause this thread to shut down and set the flag
+            # to unhealthy!
+            logger.exception('Exception in health check thread.', e)
+            with self._shared_cond:
+                self._unhealthy.set()
+                self._shared_cond.notify_all()
+                return False
 
 
 class DockerSwarm(AbstractContextManager):
@@ -216,9 +226,10 @@ class DockerSwarm(AbstractContextManager):
                               for host_id, labels in workers.items()
                           ])
 
-        except:
-            logger.error('Error when constructing Docker Swarm, gracefully '
-                         'tearing down.')
+        except Exception as e:
+            logger.error('Caught exception when constructing Docker '
+                         'Swarm, gracefully tearing down.')
+            logger.exception('Exception', e)
             # in case of ANYTHING going wrong, we need to tear down the swarm
             # on nodes on which it has already been initialized
 
