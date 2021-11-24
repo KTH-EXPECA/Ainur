@@ -16,8 +16,8 @@ network:
       management_ip: 192.168.1.4
       workload_nic: enp420
     workload-client-10:
-      ansible_host: workload-client-11.expeca
-      management_ip: 192.168.1.111
+      ansible_host: workload-client-10.expeca
+      management_ip: 192.168.1.110
       workload_nic: eth0
     workload-client-11:
       ansible_host: workload-client-11.expeca
