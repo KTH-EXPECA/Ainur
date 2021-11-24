@@ -55,7 +55,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "5m"
+max_duration: "1m"
 compose:
   version: "3.9"
   services:
@@ -81,7 +81,9 @@ compose:
           - "node.labels.type==client"
         restart_policy:
           condition: none
-      command: "-c iperf3server.{{.Task.Slot}} -b 1M"
+      command: "-c $${SERVER} -b 1M"
+      environment:
+        SERVER: "iperf3server.{{.Task.Slot}}"
       depends_on:
       - iperf3server
 ...
