@@ -60,7 +60,7 @@ compose:
     iperf3server:
       image: taoyou/iperf3-alpine:latest
       deploy:
-        replicas: 3
+        replicas: 4
         placement:
           max_replicas_per_node: 3
           constraints:
