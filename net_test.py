@@ -53,7 +53,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "3h 30m"
+max_duration: "1m"
 compose:
   version: "3.9"
   services:
