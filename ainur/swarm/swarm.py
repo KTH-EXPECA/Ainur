@@ -418,6 +418,8 @@ class DockerSwarm(AbstractContextManager):
             result = WorkloadResult.ERROR
             try:
                 with status_cond:
+                    # TODO: handle ctrl c
+                    # TODO: extend to client-server architecture?
                     while True:
                         if timed_out.is_set():
                             # TODO: special handling for time-out?
