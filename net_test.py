@@ -59,20 +59,23 @@ max_duration: "1m"
 compose:
   version: "3.9"
   services:
-    iperf3server:
-      image: taoyou/iperf3-alpine:latest
-      hostname: "iperf3server.{{.Task.Slot}}"
+    server:
+      image: expeca/primeworkload:server
+      hostname: "server.{{.Task.Slot}}"
+      environment:
+        PORT: 5000
       deploy:
         replicas: 3
         placement:
           max_replicas_per_node: 3
           constraints:
           - "node.labels.type==cloudlet"
-      command: "-s -1"
   
-    iperf3client:
-      image: taoyou/iperf3-alpine:latest
-      privileged: yes
+    client:
+      image: expeca/primeworkload:client
+      environment:
+        SERVER_ADDR: "server.{{.Task.Slot}}"
+        SERVER_PORT: 5000
       deploy:
         replicas: 3
         placement:
@@ -80,12 +83,9 @@ compose:
           constraints:
           - "node.labels.type==client"
         restart_policy:
-          condition: any
-      command: "-c $${SERVER} -b 1M"
-      environment:
-        SERVER: "iperf3server.{{.Task.Slot}}"
+          condition: on-failure
       depends_on:
-      - iperf3server
+      - server
 ...
 '''
 
