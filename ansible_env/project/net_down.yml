@@ -11,4 +11,7 @@
 
     - name: Apply the netplan config
       command: netplan apply
+
+    - name: Flush IP addresses.
+      command: ip addr flush {{ workload_nic }}
 ...
