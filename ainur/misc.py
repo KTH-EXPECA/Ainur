@@ -1,7 +1,9 @@
 # miscellaneous utility functions and classes
+from __future__ import annotations
+
 import threading
 from contextlib import contextmanager
-from typing import Callable, Dict, Generator, Optional, Tuple
+from typing import Callable, Dict, Generator, NamedTuple, Optional, Tuple
 
 from docker import DockerClient
 
@@ -37,6 +39,34 @@ def ceildiv(a: int, b: int) -> int:
 
     # ceil(a/b) = -(a // -b), see https://stackoverflow.com/a/17511341
     return -(a // -b)
+
+
+class HMS(NamedTuple):
+    hours: int | float
+    minutes: int | float
+    seconds: int | float
+
+    def __str__(self):
+        return f'{self.hours}h {self.minutes}m {self.seconds}s'
+
+
+def seconds2hms(seconds: int | float) -> HMS:
+    """
+    Convert a value in seconds to total hours, minutes, and seconds.
+
+    Parameters
+    ----------
+    seconds
+
+    Returns
+    -------
+    Tuple
+        An (hours, minutes, seconds) tuple.
+    """
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+
+    return HMS(h, m, s)
 
 
 class RepeatingTimer(threading.Timer):

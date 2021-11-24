@@ -14,7 +14,7 @@ from pytimeparse import timeparse
 from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
-from ..misc import RepeatingTimer
+from ..misc import RepeatingTimer, seconds2hms
 from ..network import WorkloadNetwork
 
 
@@ -271,6 +271,13 @@ class DockerSwarm(AbstractContextManager):
             host_addr = f'{mgr_node.host.management_ip.ip}:' \
                         f'{mgr_node.daemon_port}'
 
+            # calculate  time log formats before launching to not
+            # interfere with actual duration
+            max_duration = timeparse.timeparse(specification.max_duration,
+                                               granularity='seconds')
+            max_dur_hms = seconds2hms(max_duration)
+            health_ival_hms = seconds2hms(health_check_poll_interval)
+
             stack = WhaleClient(host=host_addr).stack.deploy(
                 name=specification.name,
                 compose_files=[compose_file],
@@ -280,6 +287,10 @@ class DockerSwarm(AbstractContextManager):
             # TODO: environment files
             # TODO: variables in compose? really useful!
             # TODO: logging. could be handled here instead of in fluentbit
+
+            logger.warning(f'Workload {specification.name} has been deployed!')
+            logger.info(f'Max workload runtime: {max_dur_hms}')
+            logger.info(f'Health check interval: {health_ival_hms}')
 
             # convert the python-on-whales service objects into pure
             # Docker-Py Service objects for more efficient health checks
@@ -347,8 +358,6 @@ class DockerSwarm(AbstractContextManager):
 
             # ----------------
 
-            max_duration = timeparse.timeparse(specification.max_duration,
-                                               granularity='seconds')
             timeout_timer = threading.Timer(interval=max_duration,
                                             function=_wkld_timeout)
             timeout_timer.start()
