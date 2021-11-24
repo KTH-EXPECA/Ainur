@@ -8,7 +8,7 @@ from typing import Any, Dict, FrozenSet
 
 from frozendict import frozendict
 from loguru import logger
-from python_on_whales import DockerClient as WhaleClient
+from python_on_whales import DockerClient as WhaleClient, DockerException
 from pytimeparse import timeparse
 
 from .errors import SwarmException, SwarmWarning
@@ -278,11 +278,16 @@ class DockerSwarm(AbstractContextManager):
             max_dur_hms = seconds2hms(max_duration)
             health_ival_hms = seconds2hms(health_check_poll_interval)
 
-            stack = WhaleClient(host=host_addr).stack.deploy(
-                name=specification.name,
-                compose_files=[compose_file],
-                orchestrator='swarm',
-            )
+            try:
+                stack = WhaleClient(host=host_addr).stack.deploy(
+                    name=specification.name,
+                    compose_files=[compose_file],
+                    orchestrator='swarm',
+                )
+            except DockerException as e:
+                logger.exception('Caught exception when deploying workload '
+                                 'service stack to Swarm.', e)
+                raise e
 
             # TODO: environment files
             # TODO: variables in compose? really useful!

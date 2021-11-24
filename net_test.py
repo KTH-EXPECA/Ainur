@@ -74,7 +74,8 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
-        restart_policy: none
+        restart_policy:
+          condition: none
       command: "-c iperf3server -t 90"
       depends_on:
       - iperf3server
