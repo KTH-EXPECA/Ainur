@@ -25,7 +25,7 @@ class WorkloadNetwork(AbstractContextManager,
     """
 
     def __init__(self,
-                 cidr: IPv4Network,
+                 cidr: IPv4Network | str,
                  hosts: Mapping[str, DisconnectedWorkloadHost],
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
@@ -42,6 +42,9 @@ class WorkloadNetwork(AbstractContextManager,
         ansible_quiet:
             Quiet Ansible output.
         """
+
+        # type coercion for the cidr block
+        cidr = IPv4Network(cidr)
 
         logger.info('Setting up workload network.')
         logger.info(f'Workload network CIDR block: {cidr}')
