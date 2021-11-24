@@ -164,7 +164,7 @@ class WorkloadSpecification:
         me['compose'] = f'<docker-compose v3 specification, ' \
                         f'{len(self.compose)} services>'
 
-        return json.dumps(me, indent=2)
+        return json.dumps(me, indent=2, ensure_ascii=False)
 
 
 class WorkloadResult(Enum):
