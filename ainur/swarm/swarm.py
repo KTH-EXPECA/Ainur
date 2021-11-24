@@ -371,7 +371,10 @@ class DockerSwarm(AbstractContextManager):
         WorkloadResult
             An Enum indicating the exit status of the workload.
         """
-        logger.info(f'Deploying workload {specification.name}.')
+        logger.info(f'Deploying workload {specification.name}:\n'
+                    f'{specification}')
+
+        # TODO: figure out a way to pull images before deploying
 
         # calculate  time log formats before launching to not
         # interfere with actual duration

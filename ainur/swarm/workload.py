@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import string
 import tempfile
 from dataclasses import dataclass, field
@@ -157,6 +158,13 @@ class WorkloadSpecification:
 
             yield compose_file
             compose_file.unlink(missing_ok=True)
+
+    def __str__(self) -> str:
+        me = self.to_dict()
+        me['compose'] = f'<docker-compose v3 specification, ' \
+                        f'{len(self.compose)} services>'
+
+        return json.dumps(me, indent=2)
 
 
 class WorkloadResult(Enum):
