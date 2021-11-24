@@ -75,7 +75,8 @@ compose:
           constraints:
           - "node.labels.type==client"
       command: "-c iperf3server -t 10"
-      depends_on: iperf3server
+      depends_on:
+      - iperf3server
 ...
 '''
 
