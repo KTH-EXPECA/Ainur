@@ -153,7 +153,7 @@ class WorkloadSpecification:
             # write compose definition to a temporary file
             compose_file = tmp_dir / 'docker-compose.yml'
             with compose_file.open('w') as fp:
-                yaml.safe_dump(self.compose_v3, stream=fp)
+                yaml.safe_dump(self.compose, stream=fp)
 
             yield compose_file
             compose_file.unlink(missing_ok=True)
