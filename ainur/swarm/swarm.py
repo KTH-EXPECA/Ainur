@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -37,6 +38,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
         self._services = services
         self._grace_count = grace_count
         self._current_count = 0
+        self._finished_failed_tasks = set()
 
     def is_healthy(self) -> bool:
         return not self._unhealthy.is_set()
@@ -55,6 +57,10 @@ class ServiceHealthCheckThread(RepeatingTimer):
                 serv_name = serv.attrs['Spec']['Name']
                 for task in serv.tasks():
                     task_id = task['ID']
+                    if task_id in self._finished_failed_tasks:
+                        # skip finished tasks
+                        continue
+
                     task_state = task['Status']['State'].lower()
                     if task_state in self._unhealthy_task_states:
                         logger.warning(
@@ -62,17 +68,32 @@ class ServiceHealthCheckThread(RepeatingTimer):
                             f'{task_state}) in service {serv_name}.'
                         )
                         unhealthy = True
+                        self._finished_failed_tasks.add(task_id)
+
+                        # log task state debugging information
+                        logger.debug(f'Task {task_id} state:\n'
+                                     f'{json.dumps(task, indent=2)}')
+
                     elif task_state == 'complete':
                         logger.warning(
                             f'Task {task_id} in service {serv_name} '
                             f'has finished.'
                         )
                         complete = (complete and True)
+                        self._finished_failed_tasks.add(task_id)
                     else:
                         complete = False
 
             if unhealthy:
                 self._current_count += 1
+
+                logger.debug('Workload is unhealthy.')
+                for serv in self._services:
+                    serv_name = serv.attrs['Spec']['Name']
+                    # log service state debugging information
+                    logger.debug(f'Service {serv_name} state:\n'
+                                 f'{json.dumps(serv.attrs, indent=2)}')
+
                 if (self._grace_count > 0) and \
                         (self._current_count >= self._grace_count):
                     logger.critical(
@@ -90,7 +111,8 @@ class ServiceHealthCheckThread(RepeatingTimer):
                 self._current_count = 0
 
                 if complete:
-                    logger.warning(f'All tasks in all services have finished.')
+                    logger.warning(f'All tasks in all services have shut down '
+                                   f'cleanly.')
                     with self._shared_cond:
                         self._finished.set()
                         self._shared_cond.notify_all()
