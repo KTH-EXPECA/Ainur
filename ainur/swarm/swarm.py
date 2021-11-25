@@ -5,7 +5,7 @@ import warnings
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from typing import Any, Collection, Dict
+from typing import Any, Collection, Dict, FrozenSet
 
 from docker.models.services import Service
 from frozendict import frozendict
@@ -14,7 +14,7 @@ from python_on_whales import DockerClient as WhaleClient, DockerException
 from pytimeparse import timeparse
 
 from .errors import SwarmException, SwarmWarning
-from .nodes import ManagerNode, SwarmNode
+from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
 from ..misc import RepeatingTimer, seconds2hms
 from ..network import WorkloadNetwork
@@ -24,7 +24,6 @@ class ServiceHealthCheckThread(RepeatingTimer):
     _unhealthy_task_states = ('failed', 'rejected', 'orphaned')
 
     def __init__(self,
-                 manager_node: ManagerNode,
                  shared_condition: threading.Condition,
                  services: Collection[Service],
                  check_interval: float,
@@ -33,11 +32,10 @@ class ServiceHealthCheckThread(RepeatingTimer):
             interval=check_interval,
             function=self.health_check
         )
-        self._node = manager_node
         self._shared_cond = shared_condition
         self._unhealthy = threading.Event()
         self._finished = threading.Event()
-        self._service_ids = set([s.id for s in services])
+        self._services = services
         self._grace_count = grace_count
         self._current_count = 0
         self._finished_services = set()
@@ -52,15 +50,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
         try:
             complete = True
             # unhealthy = False
-
-            # TODO: check health
-            # TODO: streamline service check
-
-            with self._node.client_context() as client:
-                services = client.services.list()
-            services = [s for s in services if s.id in self._service_ids]
-
-            for serv in services:
+            for serv in self._services:
                 if serv.id in self._finished_services:
                     continue
 
@@ -333,38 +323,37 @@ class DockerSwarm(AbstractContextManager):
         self.tear_down()
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
 
-    # TODO: fix below methods
-    # @property
-    # def managers(self) -> FrozenSet[ManagerNode]:
-    #     """
-    #     Returns
-    #     -------
-    #     FrozenSet
-    #         A view into the Manager nodes of this Swarm.
-    #
-    #     Raises
-    #     ------
-    #     SwarmException
-    #         If Swarm has been torn down.
-    #     """
-    #     self._check()
-    #     return frozenset(self._managers.values())
-    #
-    # @property
-    # def workers(self) -> FrozenSet[WorkerNode]:
-    #     """
-    #     Returns
-    #     -------
-    #     FrozenSet
-    #         A view into the Worker nodes of this Swarm.
-    #
-    #     Raises
-    #     ------
-    #     SwarmException
-    #         If Swarm has been torn down.
-    #     """
-    #     self._check()
-    #     return frozenset(self._workers.keys())
+    @property
+    def managers(self) -> FrozenSet[ManagerNode]:
+        """
+        Returns
+        -------
+        FrozenSet
+            A view into the Manager nodes of this Swarm.
+
+        Raises
+        ------
+        SwarmException
+            If Swarm has been torn down.
+        """
+        self._check()
+        return frozenset(self._managers.values())
+
+    @property
+    def workers(self) -> FrozenSet[WorkerNode]:
+        """
+        Returns
+        -------
+        FrozenSet
+            A view into the Worker nodes of this Swarm.
+
+        Raises
+        ------
+        SwarmException
+            If Swarm has been torn down.
+        """
+        self._check()
+        return frozenset(self._workers.keys())
 
     def deploy_workload(self,
                         specification: WorkloadSpecification,
@@ -461,7 +450,6 @@ class DockerSwarm(AbstractContextManager):
             timeout_timer.start()
 
             health_check_timer = ServiceHealthCheckThread(
-                manager_node=mgr_node,
                 shared_condition=status_cond,
                 services=services,
                 check_interval=health_check_poll_interval,
