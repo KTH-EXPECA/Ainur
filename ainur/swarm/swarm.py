@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import threading
 import warnings
 from collections import deque
@@ -39,7 +38,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
         self._services = services
         self._grace_count = grace_count
         self._current_count = 0
-        self._finished_failed_tasks = set()
+        self._finished_services = set()
 
     def is_healthy(self) -> bool:
         return not self._unhealthy.is_set()
@@ -50,76 +49,73 @@ class ServiceHealthCheckThread(RepeatingTimer):
     def health_check(self) -> bool:
         try:
             complete = True
-            unhealthy = False
+            # unhealthy = False
             for serv in self._services:
-                # update service status from the client,
-                # then iterate over tasks and check if they are healthy.
+                if serv.id in self._finished_services:
+                    continue
+
+                # update service status from the client then check if healthy
                 serv.reload()
                 serv_name = serv.attrs['Spec']['Name']
-                for task in serv.tasks():
-                    task_id = task['ID']
-                    if task_id in self._finished_failed_tasks:
-                        # skip finished tasks
-                        continue
+                serv_status = serv.attrs['ServiceStatus']
+                target_tasks = serv_status['DesiredTasks']
+                running_tasks = serv_status['RunningTasks']
+                completed_tasks = serv_status['CompletedTasks']
 
-                    task_state = task['Status']['State'].lower()
-                    if task_state in self._unhealthy_task_states:
-                        logger.warning(
-                            f'Unhealthy task {task_id} (state: '
-                            f'{task_state}) in service {serv_name}.'
-                        )
-                        unhealthy = True
-                        self._finished_failed_tasks.add(task_id)
+                # TODO: check somehow that service is healthy. For now just
+                #  log and record.
 
-                        # log task state debugging information
-                        logger.debug(f'Task {task_id} state:\n'
-                                     f'{json.dumps(task, indent=2)}')
+                logger.info(f'Health check for service {serv_name}.')
+                logger.info(f'{serv_name}: {running_tasks}/{target_tasks} '
+                            f'tasks running.')
+                logger.debug(f'{serv_name}: {target_tasks} desired tasks.')
+                logger.debug(f'{serv_name}: {running_tasks} running tasks.')
+                logger.debug(f'{serv_name}: {completed_tasks} completed tasks.')
 
-                    elif task_state == 'complete':
-                        logger.warning(
-                            f'Task {task_id} in service {serv_name} '
-                            f'has finished.'
-                        )
-                        complete = (complete and True)
-                        self._finished_failed_tasks.add(task_id)
-                    else:
-                        complete = False
-
-            if unhealthy:
-                self._current_count += 1
-
-                logger.debug('Workload is unhealthy.')
-                for serv in self._services:
-                    serv_name = serv.attrs['Spec']['Name']
-                    # log service state debugging information
-                    logger.debug(f'Service {serv_name} state:\n'
-                                 f'{json.dumps(serv.attrs, indent=2)}')
-
-                if (self._grace_count > 0) and \
-                        (self._current_count >= self._grace_count):
-                    logger.critical(
-                        'Reached maximum number of failed health checks, '
-                        'aborting.'
-                    )
-                    with self._shared_cond:
-                        self._unhealthy.set()
-                        self._shared_cond.notify_all()
-                        return False
+                if completed_tasks >= target_tasks:
+                    logger.info(f'{serv_name} has completed {completed_tasks}'
+                                f'/{target_tasks} tasks!')
+                    complete = (complete and True)
+                    self._finished_services.add(serv.id)
                 else:
-                    return True
-            else:
-                logger.info(f'All services have passed health check.')
-                self._current_count = 0
+                    complete = False
 
-                if complete:
-                    logger.warning(f'All tasks in all services have shut down '
-                                   f'cleanly.')
-                    with self._shared_cond:
-                        self._finished.set()
-                        self._shared_cond.notify_all()
-                        return False
+            if complete:
+                logger.warning(f'All tasks in all services have shut down '
+                               f'cleanly.')
+                with self._shared_cond:
+                    self._finished.set()
+                    self._shared_cond.notify_all()
+                    return False
 
-                return True
+            return True
+
+            # if unhealthy:
+            #     self._current_count += 1
+            #
+            #     logger.debug('Workload is unhealthy.')
+            #     for serv in self._services:
+            #         serv_name = serv.attrs['Spec']['Name']
+            #         # log service state debugging information
+            #         logger.debug(f'Service {serv_name} state:\n'
+            #                      f'{json.dumps(serv.attrs, indent=2)}')
+            #
+            #     if (self._grace_count > 0) and \
+            #             (self._current_count >= self._grace_count):
+            #         logger.critical(
+            #             'Reached maximum number of failed health checks, '
+            #             'aborting.'
+            #         )
+            #         with self._shared_cond:
+            #             self._unhealthy.set()
+            #             self._shared_cond.notify_all()
+            #             return False
+            #     else:
+            #         return True
+            # else:
+            #     logger.info(f'All services have passed health check.')
+            #     self._current_count = 0
+
         except Exception as e:
             # any failure should cause this thread to shut down and set the flag
             # to unhealthy!
