@@ -64,6 +64,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
 
                 # TODO: check somehow that service is healthy. For now just
                 #  log and record.
+                # TODO: this isn't working, needs fix!
 
                 logger.info(f'Health check for service {serv_name}.')
                 logger.info(f'{serv_name}: {running_tasks}/{target_tasks} '
@@ -324,7 +325,7 @@ class DockerSwarm(AbstractContextManager):
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
 
     @property
-    def managers(self) -> FrozenSet[ManagerNode]:
+    def managers(self) -> frozendict[str, ManagerNode]:
         """
         Returns
         -------
@@ -337,10 +338,10 @@ class DockerSwarm(AbstractContextManager):
             If Swarm has been torn down.
         """
         self._check()
-        return frozenset(self._managers.values())
+        return frozendict(self._managers)
 
     @property
-    def workers(self) -> FrozenSet[WorkerNode]:
+    def workers(self) -> frozendict[str, WorkerNode]:
         """
         Returns
         -------
@@ -353,7 +354,7 @@ class DockerSwarm(AbstractContextManager):
             If Swarm has been torn down.
         """
         self._check()
-        return frozenset(self._workers.keys())
+        return frozendict(self._workers)
 
     def deploy_workload(self,
                         specification: WorkloadSpecification,
