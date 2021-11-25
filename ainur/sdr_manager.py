@@ -13,13 +13,13 @@ from loguru import logger
 import socket
 import sys
 
-from .hosts import SoftwareDefinedRadio, WiFiSDR
+from .hosts import SoftwareDefinedRadio, WiFi
 
 
 #DOCKER_BASE_URL='unix://var/run/docker.sock'
 BEACON_INTERVAL = 100
 
-class SDRNetwork(AbstractContextManager):
+class SDRManager(AbstractContextManager):
     """
     Represents a network of SDRs.
 
@@ -91,16 +91,17 @@ class SDRNetwork(AbstractContextManager):
         logger.info('SDR network manager container is up.')
 
     def start_network(self,
-            ap_wifi: WiFiSDRAP,
-            sta_wifis : List[WiFiSDR],
+            ap_wifi: WiFi,
+            sta_wifis : List[WiFi],
             foreign_sta_macs : List[str],
-            ):
+            wifi_network: WiFiNetwork,
+        ):
 
-        logger.info(f'Starting SDR network with ssid: {ap_wifi.network.ssid} on access point {ap_wifi.radio.name}.')
+        logger.info(f'Starting SDR network with ssid: {wifi_network.ssid} on access point {ap_wifi.radio}.')
         # make start network command dict
         sta_sdr_names_dict = {}
         for idx,sta_wifi in enumerate(sta_wifis):
-            sta_sdr_names_dict['name_'+str(idx+1)] = sta_wifi.radio.name
+            sta_sdr_names_dict['name_'+str(idx+1)] = sta_wifi.radio
         if len(sta_wifis) == 0:
             sta_sdr_names_dict = ''
 
@@ -112,18 +113,18 @@ class SDRNetwork(AbstractContextManager):
 
         start_sdrs_cmd = {
             'general' : { 
-                'ssid' : ap_wifi.network.ssid,
-                'channel' : str(ap_wifi.network.channel),
-                'beacon_interval' : ap_wifi.network.beacon_interval,
-                'ht_capable' : ap_wifi.network.ht_capable,
-                'ap_sdr_name' : ap_wifi.radio.name,
+                'ssid' : wifi_network.ssid,
+                'channel' : str(wifi_network.channel),
+                'beacon_interval' : wifi_network.beacon_interval,
+                'ht_capable' : wifi_network.ht_capable,
+                'ap_sdr_name' : ap_wifi.radio,
             },
             'sta_sdr_names' : sta_sdr_names_dict,
             'foreign_sta_macs' : foreign_sta_macs_dict,
         }
        
         self.send_command('start',start_sdrs_cmd)
-        logger.info(f'SDR network with ssid: {ap_wifi.network.ssid} is up.')
+        logger.info(f'SDR network with ssid: {wifi_network.ssid} is up.')
 
     def send_command(self,
             command_type: str,
@@ -143,6 +144,44 @@ class SDRNetwork(AbstractContextManager):
         if result_dict['outcome'] == 'failed':
             logger.error(result_dict['content']['msg'])
 
+    def find_stations_of_ap(self,workload_hosts,conn_specs,wifi_sdr_ap):
+        # find the wifi stations meant to be connected to the wifi_sdr_ap
+        sdr_stations = []
+        native_stations_macs = []
+        for host_name_ in conn_specs.keys():
+            for if_name_ in conn_specs[host_name_].keys():
+                phy_ = conn_specs[host_name_][if_name_].phy
+                if isinstance(phy_,WiFi):
+                    if (phy_.radio != 'native') and (not phy_.is_ap):
+                        if phy_.network == wifi_sdr_ap.network :
+                            sdr_stations.append(phy_)
+                elif isinstance(phy_,WiFi):
+                    if (phy_.radio == 'native') and (not phy_.is_ap):
+                        if phy_.network == wifi_sdr_ap.network :
+                            native_phy_mac = workload_hosts[host_name_].workload_interfaces[if_name_].mac_addr
+                            native_stations_macs.append(native_phy_mac)
+
+        return sdr_stations,native_stations_macs
+
+    def create_wlans(self,workload_hosts,conn_specs,networks):
+        # Setup up the SDR network
+        # find wlan_aps and create a wlan network per SDR AP
+        # find sdr station wifis and foreign_sta_macs
+        for host_name in conn_specs.keys():
+            for if_name in conn_specs[host_name].keys():
+                phy = conn_specs[host_name][if_name].phy
+                # create a wlan network per SDR AP
+                if isinstance(phy,WiFi):
+                    if (phy.radio != 'native') and (phy.is_ap):
+                        wifi_sdr_ap = phy
+                        sdr_stations,native_stations_macs = self.find_stations_of_ap(workload_hosts=workload_hosts,conn_specs=conn_specs,wifi_sdr_ap=wifi_sdr_ap)
+                        # start a network
+                        self.start_network(
+                            ap_wifi = wifi_sdr_ap,
+                            sta_wifis = sdr_stations,
+                            foreign_sta_macs = native_stations_macs,
+                            wifi_network = networks[phy.network],
+                        )
 
     def tear_down(self) -> None:
         """
@@ -160,9 +199,9 @@ class SDRNetwork(AbstractContextManager):
 
         logger.warning('SDR network is stopped.')
 
-    def __enter__(self) -> SDRNetwork:
+    def __enter__(self) -> SDRManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.tear_down()
-        return super(SDRNetwork, self).__exit__(exc_type, exc_val, exc_tb)
+        return super(SDRManager, self).__exit__(exc_type, exc_val, exc_tb)

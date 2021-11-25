@@ -10,3 +10,4 @@ docker
 loguru
 bidict
 plum-dispatch
+prettyprinter

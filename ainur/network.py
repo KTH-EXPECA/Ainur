@@ -12,9 +12,8 @@ import json
 from .ansible import AnsibleContext
 from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadHost
 from .hosts import WorkloadInterface,EthernetInterface,WiFiInterface
-from .hosts import Wire,WiFiNative,WiFiSDR,WiFi,Phy,SwitchConnection
-from .hosts import WiFiSDRAP, WiFiSDRSTA, WiFiNativeAP, WiFiNativeSTA
-from .switch import ManagedSwitch
+from .hosts import Wire,WiFi,Phy,SwitchConnection
+from .managed_switch import ManagedSwitch
 
 # TODO: needs testing
 

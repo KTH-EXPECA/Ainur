@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from collections import defaultdict
 
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
 from typing import FrozenSet, Mapping
 from operator import attrgetter
+
+from .hosts import WiFi,Wire
 
 import ansible_runner
 from loguru import logger
@@ -99,6 +102,38 @@ class ManagedSwitch(AbstractContextManager):
         child.send("exit\n")
         child.send("exit\n")
         child.expect(pexpect.EOF)
+
+    def make_connections(self, inventory, conn_specs):
+
+        workload_hosts = inventory['hosts']
+        radios = inventory['radios']
+
+        # Make workload switch vlans
+        ports_wirednets = {}
+        for host_name in conn_specs.keys():
+            for if_name in conn_specs[host_name].keys():
+                phy = conn_specs[host_name][if_name].phy
+                interface = workload_hosts[host_name].workload_interfaces[if_name]
+                if isinstance(phy,WiFi):
+                    # WiFi sdr vlans
+                    if phy.radio != 'native':
+                        host_port = interface.switch_connection.port
+                        ports = [host_port,radios[phy.radio].switch_connection.port]
+                        vlan_name = workload_hosts[host_name].ansible_host+'_to_'+phy.radio
+                        self.make_vlan(ports=ports,name=vlan_name)
+                elif isinstance(phy,Wire):
+                    # wired nodes vlans
+                    # connect the ones with the same network name
+                    ports_wirednets[interface.switch_connection.port] = phy.network
+
+        # Grouping dictionary by values and make lists of ports for each network name
+        wired_nets = defaultdict(list)
+        for key, value in sorted(ports_wirednets.items()):
+            wired_nets[value].append(key)
+
+        for wired_net_name, ports_list in wired_nets.items():
+            self.make_vlan(ports=ports_list,name=wired_net_name)
+
 
     def update_vlans(self):
 

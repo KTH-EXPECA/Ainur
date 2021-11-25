@@ -80,6 +80,10 @@ class TrafficControl(AbstractContextManager):
 
                         tc_q_list = []
                         for item in main_dict['tc']:
+                            if( 'root' in item ):
+                                if (item['root'] == True):
+                                    item = { 'parent': '0:' , **item } 
+
                             if(item['kind'] == "fq_codel"):
                                 item = {**item['options'], **item}
                                 item.pop('options',None)

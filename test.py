@@ -4,6 +4,10 @@ from dataclasses import asdict
 from dataclasses_json import dataclass_json
 from dataclasses_json import Undefined
 from dacite import from_dict
+from prettyprinter import pprint
+import prettyprinter
+prettyprinter.install_extras(exclude=['ipython','ipython_repr_pretty','django'])
+
 import json
 
 @dataclass(frozen=True, eq=True)
@@ -186,4 +190,5 @@ ns_stats = NetStats(ip=net_ip,udp=net_udp,tcp=net_tcp)
 timestamp = int(main_dict['timestamp'])
 
 sample = TrafficInfoSample(timestamp=timestamp,ip_conf=ip_conf,ip_stats=(ip_rx_stats,ip_tx_stats),tc_queues=tc_q_list,ns_stats=ns_stats)
-print(sample)
+#print(sample)
+pprint(sample)

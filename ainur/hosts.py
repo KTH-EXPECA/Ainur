@@ -13,6 +13,12 @@ class SwitchConnection:
     name: str
     port: int
 
+@dataclass(frozen=True, eq=True)
+class Switch:
+    name: str
+    management_ip: str
+    username: str
+    password: str
 
 ## SDR dataclass
 @dataclass(frozen=True, eq=True)
@@ -20,59 +26,43 @@ class SoftwareDefinedRadio:
     name: str
     mac_addr: str
     management_ip: IPv4Interface
-    switch: SwitchConnection
+    switch_connection: SwitchConnection
 
 
-## WiFi network dataclass
+############
+## Physical Layer Network Concept Representation Classes
 @dataclass(frozen=True, eq=True)
-class WiFiNetwork():
+class PhyNetwork():
+    name: str
+
+## WiFi network
+@dataclass(frozen=True, eq=True)
+class WiFiNetwork(PhyNetwork):
     ssid: str
     channel: int
     beacon_interval: int
     ht_capable: bool
 
-## Wired network dataclass
+## Wired network
 @dataclass(frozen=True, eq=True)
-class WiredNetwork():
-    name: str
+class WiredNetwork(PhyNetwork):
+    pass
 
 ############
-## Physical Layer Representation Dataclasses
+## Hosts Physical Layer Representation Classes
 @dataclass(frozen=True, eq=True)
 class Phy:
-    pass
-
+    network: str    # corresponds to PhyNetwork name
+    
 @dataclass(frozen=True, eq=True)
 class WiFi(Phy):
-    network: WiFiNetwork
-
-@dataclass(frozen=True, eq=True)
-class WiFiNative(WiFi):
-    pass
-
-@dataclass(frozen=True, eq=True)
-class WiFiNativeSTA(WiFiNative):
-    pass
-
-@dataclass(frozen=True, eq=True)
-class WiFiNativeAP(WiFiNative):
-    pass
-
-@dataclass(frozen=True, eq=True)
-class WiFiSDR(WiFi):
-    radio: SoftwareDefinedRadio 
-
-@dataclass(frozen=True, eq=True)
-class WiFiSDRAP(WiFiSDR):
-    pass
-
-@dataclass(frozen=True, eq=True)
-class WiFiSDRSTA(WiFiSDR):
-    pass
+    is_ap: bool
+    radio: str      # corresponds to SoftwareDefinedRadio or 'native'
     
 @dataclass(frozen=True, eq=True)
 class Wire(Phy):
-    network: WiredNetwork
+    pass
+
 
 
 ############
@@ -85,14 +75,16 @@ class WorkloadInterface:
 
 @dataclass(frozen=True, eq=True)
 class EthernetInterface(WorkloadInterface):
-    switch: SwitchConnection
+    switch_connection: SwitchConnection
 
 @dataclass(frozen=True, eq=True)
 class WiFiInterface(WorkloadInterface):
     pass
 
-
-
+@dataclass(frozen=True, eq=True)
+class ConnectionSpec:
+    ip: IPv4Interface
+    phy: Phy
 
 ############
 ## Workload Network Interface
@@ -104,12 +96,12 @@ class AnsibleHost:
 
 @dataclass(frozen=True, eq=True)
 class WorkloadHost(AnsibleHost):
-    workload_interfaces: tuple(WorkloadInterface)
+    workload_interfaces: dict
 
 @dataclass(frozen=True, eq=True)
 class ConnectedWorkloadHost(AnsibleHost):
     phy: Phy
     ip: IPv4Interface
-    workload_interface: WorkloadInterface
+    connected_interface: str
 
 

@@ -61,6 +61,7 @@ class IpTxStats(IpStats):
 @dataclass(frozen=True, eq=True)
 class TcTxQueueConf():
     handle: str
+    parent: str
     #root: bool
 
 @dataclass_json(undefined=Undefined.EXCLUDE)
