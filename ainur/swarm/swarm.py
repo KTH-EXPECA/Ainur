@@ -27,7 +27,8 @@ class ServiceHealthCheckThread(RepeatingTimer):
                  shared_condition: threading.Condition,
                  services: Collection[Service],
                  check_interval: float,
-                 grace_count: int = 3):
+                 complete_thresh: int = 3,
+                 max_failed_health_checks: int = 3):
         super(ServiceHealthCheckThread, self).__init__(
             interval=check_interval,
             function=self.health_check
@@ -36,9 +37,10 @@ class ServiceHealthCheckThread(RepeatingTimer):
         self._unhealthy = threading.Event()
         self._finished = threading.Event()
         self._services = services
-        self._grace_count = grace_count
-        self._current_count = 0
-        self._finished_services = set()
+        self._complete_thresh = complete_thresh
+        self._max_failed_checks = max_failed_health_checks
+        self._fail_count = 0
+        self._complete_count = 0
 
     def is_healthy(self) -> bool:
         return not self._unhealthy.is_set()
@@ -46,76 +48,68 @@ class ServiceHealthCheckThread(RepeatingTimer):
     def is_finished(self) -> bool:
         return self._finished.is_set()
 
+    def _is_task_healthy(self, task: Dict[str, Any]) -> bool:
+        return not task.get('Status', {}).get('State', 'failed') \
+            in self._unhealthy_task_states
+
     def health_check(self) -> bool:
         try:
             complete = True
-            # unhealthy = False
+            unhealthy = False
             for serv in self._services:
-                if serv.id in self._finished_services:
+                serv.reload()
+                # we only care about tasks that *should* be running
+                tasks = serv.tasks(filters={'desired-state': 'running'})
+                total_tasks = len(tasks)
+
+                if total_tasks == 0:
+                    complete = (complete and True)
+                    logger.info(f'Task {serv.name} currently has no tasks.')
                     continue
 
-                # update service status from the client then check if healthy
-                serv.reload()
-                serv_name = serv.attrs['Spec']['Name']
-                serv_status = serv.attrs['ServiceStatus']
-                target_tasks = serv_status['DesiredTasks']
-                running_tasks = serv_status['RunningTasks']
-                completed_tasks = serv_status['CompletedTasks']
+                healthy_tasks = sum([self._is_task_healthy(task)
+                                     for task in tasks])
 
-                # TODO: check somehow that service is healthy. For now just
-                #  log and record.
-                # TODO: this isn't working, needs fix!
-
-                logger.info(f'Health check for service {serv_name}.')
-                logger.info(f'{serv_name}: {running_tasks}/{target_tasks} '
-                            f'tasks running.')
-                logger.debug(f'{serv_name}: {target_tasks} desired tasks.')
-                logger.debug(f'{serv_name}: {running_tasks} running tasks.')
-                logger.debug(f'{serv_name}: {completed_tasks} completed tasks.')
-
-                if completed_tasks >= target_tasks:
-                    logger.info(f'{serv_name} has completed {completed_tasks}'
-                                f'/{target_tasks} tasks!')
-                    complete = (complete and True)
-                    self._finished_services.add(serv.id)
+                if healthy_tasks < total_tasks:
+                    logger.warning(f'{total_tasks - healthy_tasks} out of'
+                                   f'{total_tasks} tasks are unhealthy in '
+                                   f'service {serv.name}.')
+                    unhealthy = True
                 else:
-                    complete = False
+                    logger.info(f'All tasks for service {serv.name} are '
+                                f'healthy.')
 
-            if complete:
-                logger.warning(f'All tasks in all services have shut down '
-                               f'cleanly.')
-                with self._shared_cond:
-                    self._finished.set()
-                    self._shared_cond.notify_all()
-                    return False
+            if unhealthy:
+                self._fail_count += 1
+                logger.warning(f'Unhealthy services. Check '
+                               f'{self._fail_count}/'
+                               f'{self._max_failed_checks} '
+                               f'failed.')
+                if self._fail_count >= self._max_failed_checks:
+                    logger.error('Maximum number of health checks failed, '
+                                 'aborting workload.')
+                    with self._shared_cond:
+                        self._unhealthy.set()
+                        self._shared_cond.notify_all()
+                        return False
+                return True
+            elif complete:
+                self._complete_count += 1
+                logger.info(f'All services complete. '
+                            f'{self._complete_count}/{self._complete_thresh} '
+                            f'checks passed before workload shutdown.')
+                if self._complete_count >= self._complete_thresh:
+                    logger.warning('All services have finished and exited cleanly; '
+                                   'shutting down workload.')
+                    with self._shared_cond:
+                        self._finished.set()
+                        self._shared_cond.notify_all()
+                        return False
+                return True
 
+            self._complete_count = 0
+            self._fail_count = 0
             return True
-
-            # if unhealthy:
-            #     self._current_count += 1
-            #
-            #     logger.debug('Workload is unhealthy.')
-            #     for serv in self._services:
-            #         serv_name = serv.attrs['Spec']['Name']
-            #         # log service state debugging information
-            #         logger.debug(f'Service {serv_name} state:\n'
-            #                      f'{json.dumps(serv.attrs, indent=2)}')
-            #
-            #     if (self._grace_count > 0) and \
-            #             (self._current_count >= self._grace_count):
-            #         logger.critical(
-            #             'Reached maximum number of failed health checks, '
-            #             'aborting.'
-            #         )
-            #         with self._shared_cond:
-            #             self._unhealthy.set()
-            #             self._shared_cond.notify_all()
-            #             return False
-            #     else:
-            #         return True
-            # else:
-            #     logger.info(f'All services have passed health check.')
-            #     self._current_count = 0
 
         except Exception as e:
             # any failure should cause this thread to shut down and set the flag
@@ -359,7 +353,8 @@ class DockerSwarm(AbstractContextManager):
     def deploy_workload(self,
                         specification: WorkloadSpecification,
                         health_check_poll_interval: float = 10.0,
-                        max_failed_checks: int = 3) \
+                        complete_threshold: int = 3,
+                        max_failed_health_checks: int = 3) \
             -> WorkloadResult:
         """
         Runs a workload, as described by a WorkloadDefinition object, on this
@@ -371,7 +366,10 @@ class DockerSwarm(AbstractContextManager):
             The workload spec to deploy.
         health_check_poll_interval
             How often to check the health of the deployed services, in seconds.
-        max_failed_checks
+        complete_threshold
+            How many health checks need to be passed with all services
+            completed before the workload shuts down.
+        max_failed_health_checks
             How many failed health checks to allow before aborting the workload.
 
         Returns
@@ -394,7 +392,7 @@ class DockerSwarm(AbstractContextManager):
         logger.info(f'Max workload runtime: {max_dur_hms}')
         logger.info(f'Health check interval: {health_ival_hms}; maximum '
                     f'allowed failed health checks: '
-                    f'{max_failed_checks if max_failed_checks > 0 else "∞"}.')
+                    f'{max_failed_health_checks if max_failed_health_checks > 0 else "∞"}.')
 
         with specification.temp_compose_file() as compose_file:
             logger.debug(f'Using temporary docker-compose v3 at '
@@ -454,7 +452,8 @@ class DockerSwarm(AbstractContextManager):
                 shared_condition=status_cond,
                 services=services,
                 check_interval=health_check_poll_interval,
-                grace_count=max_failed_checks
+                complete_thresh=complete_threshold,
+                max_failed_health_checks=max_failed_health_checks
             )
             health_check_timer.start()
 
