@@ -67,6 +67,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
                     logger.info(f'Task {serv.name} currently has no tasks.')
                     continue
 
+                complete = False
                 healthy_tasks = sum([self._is_task_healthy(task)
                                      for task in tasks])
 
