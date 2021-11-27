@@ -21,7 +21,8 @@ from ..network import WorkloadNetwork
 
 
 class ServiceHealthCheckThread(RepeatingTimer):
-    _unhealthy_task_states = ('failed', 'rejected', 'orphaned')
+    # checking for x in set is O(1)
+    _unhealthy_task_states = {'failed', 'rejected', 'orphaned'}
 
     def __init__(self,
                  shared_condition: threading.Condition,
@@ -49,8 +50,11 @@ class ServiceHealthCheckThread(RepeatingTimer):
         return self._finished.is_set()
 
     def _is_task_healthy(self, task: Dict[str, Any]) -> bool:
-        return not task.get('Status', {}).get('State', 'failed') \
-            in self._unhealthy_task_states
+        state = task.get('Status', {}).get('State', None)
+        task_id = task.get('ID', None)
+        logger.debug(f'Task {task_id} state: {state}')
+        return (state is not None) and \
+            (state not in self._unhealthy_task_states)
 
     def health_check(self) -> bool:
         try:
@@ -64,7 +68,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
 
                 if total_tasks == 0:
                     complete = (complete and True)
-                    logger.info(f'Task {serv.name} currently has no tasks.')
+                    logger.info(f'Service {serv.name} currently has no tasks.')
                     continue
 
                 complete = False
@@ -72,13 +76,12 @@ class ServiceHealthCheckThread(RepeatingTimer):
                                      for task in tasks])
 
                 if healthy_tasks < total_tasks:
-                    logger.warning(f'{total_tasks - healthy_tasks} out of'
-                                   f'{total_tasks} tasks are unhealthy in '
-                                   f'service {serv.name}.')
+                    logger.warning(f'Service {serv.name}: '
+                                   f'{total_tasks - healthy_tasks} out of'
+                                   f'{total_tasks} tasks are unhealthy.')
                     unhealthy = True
                 else:
-                    logger.info(f'All tasks for service {serv.name} are '
-                                f'healthy.')
+                    logger.info(f'Service {serv.name}: All tasks are healthy.')
 
             if unhealthy:
                 self._fail_count += 1
@@ -100,8 +103,8 @@ class ServiceHealthCheckThread(RepeatingTimer):
                             f'{self._complete_count}/{self._complete_thresh} '
                             f'checks passed before workload shutdown.')
                 if self._complete_count >= self._complete_thresh:
-                    logger.warning('All services have finished and exited cleanly; '
-                                   'shutting down workload.')
+                    logger.warning('All services have finished and exited '
+                                   'cleanly; shutting down workload.')
                     with self._shared_cond:
                         self._finished.set()
                         self._shared_cond.notify_all()
