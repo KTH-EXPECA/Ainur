@@ -17,7 +17,8 @@ from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .storage import ExperimentStorage
 from .workload import WorkloadResult, WorkloadSpecification
-from .. import AnsibleContext, DisconnectedWorkloadHost
+from ..ansible import AnsibleContext
+from ..hosts import DisconnectedWorkloadHost
 from ..misc import RepeatingTimer, seconds2hms
 from ..network import WorkloadNetwork
 
