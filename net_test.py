@@ -1,3 +1,4 @@
+from ipaddress import IPv4Interface
 from pathlib import Path
 
 import yaml
@@ -119,6 +120,13 @@ if __name__ == '__main__':
         ) as swarm:
             swarm.deploy_workload(
                 specification=workload,
+                storage_host=DisconnectedWorkloadHost(
+                    ansible_host='galadriel.expeca',
+                    workload_nic='',
+                    management_ip=IPv4Interface('192.168.1.2/24')
+                ),
+                ansible_ctx=ansible_ctx,
+                ansible_quiet=True,
                 health_check_poll_interval=10.0,
                 complete_threshold=3,
                 max_failed_health_checks=-1
