@@ -96,8 +96,8 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==cloudlet"
-      restart_policy:
-        condition: none
+        restart_policy:
+          condition: none
       command: >
         echo "Wake up, Neo" >> /opt/expeca/output.txt
 ...
