@@ -17,7 +17,7 @@ from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
 from ..misc import RepeatingTimer, seconds2hms
-from ..network import WorkloadNetwork
+from ..network import NetworkLayer
 
 
 # TODO: daemon port should be handled in hosts?
@@ -140,7 +140,7 @@ class DockerSwarm(AbstractContextManager):
     _daemon_port = 2375
 
     def __init__(self,
-                 network: WorkloadNetwork,
+                 network: NetworkLayer,
                  managers: Dict[str, Dict[str, Any]],
                  workers: Dict[str, Dict[str, Any]]):
         """

@@ -1,11 +1,11 @@
 from .ansible import AnsibleContext
-from .network import WorkloadNetwork
+from .network import NetworkLayer
 from .swarm import DockerSwarm
 from .hosts import WorkloadHost, Layer3ConnectedWorkloadHost, AnsibleHost
 
 __all__ = [
     'AnsibleContext',
-    'WorkloadNetwork',
+    'NetworkLayer',
     'DockerSwarm',
     'WorkloadHost', 'Layer3ConnectedWorkloadHost', 'AnsibleHost'
 ]

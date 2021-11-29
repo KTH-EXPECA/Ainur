@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
@@ -10,14 +11,18 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import Layer3ConnectedWorkloadHost, WorkloadHost
+from .hosts import Layer3ConnectedWorkloadHost
+from .physical import PhysicalLayer
 
 
 # TODO: needs testing
 
+class Layer3Error(Exception):
+    pass
 
-class WorkloadNetwork(AbstractContextManager,
-                      Mapping[str, Layer3ConnectedWorkloadHost]):
+
+class NetworkLayer(AbstractContextManager,
+                   Mapping[str, Layer3ConnectedWorkloadHost]):
     """
     Represents a connected workload network.
 
@@ -26,43 +31,39 @@ class WorkloadNetwork(AbstractContextManager,
     """
 
     def __init__(self,
-                 cidr: IPv4Network | str,
-                 hosts: Mapping[str, WorkloadHost],
+                 host_ips: Mapping[str, IPv4Interface],
+                 layer2: PhysicalLayer,
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
         Parameters
         ----------
-        cidr:
-            IP address range for this network specified as a CIDR address block.
-        hosts:
-            A mapping from strings (representing unique identifiers) to
-            hosts to add to the network.
+        host_ips
+            Mapping from host ID to desired IP address.
+        layer2:
+            A PhysicalLayer object representing connected devices.
         ansible_context:
             Ansible context to use.
         ansible_quiet:
             Quiet Ansible output.
         """
 
-        # type coercion for the cidr block
-        cidr = IPv4Network(cidr)
-
-        logger.info('Setting up workload network.')
-        logger.info(f'Workload network CIDR block: {cidr}')
+        logger.info('Setting up layer 3 of the workload network.')
 
         host_info = '\n'.join([json.dumps({n: h.to_dict()},
                                           ensure_ascii=False,
                                           indent=2)
-                               for n, h in hosts.items()])
+                               for n, h in layer2.items()])
 
-        logger.info(f'Workload network hosts: {host_info}')
+        logger.info(f'Layer 2 hosts:\n{host_info}')
 
-        # check that all the hosts fit in the network prefix
-        if len(hosts) > cidr.num_addresses - 2:  # exclude: network, broadcast
-            raise RuntimeError('Not enough available addresses in CIDR block '
-                               f'{cidr}. Required number of addresses = '
-                               f'{len(hosts)}; available number of addresses '
-                               f'= {cidr.num_addresses - 2}.')
+        # check that the given IP addresses all belong to the same network
+        networks = list(map(lambda a: a.network, host_ips.values()))
+        if not functools.reduce(lambda a, b: a == b, networks):
+            raise Layer3Error('IPs provided do not all belong to same '
+                              f'network.\n Inferred networks: {networks}.')
+
+        logger.info(f'IP address mappings:\n{host_ips}')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
@@ -70,12 +71,11 @@ class WorkloadNetwork(AbstractContextManager,
         # build a collection of (future) connected workload hosts
         conn_hosts = frozendict({
             name: Layer3ConnectedWorkloadHost(
-                ansible_host=host.ansible_host,
-                workload_nic=host.workload_nic,
-                workload_ip=IPv4Interface(f'{address}/{cidr.prefixlen}'),
-                management_ip=host.management_ip
-            ) for (name, host), address in zip(hosts.items(),
-                                               cidr.hosts())
+                ansible_host=layer2[name].ansible_host,
+                workload_nic=layer2[name].workload_nic,
+                workload_ip=ip,
+                management_ip=layer2[name].management_ip
+            ) for (name, ip), address in host_ips.items()
         })
 
         # build an Ansible inventory from the hosts
@@ -88,6 +88,9 @@ class WorkloadNetwork(AbstractContextManager,
 
         # prepare a temp ansible environment and run the appropriate playbook
         with self._ansible_context(self._inventory) as tmp_dir:
+
+            # TODO: fix inventory to deal with wifi vs ethernet!
+
             logger.info('Bringing up the network.')
             res = ansible_runner.run(
                 playbook='net_up.yml',
@@ -101,7 +104,7 @@ class WorkloadNetwork(AbstractContextManager,
 
             # network is now up and running
 
-        self._network = cidr
+        self._network = networks[0]
         self._hosts = conn_hosts
         self._torn_down = False
 
@@ -156,14 +159,14 @@ class WorkloadNetwork(AbstractContextManager,
         self._torn_down = True
         logger.warning('Workload network has been torn down.')
 
-    def __enter__(self) -> WorkloadNetwork:
+    def __enter__(self) -> NetworkLayer:
         if self._torn_down:
             raise RuntimeError('Network has already been torn down.')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.tear_down()
-        return super(WorkloadNetwork, self).__exit__(exc_type, exc_val,
-                                                     exc_tb)
+        return super(NetworkLayer, self).__exit__(exc_type, exc_val,
+                                                  exc_tb)
 
 # TODO: need a way to test network locally
