@@ -77,7 +77,7 @@ class ExperimentStorage(AbstractContextManager):
         with docker_client_context(
                 base_url=f'{storage_host.management_ip.ip}:{daemon_port}'
         ) as client:
-            self._container = client.run(
+            self._container = client.containers.run(
                 image='dperson/samba',  # FIXME: hardcoded things!
                 remove=True,
                 name='smb-server',
