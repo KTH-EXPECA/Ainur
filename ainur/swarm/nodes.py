@@ -10,7 +10,7 @@ from docker import DockerClient
 from loguru import logger
 
 from .errors import SwarmException, SwarmWarning
-from ..hosts import ConnectedWorkloadHost
+from ..hosts import Layer3ConnectedWorkloadHost
 from ..misc import docker_client_context
 
 
@@ -30,7 +30,7 @@ class _NodeSpec:
 class SwarmNode(abc.ABC):
     node_id: str
     swarm_id: str
-    host: ConnectedWorkloadHost
+    host: Layer3ConnectedWorkloadHost
     daemon_port: int
     is_manager: bool = field(default=False, init=False)
 
@@ -42,7 +42,7 @@ class SwarmNode(abc.ABC):
 @dataclass(frozen=True, eq=True)
 class WorkerNode(SwarmNode):
     is_manager = False
-    manager_host: ConnectedWorkloadHost
+    manager_host: Layer3ConnectedWorkloadHost
 
     def leave_swarm(self, force: bool = False) -> None:
         logger.info(f'Worker {self.host} is leaving the Swarm.')
@@ -63,7 +63,7 @@ class ManagerNode(SwarmNode):
     @classmethod
     def init_swarm(cls,
                    name: str,
-                   host: ConnectedWorkloadHost,
+                   host: Layer3ConnectedWorkloadHost,
                    labels: Optional[Dict[str, str]] = None,
                    daemon_port: int = 2375) -> ManagerNode:
         """
@@ -135,7 +135,7 @@ class ManagerNode(SwarmNode):
         )
 
     def _attach_host(self,
-                     host: ConnectedWorkloadHost,
+                     host: Layer3ConnectedWorkloadHost,
                      token: str,
                      node_spec: _NodeSpec,
                      daemon_port: int = 2375) -> str:
@@ -172,7 +172,7 @@ class ManagerNode(SwarmNode):
 
     def attach_manager(self,
                        name: str,
-                       host: ConnectedWorkloadHost,
+                       host: Layer3ConnectedWorkloadHost,
                        labels: Optional[Dict[str, str]] = None,
                        daemon_port: int = 2375) -> ManagerNode:
         node_spec = _NodeSpec(
@@ -194,7 +194,7 @@ class ManagerNode(SwarmNode):
 
     def attach_worker(self,
                       name: str,
-                      host: ConnectedWorkloadHost,
+                      host: Layer3ConnectedWorkloadHost,
                       labels: Optional[Dict[str, str]] = None,
                       daemon_port: int = 2375) -> WorkerNode:
         node_spec = _NodeSpec(

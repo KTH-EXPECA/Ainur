@@ -8,6 +8,9 @@ from dataclasses_json import config, dataclass_json
 
 
 def ip_field(cls: Type[IPv4Address], *args, **kwargs) -> Field:
+    """
+    Automatic serializing and deserializing of IP addresses.
+    """
     return field(
         *args,
         **kwargs,
@@ -26,7 +29,7 @@ class AnsibleHost:
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class DisconnectedWorkloadHost(AnsibleHost):
+class WorkloadHost(AnsibleHost):
     workload_nic: str
     management_ip: IPv4Interface = ip_field(IPv4Interface)
 
@@ -36,7 +39,14 @@ class DisconnectedWorkloadHost(AnsibleHost):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class ConnectedWorkloadHost(DisconnectedWorkloadHost):
+class Layer2ConnectedWorkloadHost(WorkloadHost):
+    # TODO: Samie
+    pass
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
     workload_ip: IPv4Interface = ip_field(IPv4Interface)
 
     def __str__(self) -> str:

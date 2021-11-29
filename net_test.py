@@ -123,7 +123,7 @@ if __name__ == '__main__':
     net_swarm = yaml.safe_load(net_swarm_config)
 
     hosts = {
-        name: DisconnectedWorkloadHost.from_dict(d)
+        name: WorkloadHost.from_dict(d)
         for name, d in net_swarm['network']['hosts'].items()
     }
 

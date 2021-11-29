@@ -10,14 +10,14 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
+from .hosts import Layer3ConnectedWorkloadHost, WorkloadHost
 
 
 # TODO: needs testing
 
 
 class WorkloadNetwork(AbstractContextManager,
-                      Mapping[str, ConnectedWorkloadHost]):
+                      Mapping[str, Layer3ConnectedWorkloadHost]):
     """
     Represents a connected workload network.
 
@@ -27,7 +27,7 @@ class WorkloadNetwork(AbstractContextManager,
 
     def __init__(self,
                  cidr: IPv4Network | str,
-                 hosts: Mapping[str, DisconnectedWorkloadHost],
+                 hosts: Mapping[str, WorkloadHost],
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
@@ -69,7 +69,7 @@ class WorkloadNetwork(AbstractContextManager,
 
         # build a collection of (future) connected workload hosts
         conn_hosts = frozendict({
-            name: ConnectedWorkloadHost(
+            name: Layer3ConnectedWorkloadHost(
                 ansible_host=host.ansible_host,
                 workload_nic=host.workload_nic,
                 workload_ip=IPv4Interface(f'{address}/{cidr.prefixlen}'),
@@ -108,7 +108,7 @@ class WorkloadNetwork(AbstractContextManager,
     def __iter__(self) -> Iterator[str]:
         return iter(self._hosts)
 
-    def __getitem__(self, item: str) -> ConnectedWorkloadHost:
+    def __getitem__(self, item: str) -> Layer3ConnectedWorkloadHost:
         return self._hosts[item]
 
     def __len__(self) -> int:
@@ -122,7 +122,7 @@ class WorkloadNetwork(AbstractContextManager,
         return self._torn_down
 
     @property
-    def hosts(self) -> frozendict[str, ConnectedWorkloadHost]:
+    def hosts(self) -> frozendict[str, Layer3ConnectedWorkloadHost]:
         return self._hosts
 
     @property
