@@ -87,6 +87,19 @@ compose:
           condition: on-failure
       depends_on:
       - server
+      
+    volume-test:
+      image: ubuntu:20.04
+      deploy:
+        replicas: 1
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.type==cloudlet"
+      restart_policy:
+        condition: none
+      command: >
+        echo "Wake up, Neo" >> /opt/expeca/output.txt
 ...
 '''
 
