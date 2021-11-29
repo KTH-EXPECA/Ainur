@@ -16,6 +16,7 @@ from compose.config.config import ConfigFile
 from dataclasses_json import config, dataclass_json
 
 from .errors import ConfigError
+from .storage import ExperimentStorage
 
 _min_compose_version = LooseVersion('3.0')
 
@@ -138,23 +139,51 @@ class WorkloadSpecification:
         return WorkloadSpecification.from_dict(spec)
 
     @contextlib.contextmanager
-    def temp_compose_file(self) -> Generator[Path, None, None]:
+    def temp_compose_file(self, storage: ExperimentStorage) \
+            -> Generator[Path, None, None]:
         """
         Context manager for a temporary file containing the embedded
         docker-compose specification.
 
+        Parameters
+        ----------
+        storage
+            Centralized experiment storage instance.
+
         Yields
         ------
             A temporary file containing the docker-compose spec.
-
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir = Path(tmp_dir)
 
             # write compose definition to a temporary file
             compose_file = tmp_dir / 'docker-compose.yml'
+
+            # add storage section to compose
+            compose = dict(self.compose)
+            volumes = compose.get('volumes', {})
+            volumes[storage.docker_vol_params.name] = \
+                storage.docker_vol_params.to_dict()
+            compose['volumes'] = volumes
+
+            # attach central storage to every service at /opt/expeca
+            # TODO: parameterize this somehow?
+            services = {}
+            for name, service in compose.get('services', {}).items():
+                serv_vols = service.get('volumes', [])
+                serv_vols.append({
+                    'type'  : 'volume',
+                    'source': storage.docker_vol_params.name,
+                    'target': '/opt/expeca',
+                    'volume': {'nocopy': True}
+                })
+                service['volumes'] = serv_vols
+                services[name] = service
+            compose['services'] = services
+
             with compose_file.open('w') as fp:
-                yaml.safe_dump(self.compose, stream=fp)
+                yaml.safe_dump(compose, stream=fp)
 
             yield compose_file
             compose_file.unlink(missing_ok=True)
