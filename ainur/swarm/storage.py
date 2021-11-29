@@ -106,7 +106,8 @@ class ExperimentStorage(AbstractContextManager):
             driver_opts=frozendict({
                 'type'  : 'cifs',
                 'device': f'//{storage_host.management_ip.ip}/expeca',
-                'o'     : 'username=expeca,password=expeca'
+                'o'     : f'addr={storage_host.management_ip.ip},'
+                          f'username=expeca,password=expeca'
             })
         )
 
