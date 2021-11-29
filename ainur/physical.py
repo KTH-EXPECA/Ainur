@@ -1,5 +1,5 @@
 from contextlib import AbstractContextManager
-from typing import Iterator, Mapping, Set, Tuple, _T_co
+from typing import Iterator, Mapping
 
 from .hosts import Layer2ConnectedWorkloadHost
 

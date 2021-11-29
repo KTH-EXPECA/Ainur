@@ -72,9 +72,10 @@ class NetworkLayer(AbstractContextManager,
         conn_hosts = frozendict({
             name: Layer3ConnectedWorkloadHost(
                 ansible_host=layer2[name].ansible_host,
-                workload_nic=layer2[name].workload_nic,
-                workload_ip=ip,
-                management_ip=layer2[name].management_ip
+                management_ip=layer2[name].management_ip,
+                interfaces=layer2[name].interfaces,
+                workload_interface=layer2[name].workload_interface,
+                workload_ip=ip
             ) for (name, ip), address in host_ips.items()
         })
 
@@ -88,9 +89,6 @@ class NetworkLayer(AbstractContextManager,
 
         # prepare a temp ansible environment and run the appropriate playbook
         with self._ansible_context(self._inventory) as tmp_dir:
-
-            # TODO: fix inventory to deal with wifi vs ethernet!
-
             logger.info('Bringing up the network.')
             res = ansible_runner.run(
                 playbook='net_up.yml',

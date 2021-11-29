@@ -6,7 +6,7 @@
   tasks:
     - name: Write netplan config
       ansible.builtin.copy:
-        dest: /etc/netplan/99-ansible-workload-network_{{ workload_nic }}.yaml
+        dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
         # language=YAML
         content: |
           #######################################################
@@ -15,8 +15,8 @@
           network:
             version: 2
             renderer: networkd
-            ethernets:
-              {{ workload_nic }}:
+            {{ interfaces[workload_interface].netplan_type }}:
+              {{ workload_interface }}:
                 addresses:
                  - {{ workload_ip }}
                 dhcp4: no

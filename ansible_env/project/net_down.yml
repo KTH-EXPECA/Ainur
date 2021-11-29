@@ -6,12 +6,12 @@
   tasks:
     - name: Delete the netplan config
       ansible.builtin.file:
-        path: /etc/netplan/99-ansible-workload-network_{{ workload_nic }}.yaml
+        path: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
         state: absent
 
     - name: Apply the netplan config
       command: netplan apply
 
     - name: Flush IP addresses.
-      command: ip addr flush {{ workload_nic }}
+      command: ip addr flush {{ workload_interface }}
 ...
