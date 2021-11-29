@@ -66,7 +66,7 @@ class ExperimentStorage(AbstractContextManager):
                 json_mode=True,
                 private_data_dir=str(ansible_path),
                 quiet=ansible_quiet,
-                become=True
+                cmdline='--become'
             )
 
             # TODO: better error checking
