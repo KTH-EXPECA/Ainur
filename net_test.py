@@ -101,9 +101,14 @@ compose:
         restart_policy:
           condition: none
       volumes:
-        - "WorkloadExample:/opt/expeca"
+        - type: volume
+          source: WorkloadExample
+          target: /opt/expeca/
+          volume:
+            nocopy: true
       command: >
-        echo "Wake up, Neo" >> /opt/expeca/output.txt
+        bash -c "while true; do echo Hello >> /opt/expeca/hello.txt; done"
+
 ...
 '''
 
