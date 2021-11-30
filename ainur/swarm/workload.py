@@ -173,8 +173,10 @@ class WorkloadSpecification:
                 }
                 compose['volumes'] = volumes
 
+            temp_compose = yaml.safe_dump(compose)
+            logger.debug(f'Temporary compose file:\n{temp_compose}')
             with compose_file.open('w') as fp:
-                yaml.safe_dump(compose, stream=fp)
+                fp.write(temp_compose)
 
             yield compose_file
             compose_file.unlink(missing_ok=True)
