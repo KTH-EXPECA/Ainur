@@ -163,9 +163,10 @@ class ExperimentStorage(AbstractContextManager):
                                 f'host {host} (try {i + 1}/{max_retries}).')
                     vol.remove(force=True)
                     break
-                except APIError:
+                except APIError as e:
                     logger.warning(f'Failed to remove volume {vol.name} '
                                    f'on host {host}.')
+                    logger.exception(e)
                     time.sleep(0.1)  # TODO remove this
 
         self._container.stop()
