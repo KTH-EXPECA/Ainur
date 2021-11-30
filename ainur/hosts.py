@@ -6,26 +6,112 @@ from typing import Dict, Literal
 
 from dataclasses_json import config, dataclass_json
 
+## Switch connection dataclass
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class SwitchConnection:
+    name: str
+    port: int
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Switch:
+    name: str
+    management_ip: str
+    username: str
+    password: str
+
+## SDR dataclass
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class SoftwareDefinedRadio:
+    name: str
+    mac: str
+    management_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+    switch_connection: SwitchConnection
+
+
+############
+## Physical Layer Network Concept Representation Classes
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class PhyNetwork():
+    name: str
+
+## WiFi network
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class WiFiNetwork(PhyNetwork):
+    ssid: str
+    channel: int
+    beacon_interval: int
+    ht_capable: bool
+
+## Wired network
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class WiredNetwork(PhyNetwork):
+    pass
+
+############
+## Hosts Physical Layer Representation Classes
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Phy:
+    network: str    # corresponds to PhyNetwork name
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class WiFi(Phy):
+    is_ap: bool
+    radio: str      # corresponds to SoftwareDefinedRadio or 'native'
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Wire(Phy):
+    pass
+
+
+############
+## Workload Network Interface
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class NetplanInterface:
     # wraps everything we need to know about specific interfaces, like their
     # MAC address, netplan type, etc.
-
-    # I decided to go with string literals instead of enums because you're
-    # right, we probably won't need many more different types of netplan
-    # configs, and this is easy to maintain.
     netplan_type: Literal['ethernets', 'wifis']
+    name: str
     mac: str
-    # TODO: other things?
 
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class EthernetInterface(NetplanInterface):
+    switch_connection: SwitchConnection
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class WiFiInterface(NetplanInterface):
+    pass
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class ConnectionSpec:
+    ip: IPv4Interface
+    phy: Phy
+
+############
+## Workload Network Interface
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class AnsibleHost:
     ansible_host: str
-
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
@@ -36,21 +122,24 @@ class WorkloadHost(AnsibleHost):
             decoder=IPv4Interface
         )
     )
-
+    
     # mapping of name -> interface
     interfaces: Dict[str, NetplanInterface]
 
     def __str__(self) -> str:
         return f'{self.ansible_host} (management address {self.management_ip})'
 
+@dataclass(frozen=True, eq=True)
+class ConnectedWorkloadHost(AnsibleHost):
+    phy: Phy
+    ip: IPv4Interface
+    connected_interface: str
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class Layer2ConnectedWorkloadHost(WorkloadHost):
-    # TODO: Samie
+    phy: Phy
     workload_interface: str  # Points toward the workload interface to use in L3
-    pass
-
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
@@ -65,3 +154,4 @@ class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
     def __str__(self) -> str:
         return f'{self.ansible_host} (management address ' \
                f'{self.management_ip}; workload address: {self.workload_ip})'
+
