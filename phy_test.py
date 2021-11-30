@@ -2,9 +2,6 @@ from ipaddress import IPv4Interface
 from pathlib import Path
 import json
 import ansible_runner
-from prettyprinter import pprint
-import prettyprinter
-prettyprinter.install_extras(exclude=['ipython','ipython_repr_pretty','django'])
 
 
 from ainur import *
