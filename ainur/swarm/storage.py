@@ -111,7 +111,7 @@ class ExperimentStorage(AbstractContextManager):
                                          f'{daemon_port}'
                         ) as client:
                             host_ip = storage_host.management_ip.ip
-                            return client.volumes.create(
+                            return host, client.volumes.create(
                                 name=f'{storage_name}',
                                 driver='local',
                                 driver_opts=

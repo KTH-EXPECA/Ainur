@@ -100,6 +100,8 @@ compose:
           - "node.labels.type==cloudlet"
         restart_policy:
           condition: none
+      volumes:
+        - "WorkloadExample:/opt/expeca"
       command: >
         echo "Wake up, Neo" >> /opt/expeca/output.txt
 ...
