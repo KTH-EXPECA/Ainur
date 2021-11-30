@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
@@ -153,13 +154,18 @@ class ExperimentStorage(AbstractContextManager):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tear_down()
 
-    def tear_down(self) -> None:
+    def tear_down(self, max_retries: int = 3) -> None:
         logger.info('Tearing down centralized storage server.')
         for host, vol in self._vols:
-            try:
-                vol.remove(force=True)
-            except APIError:
-                logger.warning(f'Failed to remove volume {vol.name} on host '
-                               f'{host}.')
+            for i in range(max_retries):
+                try:
+                    logger.info(f'Trying to remove volume {vol.name} from '
+                                f'host {host} (try {i + 1}/{max_retries}).')
+                    vol.remove(force=True)
+                    break
+                except APIError:
+                    logger.warning(f'Failed to remove volume {vol.name} '
+                                   f'on host {host}.')
+                    time.sleep(0.1)  # TODO remove this
 
         self._container.stop()
