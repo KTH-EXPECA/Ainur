@@ -37,6 +37,8 @@ class ExperimentStorage(AbstractContextManager):
         #  from a file.
 
         logger.info(f'Initializing centralized storage {storage_name}.')
+        self._storage_name = storage_name
+        self._vols: List[Tuple[ConnectedWorkloadHost, Volume]] = list()
 
         # start by ensuring paths exists
         host_path = Path(host_path)
@@ -90,51 +92,56 @@ class ExperimentStorage(AbstractContextManager):
                     }
                 }
             )
-
             # storage server is now running
 
-        # iterate over hosts, create docker volumes pointing to SMB server
-        with ThreadPoolExecutor() as tpool:
-            exceptions = deque()
-            ex_cond = threading.Condition()
+        try:
+            # iterate over hosts, create docker volumes pointing to SMB server
+            with ThreadPoolExecutor() as tpool:
+                exceptions = deque()
+                ex_cond = threading.Condition()
 
-            def _add_storage(host: ConnectedWorkloadHost) \
-                    -> Tuple[ConnectedWorkloadHost, Volume]:
-                logger.info(f'Creating Docker volume for centralized storage '
-                            f'{storage_name} on host {host}.')
-                try:
-                    with docker_client_context(
-                            base_url=f'{host.management_ip.ip}:{daemon_port}'
-                    ) as client:
-                        return client.volumes.create(
-                            name=f'{storage_name}',
-                            driver='local',
-                            driver_opts={
-                                'type'  : 'cifs',
-                                'device': f'//{storage_host.management_ip.ip}'
-                                          f'/expeca',
-                                'o'     : f'addr='
-                                          f'{storage_host.management_ip.ip},'
-                                          f'username=expeca,password=expeca'
-                            }
+                def _add_storage(host: ConnectedWorkloadHost) \
+                        -> Tuple[ConnectedWorkloadHost, Volume]:
+                    logger.info(
+                        f'Creating Docker volume for centralized storage '
+                        f'{storage_name} on host {host}.')
+                    try:
+                        with docker_client_context(
+                                base_url=f'{host.management_ip.ip}:'
+                                         f'{daemon_port}'
+                        ) as client:
+                            host_ip = storage_host.management_ip.ip
+                            return client.volumes.create(
+                                name=f'{storage_name}',
+                                driver='local',
+                                driver_opts=
+                                {
+                                    'type'  : 'cifs',
+                                    'device': f'//{host_ip}/expeca',
+                                    'o'     : f'addr={host_ip},'
+                                              f'username=expeca,password=expeca'
+                                }
+                            )
+                    except Exception as e:
+                        logger.critical(
+                            'Exception when adding Docker volume on '
+                            f'host {host}.'
                         )
-                except Exception as e:
-                    logger.critical('Exception when adding Docker volume on '
-                                    f'host {host}.')
-                    logger.exception(e)
-                    with ex_cond:
-                        exceptions.append(e)
-                        ex_cond.notify_all()
-                    raise e
+                        logger.exception(e)
+                        with ex_cond:
+                            exceptions.append(e)
+                            ex_cond.notify_all()
+                        raise e
 
-            self._vols: List[Tuple[ConnectedWorkloadHost, Volume]] = \
-                list(tpool.map(_add_storage, network.values()))
-            # error handling
-            with ex_cond:
-                if len(exceptions) > 0:
-                    raise exceptions.pop()
-
-        self._storage_name = storage_name
+                self._vols.extend(tpool.map(_add_storage, network.values()))
+                # error handling
+                with ex_cond:
+                    if len(exceptions) > 0:
+                        raise exceptions.pop()
+        except Exception as e:
+            # in case of any exception, we need to bring down everything
+            self.tear_down()
+            raise e
 
     @property
     def docker_vol_name(self) -> str:
