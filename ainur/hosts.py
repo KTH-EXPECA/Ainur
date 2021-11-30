@@ -8,11 +8,13 @@ _ip_regex = re.compile('((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}')
 
 
 ## Switch connection dataclass
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class SwitchConnection:
     name: str
     port: int
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class Switch:
     name: str
@@ -21,21 +23,29 @@ class Switch:
     password: str
 
 ## SDR dataclass
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class SoftwareDefinedRadio:
     name: str
-    mac_addr: str
-    management_ip: IPv4Interface
+    mac: str
+    management_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
     switch_connection: SwitchConnection
 
 
 ############
 ## Physical Layer Network Concept Representation Classes
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class PhyNetwork():
     name: str
 
 ## WiFi network
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiFiNetwork(PhyNetwork):
     ssid: str
@@ -44,21 +54,25 @@ class WiFiNetwork(PhyNetwork):
     ht_capable: bool
 
 ## Wired network
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiredNetwork(PhyNetwork):
     pass
 
 ############
 ## Hosts Physical Layer Representation Classes
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class Phy:
     network: str    # corresponds to PhyNetwork name
     
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiFi(Phy):
     is_ap: bool
     radio: str      # corresponds to SoftwareDefinedRadio or 'native'
-    
+
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class Wire(Phy):
     pass
@@ -68,19 +82,16 @@ class Wire(Phy):
 ############
 ## Workload Network Interface
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
-class WorkloadInterface:
+class NetplanInterface:
+    # wraps everything we need to know about specific interfaces, like their
+    # MAC address, netplan type, etc.
+    netplan_type: Literal['ethernets', 'wifis']
     name: str
-    mac_addr: str
+    mac: str
 
-@dataclass(frozen=True, eq=True)
-class EthernetInterface(WorkloadInterface):
-    switch_connection: SwitchConnection
-
-@dataclass(frozen=True, eq=True)
-class WiFiInterface(WorkloadInterface):
-    pass
-
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class ConnectionSpec:
     ip: IPv4Interface
@@ -89,14 +100,26 @@ class ConnectionSpec:
 ############
 ## Workload Network Interface
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class AnsibleHost:
     ansible_host: str
-    management_ip: IPv4Interface
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class WorkloadHost(AnsibleHost):
-    workload_interfaces: dict
+    management_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+    
+    # mapping of name -> interface
+    interfaces: Dict[str, NetplanInterface]
+
+    def __str__(self) -> str:
+        return f'{self.ansible_host} (management address {self.management_ip})'
 
 @dataclass(frozen=True, eq=True)
 class ConnectedWorkloadHost(AnsibleHost):
@@ -104,4 +127,24 @@ class ConnectedWorkloadHost(AnsibleHost):
     ip: IPv4Interface
     connected_interface: str
 
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Layer2ConnectedWorkloadHost(WorkloadHost):
+    phy: Phy
+    workload_interface: str  # Points toward the workload interface to use in L3
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
+    workload_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+
+    def __str__(self) -> str:
+        return f'{self.ansible_host} (management address ' \
+               f'{self.management_ip}; workload address: {self.workload_ip})'
 
