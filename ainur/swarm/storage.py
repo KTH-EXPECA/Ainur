@@ -1,27 +1,22 @@
 from __future__ import annotations
 
+import threading
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import List, Tuple
 
 import ansible_runner
-from dataclasses_json import dataclass_json
-from frozendict import frozendict
+from docker.errors import APIError
+from docker.models.volumes import Volume
 from loguru import logger
 
+from .. import WorkloadNetwork
 from ..ansible import AnsibleContext
-from ..hosts import DisconnectedWorkloadHost
+from ..hosts import ConnectedWorkloadHost, DisconnectedWorkloadHost
 from ..misc import docker_client_context
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class DockerVolSpec:
-    name: str
-    driver: str
-    driver_opts: frozendict[str, Any]
 
 
 class ExperimentStorage(AbstractContextManager):
@@ -30,8 +25,9 @@ class ExperimentStorage(AbstractContextManager):
     """
 
     def __init__(self,
-                 workload_name: str,
+                 storage_name: str,
                  storage_host: DisconnectedWorkloadHost,
+                 network: WorkloadNetwork,
                  ansible_ctx: AnsibleContext,
                  host_path: PathLike = '/opt/expeca/experiments',
                  daemon_port: int = 2375,
@@ -40,12 +36,11 @@ class ExperimentStorage(AbstractContextManager):
         # TODO: needs to be further parameterized so it can be configured
         #  from a file.
 
-        logger.info(f'Initializing centralized storage for w'
-                    f'workload {workload_name}.')
+        logger.info(f'Initializing centralized storage {storage_name}.')
 
         # start by ensuring paths exists
         host_path = Path(host_path)
-        exp_path = host_path / workload_name
+        exp_path = host_path / storage_name
 
         inventory = {
             'all': {
@@ -98,26 +93,52 @@ class ExperimentStorage(AbstractContextManager):
 
             # storage server is now running
 
-        # save docker volume params
+        # iterate over hosts, create docker volumes pointing to SMB server
+        with ThreadPoolExecutor() as tpool:
+            exceptions = deque()
+            ex_cond = threading.Condition()
 
-        self._docker_vol_params = DockerVolSpec(
-            name=f'{workload_name}_smb_vol',
-            driver='local',
-            driver_opts=frozendict({
-                'type'  : 'cifs',
-                'device': f'//{storage_host.management_ip.ip}/expeca',
-                'o'     : f'addr={storage_host.management_ip.ip},'
-                          f'username=expeca,password=expeca'
-            })
-        )
+            def _add_storage(host: ConnectedWorkloadHost) \
+                    -> Tuple[ConnectedWorkloadHost, Volume]:
+                logger.info(f'Creating Docker volume for centralized storage '
+                            f'{storage_name} on host {host}.')
+                try:
+                    with docker_client_context(
+                            base_url=f'{host.management_ip.ip}:{daemon_port}'
+                    ) as client:
+                        return client.volumes.create(
+                            name=f'{storage_name}',
+                            driver='local',
+                            driver_opts={
+                                'type'  : 'cifs',
+                                'device': f'//{storage_host.management_ip.ip}'
+                                          f'/expeca',
+                                'o'     : f'addr='
+                                          f'{storage_host.management_ip.ip},'
+                                          f'username=expeca,password=expeca'
+                            }
+                        )
+                except Exception as e:
+                    logger.critical('Exception when adding Docker volume on '
+                                    f'host {host}.')
+                    logger.exception(e)
+                    with ex_cond:
+                        exceptions.append(e)
+                        ex_cond.notify_all()
+                    raise e
+
+            self._vols: List[Tuple[ConnectedWorkloadHost, Volume]] = \
+                list(tpool.map(_add_storage, network.values()))
+            # error handling
+            with ex_cond:
+                if len(exceptions) > 0:
+                    raise exceptions.pop()
+
+        self._storage_name = storage_name
 
     @property
     def docker_vol_name(self) -> str:
-        return self.docker_vol_params['name']
-
-    @property
-    def docker_vol_params(self) -> DockerVolSpec:
-        return self._docker_vol_params
+        return self._storage_name
 
     def __enter__(self) -> ExperimentStorage:
         return self
@@ -127,4 +148,11 @@ class ExperimentStorage(AbstractContextManager):
 
     def tear_down(self) -> None:
         logger.info('Tearing down centralized storage server.')
+        for host, vol in self._vols:
+            try:
+                vol.remove(force=True)
+            except APIError:
+                logger.warning(f'Failed to remove volume {vol.name} on host '
+                               f'{host}.')
+
         self._container.stop()

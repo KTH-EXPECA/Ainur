@@ -9,6 +9,8 @@ from ainur.swarm import WorkloadSpecification
 # TODO: network config needs way of checking all interfaces actually exist!!
 
 # language=yaml
+from ainur.swarm.storage import ExperimentStorage
+
 net_swarm_config = '''
 ---
 network:
@@ -108,7 +110,8 @@ if __name__ == '__main__':
 
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
 
-    workload = WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
+    workload: WorkloadSpecification = \
+        WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 
     net_swarm = yaml.safe_load(net_swarm_config)
 
@@ -131,16 +134,20 @@ if __name__ == '__main__':
                 managers=managers,
                 workers=workers
         ) as swarm:
-            swarm.deploy_workload(
-                specification=workload,
+            with ExperimentStorage(
+                storage_name=workload.name,
                 storage_host=DisconnectedWorkloadHost(
                     ansible_host='galadriel.expeca',
                     workload_nic='',
-                    management_ip=IPv4Interface('192.168.1.2/24')
+                    management_ip=IPv4Interface('192.168.1.2')
                 ),
-                ansible_ctx=ansible_ctx,
-                ansible_quiet=True,
-                health_check_poll_interval=10.0,
-                complete_threshold=3,
-                max_failed_health_checks=-1
-            )
+                network=workload_net,
+                ansible_ctx=ansible_ctx
+            ) as storage:
+                swarm.deploy_workload(
+                    specification=workload,
+                    attach_volume=storage.docker_vol_name,
+                    health_check_poll_interval=10.0,
+                    complete_threshold=3,
+                    max_failed_health_checks=-1
+                )

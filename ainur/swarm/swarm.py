@@ -5,7 +5,7 @@ import warnings
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from typing import Any, Collection, Dict, FrozenSet
+from typing import Any, Collection, Dict, FrozenSet, Optional
 
 from docker.models.services import Service
 from frozendict import frozendict
@@ -15,13 +15,12 @@ from pytimeparse import timeparse
 
 from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
-from .storage import ExperimentStorage
 from .workload import WorkloadResult, WorkloadSpecification
-from ..ansible import AnsibleContext
-from ..hosts import DisconnectedWorkloadHost
 from ..misc import RepeatingTimer, seconds2hms
 from ..network import WorkloadNetwork
 
+
+# TODO: daemon port should be handled in hosts?
 
 class ServiceHealthCheckThread(RepeatingTimer):
     # checking for x in set is O(1)
@@ -359,12 +358,10 @@ class DockerSwarm(AbstractContextManager):
 
     def deploy_workload(self,
                         specification: WorkloadSpecification,
-                        storage_host: DisconnectedWorkloadHost,
-                        ansible_ctx: AnsibleContext,
+                        attach_volume: Optional[str] = None,
                         health_check_poll_interval: float = 10.0,
                         complete_threshold: int = 3,
-                        max_failed_health_checks: int = 3,
-                        ansible_quiet: bool = True) \
+                        max_failed_health_checks: int = 3) \
             -> WorkloadResult:
         """
         Runs a workload, as described by a WorkloadDefinition object, on this
@@ -374,12 +371,9 @@ class DockerSwarm(AbstractContextManager):
         ----------
         specification
             The workload spec to deploy.
-        storage_host
-            A host where the centralized experiment storage will be deployed
-        ansible_ctx
-            Ansible context to use.
-        ansible_quiet
-            Quiet Ansible runner.
+        attach_volume
+            Specifies the name of an external Docker volume to be appended to
+            the stack volumes. If None, nothing is appended.
         health_check_poll_interval
             How often to check the health of the deployed services, in seconds.
         complete_threshold
@@ -397,8 +391,6 @@ class DockerSwarm(AbstractContextManager):
                     f'{specification}')
 
         # TODO: figure out a way to pull images before deploying
-        # TODO: maybe pass the storage, not parameters to storage. Storage
-        #  then needs two modes, uninitialized and initialized.
 
         # calculate  time log formats before launching to not
         # interfere with actual duration
@@ -414,108 +406,101 @@ class DockerSwarm(AbstractContextManager):
         logger.info(f'Health check interval: {health_ival_hms}; maximum '
                     f'allowed failed health checks: {log_max_fails}.')
 
-        # storage
-        with ExperimentStorage(
-                workload_name=specification.name,
-                storage_host=storage_host,
-                ansible_ctx=ansible_ctx,
-                ansible_quiet=ansible_quiet,
-        ) as storage:
-            with specification.temp_compose_file(storage) as compose_file:
-                logger.debug(f'Using temporary docker-compose v3 at '
-                             f'{compose_file}.')
+        with specification.temp_compose_file(attach_volume) as compose_file:
+            logger.debug(f'Using temporary docker-compose v3 at '
+                         f'{compose_file}.')
 
-                # we use python-on-whales to deploy the service stack,
-                # since docker-py is too low-level.
+            # we use python-on-whales to deploy the service stack,
+            # since docker-py is too low-level.
 
-                # grab an arbitrary manager and point a client to it
-                mgr_id, mgr_node = next(iter(self._managers.items()))
-                host_addr = f'{mgr_node.host.management_ip.ip}:' \
-                            f'{mgr_node.daemon_port}'
+            # grab an arbitrary manager and point a client to it
+            mgr_id, mgr_node = next(iter(self._managers.items()))
+            host_addr = f'{mgr_node.host.management_ip.ip}:' \
+                        f'{mgr_node.daemon_port}'
 
-                try:
-                    stack = WhaleClient(host=host_addr).stack.deploy(
-                        name=specification.name,
-                        compose_files=[compose_file],
-                        orchestrator='swarm',
-                    )
-                except DockerException as e:
-                    logger.exception('Caught exception when deploying workload '
-                                     'service stack to Swarm.', e)
-                    raise e
-
-                # TODO: environment files
-                # TODO: variables in compose? really useful!
-                # TODO: logging. could be handled here instead of in fluentbit
-
-                # convert the python-on-whales service objects into pure
-                # Docker-Py Service objects for more efficient health checks
-
-                with mgr_node.client_context() as client:
-                    services = [client.services.get(s.id)
-                                for s in stack.services()]
-
-                logger.warning(f'Workload {specification.name} '
-                               f'({len(services)} services) has been deployed!')
-
-                # start health checks and countdown to max duration
-                # thread functions
-                # ----------------
-                timed_out = threading.Event()
-                status_cond = threading.Condition()
-
-                def _wkld_timeout():
-                    logger.warning(f'Workload {specification.name} timed out!')
-                    with status_cond:
-                        timed_out.set()
-                        status_cond.notify_all()
-
-                # ----------------
-
-                timeout_timer = threading.Timer(interval=max_duration,
-                                                function=_wkld_timeout)
-                timeout_timer.start()
-
-                health_check_timer = ServiceHealthCheckThread(
-                    shared_condition=status_cond,
-                    services=services,
-                    check_interval=health_check_poll_interval,
-                    complete_thresh=complete_threshold,
-                    max_failed_health_checks=max_failed_health_checks
+            try:
+                stack = WhaleClient(host=host_addr).stack.deploy(
+                    name=specification.name,
+                    compose_files=[compose_file],
+                    orchestrator='swarm',
                 )
-                health_check_timer.start()
+            except DockerException as e:
+                logger.exception('Caught exception when deploying workload '
+                                 'service stack to Swarm.', e)
+                raise e
 
-                # block and wait for workload to either finish, fail,
-                # or time-out.
-                result = WorkloadResult.ERROR
-                try:
-                    with status_cond:
-                        # TODO: handle ctrl c
-                        # TODO: extend to client-server architecture?
-                        while True:
-                            if timed_out.is_set():
-                                # TODO: special handling for time-out?
-                                result = WorkloadResult.TIMEOUT
-                            elif not health_check_timer.is_healthy():
-                                # TODO: special handling for unhealthy workload?
-                                result = WorkloadResult.ERROR
-                            elif health_check_timer.is_finished():
-                                # TODO: special handling for clean shutdown?
-                                result = WorkloadResult.FINISHED
-                            else:
-                                status_cond.wait()
-                                continue
-                            break
-                finally:
-                    # whatever happens, at this point we stop the threads and
-                    # tear down the service stack
-                    timeout_timer.cancel()
-                    health_check_timer.cancel()
-                    timeout_timer.join()
-                    health_check_timer.join()
+            # TODO: environment files
+            # TODO: variables in compose? really useful!
+            # TODO: logging. could be handled here instead of in fluentbit
 
-                    logger.warning('Tearing down Docker Swarm service '
-                                   'stack for workload {specification.name}.')
-                    stack.remove()
+            # convert the python-on-whales service objects into pure
+            # Docker-Py Service objects for more efficient health checks
 
-                return result
+            with mgr_node.client_context() as client:
+                services = [client.services.get(s.id)
+                            for s in stack.services()]
+
+            logger.warning(f'Workload {specification.name} '
+                           f'({len(services)} services) has been deployed!')
+
+            # start health checks and countdown to max duration
+            # thread functions
+            # ----------------
+            timed_out = threading.Event()
+            status_cond = threading.Condition()
+
+            def _wkld_timeout():
+                logger.warning(f'Workload {specification.name} timed out!')
+                with status_cond:
+                    timed_out.set()
+                    status_cond.notify_all()
+
+            # ----------------
+
+            timeout_timer = threading.Timer(interval=max_duration,
+                                            function=_wkld_timeout)
+            timeout_timer.start()
+
+            health_check_timer = ServiceHealthCheckThread(
+                shared_condition=status_cond,
+                services=services,
+                check_interval=health_check_poll_interval,
+                complete_thresh=complete_threshold,
+                max_failed_health_checks=max_failed_health_checks
+            )
+            health_check_timer.start()
+
+            # block and wait for workload to either finish, fail,
+            # or time-out.
+            result = WorkloadResult.ERROR
+            try:
+                with status_cond:
+                    # TODO: handle ctrl c
+                    # TODO: extend to client-server architecture?
+                    while True:
+                        if timed_out.is_set():
+                            # TODO: special handling for time-out?
+                            result = WorkloadResult.TIMEOUT
+                        elif not health_check_timer.is_healthy():
+                            # TODO: special handling for unhealthy workload?
+                            result = WorkloadResult.ERROR
+                        elif health_check_timer.is_finished():
+                            # TODO: special handling for clean shutdown?
+                            result = WorkloadResult.FINISHED
+                        else:
+                            status_cond.wait()
+                            continue
+                        break
+            finally:
+                # whatever happens, at this point we stop the threads and
+                # tear down the service stack
+                timeout_timer.cancel()
+                health_check_timer.cancel()
+                timeout_timer.join()
+                health_check_timer.join()
+
+                logger.warning('Tearing down Docker Swarm service '
+                               'stack for workload {specification.name}.')
+                stack.remove()
+
+            return result

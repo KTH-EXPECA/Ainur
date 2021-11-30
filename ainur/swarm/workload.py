@@ -9,14 +9,14 @@ from distutils.version import LooseVersion
 from enum import Enum, auto
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, Generator
+from typing import Any, Dict, Generator, Optional
 
 import yaml
 from compose.config.config import ConfigFile
 from dataclasses_json import config, dataclass_json
+from loguru import logger
 
 from .errors import ConfigError
-from .storage import ExperimentStorage
 
 _min_compose_version = LooseVersion('3.0')
 
@@ -139,7 +139,7 @@ class WorkloadSpecification:
         return WorkloadSpecification.from_dict(spec)
 
     @contextlib.contextmanager
-    def temp_compose_file(self, storage: ExperimentStorage) \
+    def temp_compose_file(self, attach_volume: Optional[str] = None) \
             -> Generator[Path, None, None]:
         """
         Context manager for a temporary file containing the embedded
@@ -147,8 +147,9 @@ class WorkloadSpecification:
 
         Parameters
         ----------
-        storage
-            Centralized experiment storage instance.
+        attach_volume
+            Named of potential external Docker volume to be appended to the
+            volumes section of the temporary compose file.
 
         Yields
         ------
@@ -162,25 +163,15 @@ class WorkloadSpecification:
 
             # add storage section to compose
             compose = dict(self.compose)
-            volumes = compose.get('volumes', {})
-            volumes[storage.docker_vol_params.name] = \
-                storage.docker_vol_params.to_dict()
-            compose['volumes'] = volumes
-
-            # attach central storage to every service at /opt/expeca
-            # TODO: parameterize this somehow?
-            services = {}
-            for name, service in compose.get('services', {}).items():
-                serv_vols = service.get('volumes', [])
-                serv_vols.append({
-                    'type'  : 'volume',
-                    'source': storage.docker_vol_params.name,
-                    'target': '/opt/expeca',
-                    'volume': {'nocopy': True}
-                })
-                service['volumes'] = serv_vols
-                services[name] = service
-            compose['services'] = services
+            if attach_volume is not None:
+                logger.info(f'Including external Docker volume '
+                            f'{attach_volume} in deployment.')
+                volumes = compose.get('volumes', {})
+                volumes[attach_volume] = {
+                    'name'    : attach_volume,
+                    'external': True
+                }
+                compose['volumes'] = volumes
 
             with compose_file.open('w') as fp:
                 yaml.safe_dump(compose, stream=fp)
