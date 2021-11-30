@@ -51,8 +51,8 @@ class PhysicalLayer(AbstractContextManager,
         # Instantiate sdr network container
         self._sdr_manager = SDRManager(sdrs = inventory['radios'],
                                        docker_base_url = 'unix://var/run/docker.sock',
-                                       container_image_name = 'sdr_config:latest',
-                                       sdr_config_addr = '/opt/sdr-config',
+                                       container_image_name = 'sdr_manager:latest',
+                                       sdr_config_addr = '/opt/sdr-manager',
                                        use_jumbo_frames = False,
                                        quiet = False );
 
