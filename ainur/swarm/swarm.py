@@ -500,7 +500,7 @@ class DockerSwarm(AbstractContextManager):
                 health_check_timer.join()
 
                 logger.warning('Tearing down Docker Swarm service '
-                               'stack for workload {specification.name}.')
+                               f'stack for workload {specification.name}.')
                 stack.remove()
 
             return result
