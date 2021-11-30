@@ -166,9 +166,9 @@ class ExperimentStorage(AbstractContextManager):
                 wait = 0.01
                 while True:
                     try:
-                        logger.info(f'Trying to remove volume {vol.name} from '
-                                    f'host {host}.')
                         vol.remove()
+                        logger.info(f'Successfully removed Docker volume '
+                                    f'{vol.name} from host {host}.')
                         return
                     except APIError as e:
                         if e.status_code == 409:
