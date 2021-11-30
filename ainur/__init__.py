@@ -1,5 +1,5 @@
 from .ansible import AnsibleContext
-from .network import WorkloadNetwork
+from .network import NetworkLayer
 from .physical import PhysicalLayer
 from .swarm import DockerSwarm
 from .managed_switch import ManagedSwitch
@@ -12,7 +12,7 @@ from .hosts import Switch, SwitchConnection, SoftwareDefinedRadio, PhyNetwork, W
 
 __all__ = [
     'AnsibleContext',
-    'WorkloadNetwork',
+    'NetworkLayer',
     'PhysicalLayer',
     'DockerSwarm',
     'WorkloadHost','AnsibleHost','ConnectedWorkloadHost',
