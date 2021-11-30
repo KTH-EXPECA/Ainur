@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
-from typing import Any, Mapping, Tuple
+from typing import Any, Iterator, Mapping, Tuple
 
 import ansible_runner
 from frozendict import frozendict
@@ -105,9 +105,8 @@ class WorkloadNetwork(AbstractContextManager,
         self._hosts = conn_hosts
         self._torn_down = False
 
-    def __iter__(self) -> Tuple[str, ConnectedWorkloadHost]:
-        for name_host in self._hosts.items():
-            yield name_host
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._hosts)
 
     def __getitem__(self, item: str) -> ConnectedWorkloadHost:
         return self._hosts[item]
