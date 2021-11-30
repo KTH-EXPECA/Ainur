@@ -113,7 +113,7 @@ class ManagedSwitch(AbstractContextManager):
         for host_name in conn_specs.keys():
             for if_name in conn_specs[host_name].keys():
                 phy = conn_specs[host_name][if_name].phy
-                interface = workload_hosts[host_name].workload_interfaces[if_name]
+                interface = workload_hosts[host_name].interfaces[if_name]
                 if isinstance(phy,WiFi):
                     # WiFi sdr vlans
                     if phy.radio != 'native':

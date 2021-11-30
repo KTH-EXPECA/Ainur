@@ -158,7 +158,7 @@ class SDRManager(AbstractContextManager):
                 elif isinstance(phy_,WiFi):
                     if (phy_.radio == 'native') and (not phy_.is_ap):
                         if phy_.network == wifi_sdr_ap.network :
-                            native_phy_mac = workload_hosts[host_name_].workload_interfaces[if_name_].mac_addr
+                            native_phy_mac = workload_hosts[host_name_].interfaces[if_name_].mac
                             native_stations_macs.append(native_phy_mac)
 
         return sdr_stations,native_stations_macs

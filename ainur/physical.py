@@ -10,20 +10,15 @@ from loguru import logger
 import json
 
 from .ansible import AnsibleContext
-from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadHost
-from .hosts import WorkloadInterface,EthernetInterface,WiFiInterface
+from .hosts import WorkloadHost,Layer2ConnectedWorkloadHost
+from .hosts import NetplanInterface
 from .hosts import Wire,WiFi,Phy,SwitchConnection
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager
 
-# TODO: needs testing
 
-
-def get_interface_by_type(host: WorkloadHost, interface_type: WorkloadInterface):
-    return [i for i in host.workload_interfaces if isinstance(i,interface_type) ][0]
-    
-
-class PhyLayer(AbstractContextManager):
+class PhysicalLayer(AbstractContextManager,
+                    Mapping[str, Layer2ConnectedWorkloadHost]):
     """
     Represents the physical layer connections of workload network
 
@@ -39,15 +34,9 @@ class PhyLayer(AbstractContextManager):
         """
         Parameters
         ----------
-        ip_hosts
-            Mapping from desired IP addresses (given as IPv4 interfaces,`
-            i.e. addresses plus network masks) to hosts. Note that
-            all given IP addresses must be in the same network segment.
-        ansible_context:
-            Ansible context to use.
         """
-        logger.info('Setting up workload network.')
-
+        logger.info('Setting up physical layer.')
+        
         # Instantiante network's switch
         self._switch = ManagedSwitch(name=inventory['switch'].name, 
                                      credentials=(inventory['switch'].username,inventory['switch'].password), 
@@ -77,13 +66,33 @@ class PhyLayer(AbstractContextManager):
         self._quiet = ansible_quiet
         self._inventory = inventory
         self._network_desc = network_desc
-
+        
+        self._hosts = {
+                host_name : Layer2ConnectedWorkloadHost(
+                                ansible_host = inventory['hosts'][host_name].ansible_host,
+                                management_ip = inventory['hosts'][host_name].management_ip,
+                                interfaces = inventory['hosts'][host_name].interfaces,
+                                phy = list(network_desc['connection_specs'][host_name].values())[0].phy,
+                                workload_interface = list(network_desc['connection_specs'][host_name].keys())[0],
+                            ) for host_name in network_desc['connection_specs'].keys()
+        }
 
         logger.info('All connections are ready and double-checked.')
 
-    @property
-    def hosts(self) -> FrozenSet[WorkloadHost]:
-        return frozenset(self._hosts)
+
+    def __len__(self) -> int:
+        # return the number of hosts in the network
+        return len(self._hosts)
+
+    def __iter__(self) -> Iterator[str]:
+        # return an iterator over the host names in the network.
+        return iter(self._hosts.keys())
+            
+
+    def __getitem__(self, host_id: str) -> Layer2ConnectedWorkloadHost:
+        # implements the [] operator to look up Layer2 hosts by their
+        # name.
+        return self._hosts[host_id]
 
     def tear_down(self) -> None:
         """
@@ -93,17 +102,18 @@ class PhyLayer(AbstractContextManager):
         """
 
         # prepare a temp ansible environment and run the appropriate playbook
-        logger.warning('Tearing down phy!')
+        logger.warning('Tearing down physical layer!')
 
         self._switch.tear_down()
         self._sdr_manager.tear_down()
+        self._hosts.clear()
 
-        logger.warning('Workload network has been torn down.')
+        logger.warning('Physical layer has been torn down.')
 
-    def __enter__(self) -> PhyLayer:
+    def __enter__(self) -> PhyicalLayer:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.tear_down()
-        return super(PhyLayer, self).__exit__(exc_type, exc_val, exc_tb)
+        return super(PhysicalLayer, self).__exit__(exc_type, exc_val, exc_tb)
 

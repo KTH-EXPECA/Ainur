@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from ipaddress import IPv4Interface
+from typing import Dict, Literal
 
-_ip_regex = re.compile('((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}')
-
+from dataclasses_json import config, dataclass_json
 
 ## Switch connection dataclass
 @dataclass_json
@@ -65,7 +64,7 @@ class WiredNetwork(PhyNetwork):
 @dataclass(frozen=True, eq=True)
 class Phy:
     network: str    # corresponds to PhyNetwork name
-    
+
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiFi(Phy):
@@ -76,7 +75,6 @@ class WiFi(Phy):
 @dataclass(frozen=True, eq=True)
 class Wire(Phy):
     pass
-
 
 
 ############
@@ -90,6 +88,16 @@ class NetplanInterface:
     netplan_type: Literal['ethernets', 'wifis']
     name: str
     mac: str
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class EthernetInterface(NetplanInterface):
+    switch_connection: SwitchConnection
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class WiFiInterface(NetplanInterface):
+    pass
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
@@ -132,7 +140,6 @@ class ConnectedWorkloadHost(AnsibleHost):
 class Layer2ConnectedWorkloadHost(WorkloadHost):
     phy: Phy
     workload_interface: str  # Points toward the workload interface to use in L3
-
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)

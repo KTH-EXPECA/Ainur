@@ -10,8 +10,8 @@ from loguru import logger
 import json
 
 from .ansible import AnsibleContext
-from .hosts import WorkloadHost,AnsibleHost,ConnectedWorkloadHost
-from .hosts import WorkloadInterface,EthernetInterface,WiFiInterface
+from .hosts import WorkloadHost,AnsibleHost,Layer2ConnectedWorkloadHost,Layer3ConnectedWorkloadHost
+from .hosts import NetplanInterface
 from .hosts import Wire,WiFi,Phy,SwitchConnection
 from .managed_switch import ManagedSwitch
 
