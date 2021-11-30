@@ -154,19 +154,39 @@ class ExperimentStorage(AbstractContextManager):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tear_down()
 
-    def tear_down(self, max_retries: int = 3) -> None:
+    def tear_down(self) -> None:
         logger.info('Tearing down centralized storage server.')
-        for host, vol in self._vols:
-            for i in range(max_retries):
-                try:
-                    logger.info(f'Trying to remove volume {vol.name} from '
-                                f'host {host} (try {i + 1}/{max_retries}).')
-                    vol.remove(force=True)
-                    break
-                except APIError as e:
-                    logger.warning(f'Failed to remove volume {vol.name} '
-                                   f'on host {host}.')
-                    logger.exception(e)
-                    time.sleep(0.1)  # TODO remove this
+
+        with ThreadPoolExecutor() as tpool:
+            exceptions = deque()
+            exc_cond = threading.Condition()
+
+            def _remove_vol(host_vol: Tuple[ConnectedWorkloadHost, Volume]):
+                host, vol = host_vol
+                wait = 0.01
+                while True:
+                    try:
+                        logger.info(f'Trying to remove volume {vol.name} from '
+                                    f'host {host}.')
+                        vol.remove()
+                        return
+                    except APIError as e:
+                        if e.status_code == 409:
+                            logger.warning(f'Volume {vol.name} on host {host} '
+                                           f'is busy, waiting to remove.')
+                            # duplicate waiting time on each try
+                            time.sleep(wait)
+                            wait *= 2
+                        else:
+                            logger.exception(e)
+                            with exc_cond:
+                                exceptions.append(e)
+                                exc_cond.notify_all()
+                            raise e
+
+            tpool.map(_remove_vol, self._vols)
 
         self._container.stop()
+        with exc_cond:
+            if len(exceptions) > 0:
+                raise exceptions.pop()
