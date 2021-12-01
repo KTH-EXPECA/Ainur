@@ -123,32 +123,32 @@ workload_network_desc = {
     },
     'connection_specs': {
         'workload-client-07': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.7/24'),
+            ip=IPv4Interface('10.0.0.7/16'),
             phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
         ),
         },
         'workload-client-08': {'wlan0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.8/24'),
+            ip=IPv4Interface('10.0.0.8/16'),
             phy=WiFi(network='wlan_net', radio='native', is_ap=False),
         ),
         },
         'workload-client-09': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.9/24'),
+            ip=IPv4Interface('10.0.0.9/16'),
             phy=WiFi(network='wlan_net', radio='RFSOM-00001', is_ap=False),
         ),
         },
         'workload-client-04': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.4/24'),
+            ip=IPv4Interface('10.0.1.4/16'),
             phy=Wire(network='eth_net'),
         ),
         },
         'workload-client-05': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.5/24'),
+            ip=IPv4Interface('10.0.1.5/16'),
             phy=Wire(network='eth_net'),
         ),
         },
         'workload-client-06': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.6/24'),
+            ip=IPv4Interface('10.0.1.6/16'),
             phy=Wire(network='eth_net'),
         ),
         },
@@ -173,9 +173,9 @@ compose:
       environment:
         PORT: 5000
       deploy:
-        replicas: 3
+        replicas: 6
         placement:
-          max_replicas_per_node: 3
+          max_replicas_per_node: 6
           constraints:
           - "node.labels.type==cloudlet"
   
@@ -185,7 +185,7 @@ compose:
         SERVER_ADDR: "server.{{.Task.Slot}}"
         SERVER_PORT: 5000
       deploy:
-        replicas: 3
+        replicas: 6
         placement:
           max_replicas_per_node: 1
           constraints:
@@ -224,15 +224,30 @@ managers:
     type: cloudlet
     arch: x86_64
 workers:
-  workload-client-00:
+  workload-client-04:
     type: client
     arch: arm64
-  workload-client-01:
+    conn: eth
+  workload-client-05:
     type: client
     arch: arm64
-  workload-client-02:
+    conn: eth
+  workload-client-06:
     type: client
     arch: arm64
+    conn: eth
+  workload-client-07:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-08:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-09:
+    type: client
+    arch: arm64
+    conn: wifi
 ...
 '''
 
