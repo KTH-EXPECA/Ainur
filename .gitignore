@@ -510,10 +510,11 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
+#env/
 
-# explicitly unignore ansible env
+# explicitly unignore ansible env and anything under it
 !ansible_env/env
+!ansible_env/env/*
 
 venv/
 ENV/
@@ -550,3 +551,4 @@ cython_debug/
 # Created by https://www.toptal.com/developers/gitignore/api/virtualenv
 # Edit at https://www.toptal.com/developers/gitignore?templates=virtualenv
 
+!/ansible_env/env/extravars
