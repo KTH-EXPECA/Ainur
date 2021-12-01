@@ -76,7 +76,7 @@ class NetworkLayer(AbstractContextManager,
                 workload_interface=layer2[name].workload_interface,
                 workload_ip=ip,
                 phy=layer2[name].phy
-            ) for (name, ip), address in host_ips.items()
+            ) for name, ip in host_ips.items()
         })
 
         # build an Ansible inventory from the hosts
