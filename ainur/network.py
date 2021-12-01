@@ -4,7 +4,7 @@ import functools
 import json
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface, IPv4Network
-from typing import Any, Iterator, Mapping, Tuple
+from typing import Any, Iterator, Mapping
 
 import ansible_runner
 from frozendict import frozendict
@@ -75,7 +75,8 @@ class NetworkLayer(AbstractContextManager,
                 management_ip=layer2[name].management_ip,
                 interfaces=layer2[name].interfaces,
                 workload_interface=layer2[name].workload_interface,
-                workload_ip=ip
+                workload_ip=ip,
+                phy=layer2[name].phy
             ) for (name, ip), address in host_ips.items()
         })
 
