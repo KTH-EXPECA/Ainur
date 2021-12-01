@@ -4,14 +4,13 @@ from .managed_switch import ManagedSwitch
 from .network import NetworkLayer
 from .physical import PhysicalLayer
 from .sdr_manager import SDRManager
-from .swarm import DockerSwarm
 from .tc import TrafficControl
+from swarm import *
 
 __all__ = [
     'AnsibleContext',
     'NetworkLayer',
     'PhysicalLayer',
-    'DockerSwarm',
     'WorkloadHost', 'AnsibleHost',
     'NetplanInterface', 'ConnectionSpec', 'EthernetInterface', 'WiFiInterface',
     'Phy', 'WiFi', 'Wire',
@@ -19,5 +18,6 @@ __all__ = [
     'PhyNetwork', 'WiFiNetwork', 'WiredNetwork',
     'ManagedSwitch', 'Switch',
     'TrafficControl',
-    'SDRManager'
+    'SDRManager',
+    'WorkloadSpecification', 'DockerSwarm', 'ExperimentStorage'
 ]
