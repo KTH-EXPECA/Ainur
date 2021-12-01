@@ -122,35 +122,41 @@ workload_network_desc = {
         ),
     },
     'connection_specs': {
-        'workload-client-07': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.7/16'),
-            phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
-        ),
+        'workload-client-07': {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.0.7/16'),
+                phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
+            ),
         },
-        'workload-client-08': {'wlan0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.8/16'),
-            phy=WiFi(network='wlan_net', radio='native', is_ap=False),
-        ),
+        'workload-client-08': {
+            'wlan0': ConnectionSpec(
+                ip=IPv4Interface('10.0.0.8/16'),
+                phy=WiFi(network='wlan_net', radio='native', is_ap=False),
+            ),
         },
-        'workload-client-09': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.0.9/16'),
-            phy=WiFi(network='wlan_net', radio='RFSOM-00001', is_ap=False),
-        ),
+        'workload-client-09': {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.0.9/16'),
+                phy=WiFi(network='wlan_net', radio='RFSOM-00001', is_ap=False),
+            ),
         },
-        'workload-client-04': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.4/16'),
-            phy=Wire(network='eth_net'),
-        ),
+        'workload-client-04': {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.4/16'),
+                phy=Wire(network='eth_net'),
+            ),
         },
-        'workload-client-05': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.5/16'),
-            phy=Wire(network='eth_net'),
-        ),
+        'workload-client-05': {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.5/16'),
+                phy=Wire(network='eth_net'),
+            ),
         },
-        'workload-client-06': {'eth0': ConnectionSpec(
-            ip=IPv4Interface('10.0.1.6/16'),
-            phy=Wire(network='eth_net'),
-        ),
+        'workload-client-06': {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.6/16'),
+                phy=Wire(network='eth_net'),
+            ),
         },
     }
 }
