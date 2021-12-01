@@ -77,6 +77,17 @@ inventory = {
             ),
             },
         ),
+        'elrond': WorkloadHost(
+            ansible_host='elrond',
+            management_ip=IPv4Interface('192.168.1.4/24'),
+            interfaces={'enp4s0': EthernetInterface(
+                name='enp4s0',
+                mac='d8:47:32:a3:25:20',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=2),
+            )
+            },
+        )
     },
     'radios': {
         'RFSOM-00001': SoftwareDefinedRadio(
@@ -155,6 +166,12 @@ workload_network_desc = {
         'workload-client-06': {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.6/16'),
+                phy=Wire(network='eth_net'),
+            ),
+        },
+        'elrond': {
+            'enp4s0': ConnectionSpec(
+                ip=IPv4Interface('10.0.0.1/16'),
                 phy=Wire(network='eth_net'),
             ),
         },
