@@ -60,10 +60,10 @@ inventory = {
                 switch_connection=SwitchConnection(name='glorfindel',
                                                    port=33),
             ),
-                'wlan0'       : WiFiInterface(
-                    name='wlan0',
-                    mac='f0:2f:74:63:5c:d9',
-                ),
+                # 'wlan0'       : WiFiInterface(
+                #     name='wlan0',
+                #     mac='f0:2f:74:63:5c:d9',
+                # ),
             },
         ),
         'workload-client-09': WorkloadHost(
@@ -121,13 +121,13 @@ inventory = {
 #  layers.
 workload_network_desc = {
     'subnetworks'     : {
-        'wlan_net': WiFiNetwork(
-            name='wlan_net',
-            ssid='expeca_wlan_1',
-            channel=11,
-            beacon_interval=100,
-            ht_capable=True,
-        ),
+        # 'wlan_net': WiFiNetwork(
+        #     name='wlan_net',
+        #     ssid='expeca_wlan_1',
+        #     channel=11,
+        #     beacon_interval=100,
+        #     ht_capable=True,
+        # ),
         'eth_net' : WiredNetwork(
             name='eth_net',
         ),
@@ -141,7 +141,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-08': {
-            'wlan0': ConnectionSpec(
+            'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.8/16'),
                 phy=Wire(network='eth_net')
                 # phy=WiFi(network='wlan_net', radio='native', is_ap=False),
