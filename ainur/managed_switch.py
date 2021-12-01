@@ -214,8 +214,11 @@ class ManagedSwitch(AbstractContextManager):
     def make_vlan(self, ports: List[int], name: str) -> Vlan:
 
         # to get the object with the characteristic (max id)
-        biggest_vlan_id = max(self._vlans, key=attrgetter("id_num"))
-        vlanid = biggest_vlan_id.id_num + 1
+        if len(self._vlans) != 0:
+            biggest_vlan_id = max(self._vlans, key=attrgetter("id_num"))
+            vlanid = biggest_vlan_id.id_num + 1
+        else:
+            vlanid = 2
 
         child = self.login()
 
