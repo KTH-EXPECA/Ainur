@@ -13,3 +13,4 @@ petname
 python-on-whales
 docker-compose
 dacite
+pexpect

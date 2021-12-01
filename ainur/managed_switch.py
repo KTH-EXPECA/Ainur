@@ -1,40 +1,41 @@
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
 from collections import defaultdict
-
 from contextlib import AbstractContextManager
-from ipaddress import IPv4Interface, IPv4Network
-from typing import FrozenSet, Mapping
+from dataclasses import dataclass
+from ipaddress import IPv4Interface
 from operator import attrgetter
-
-from .hosts import WiFi,Wire
-
-import ansible_runner
-from loguru import logger
+from typing import FrozenSet, List, Tuple
 
 import pexpect
+from loguru import logger
+
+from .hosts import WiFi, Wire
+
 
 @dataclass(frozen=True, eq=True)
-class Vlan():
+class Vlan:
     default: bool
     name: str
     id_num: int
     switch_name: str
     ports: list[int]
 
+
 class ManagedSwitch(AbstractContextManager):
     """
     Represents a managed network switch.
 
-    Can be used as a context manager for easy vlan deployment on a managed switch 
+    Can be used as a context manager for easy vlan deployment on a managed
+    switch
     and automatic teardown of vlans.
     """
 
     def __init__(self,
                  name: str,
-                 credentials: Tuple[str,str],
+                 credentials: Tuple[str, str],
                  address: IPv4Interface,
                  timeout: int,
                  quiet: bool = True):
@@ -45,11 +46,11 @@ class ManagedSwitch(AbstractContextManager):
         self._name = name
         self._address = address
         self._timeout = timeout
-        self._quiet = quiet
+        # self._quiet = quiet
 
-        #Second argument is assigned to the variable user
+        # Second argument is assigned to the variable user
         self._user = credentials[0]
-        #Third argument is assigned to the variable password
+        # Third argument is assigned to the variable password
         self._password = credentials[1]
 
         logger.info('Contacting the network switch.')
@@ -57,46 +58,46 @@ class ManagedSwitch(AbstractContextManager):
         # update vlans table
         self.update_vlans()
 
-
     @property
     def vlans(self) -> FrozenSet[Vlan]:
         return frozenset(self._vlans)
-    
+
     @property
     def name(self) -> str:
         return self._name
-    
-    @property
-    def credentials(self) -> Tuple[str,str]:
-        return self._credentials
 
-    @property
-    def address(self) -> IPv4Network:
-        return self._address
-    
+    # @property
+    # def credentials(self) -> Tuple[str, str]:
+    #     return self._credentials
+    #
+    # @property
+    # def address(self) -> IPv4Network:
+    #     return self._address
+
     @property
     def timeout(self) -> int:
         return self._timeout
 
     def login(self):
 
-        #This spawns the telnet program and connects it to the variable name
+        # This spawns the telnet program and connects it to the variable name
         child = pexpect.spawn("telnet %s" % self._name, timeout=self._timeout)
 
-        #The script expects login
+        # The script expects login
         child.expect_exact("Username:")
-        child.send(self._user+"\n")
+        child.send(self._user + "\n")
 
-        #The script expects Password
+        # The script expects Password
         child.expect_exact("Password:")
-        child.send(self._password+"\n")
+        child.send(self._password + "\n")
 
-        child.expect_exact(self._name+"#")
+        child.expect_exact(self._name + "#")
 
         # telnet connection is ready
         return child
 
-    def logout(self,child):
+    # noinspection PyMethodMayBeStatic
+    def logout(self, child):
 
         # assume we are in login state
         child.send("exit\n")
@@ -114,29 +115,33 @@ class ManagedSwitch(AbstractContextManager):
             for if_name in conn_specs[host_name].keys():
                 phy = conn_specs[host_name][if_name].phy
                 interface = workload_hosts[host_name].interfaces[if_name]
-                if isinstance(phy,WiFi):
+                # TODO: isinstance check
+                if isinstance(phy, WiFi):
                     # WiFi sdr vlans
                     if phy.radio != 'native':
                         host_port = interface.switch_connection.port
-                        ports = [host_port,radios[phy.radio].switch_connection.port]
-                        vlan_name = workload_hosts[host_name].ansible_host+'_to_'+phy.radio
-                        self.make_vlan(ports=ports,name=vlan_name)
-                elif isinstance(phy,Wire):
+                        ports = [host_port,
+                                 radios[phy.radio].switch_connection.port]
+                        vlan_name = workload_hosts[host_name].ansible_host \
+                                    + '_to_' + phy.radio
+                        self.make_vlan(ports=ports, name=vlan_name)
+                elif isinstance(phy, Wire):
                     # wired nodes vlans
                     # connect the ones with the same network name
-                    ports_wirednets[interface.switch_connection.port] = phy.network
+                    ports_wirednets[
+                        interface.switch_connection.port] = phy.network
 
-        # Grouping dictionary by values and make lists of ports for each network name
+        # Grouping dictionary by values and make lists of ports for each
+        # network name
         wired_nets = defaultdict(list)
         for key, value in sorted(ports_wirednets.items()):
             wired_nets[value].append(key)
 
         for wired_net_name, ports_list in wired_nets.items():
-            self.make_vlan(ports=ports_list,name=wired_net_name)
-
+            self.make_vlan(ports=ports_list, name=wired_net_name)
 
     def update_vlans(self):
-
+        logger.debug('Updating VLANs.')
         child = self.login()
 
         vlans = []
@@ -144,23 +149,28 @@ class ManagedSwitch(AbstractContextManager):
 
         # go to config mode (necessary for having one line after the table)
         child.send("configure terminal\n")
-        child.expect_exact(self._name+'(config)#')
+        child.expect_exact(self._name + '(config)#')
 
         lines = child.before.splitlines()
 
-        del lines[0]  # delete first 4 lines
-        del lines[-2:]  # delete last 4 lines
+        # TODO: del is not a good thing to do in python
+        # del lines[0]  # delete first 4 lines
+        # del lines[-2:]  # delete last 4 lines
+        lines = lines[1:-2]
 
-        #log
-        if not self._quiet:
-            for item in lines:
-                print(item.decode("utf-8"))
+        # log
+        # if not self._quiet:
+        #     for item in lines:
+        #         print(item.decode("utf-8"))
+        for item in lines:
+            logger.debug(item.decode('utf-8'))
 
         del lines[0:3]  # delete first 4 lines
 
         # log
-        if not self._quiet:
-            print('Number of vlans: %d' % len(lines))
+        # if not self._quiet:
+        # print('Number of vlans: %d' % len(lines))
+        logger.debug(f'Number of vlans: {len(lines)}')
 
         for idx, line in enumerate(lines):
             line = line.decode('utf-8')
@@ -174,112 +184,121 @@ class ManagedSwitch(AbstractContextManager):
                     vlan_ports.append(int(vlp))
                 else:
                     nums = vlp.split('-')
-                    vlan_ports.extend([n for n in range(int(nums[0]),int(nums[1])+1)])
+                    vlan_ports.extend(
+                        [n for n in range(int(nums[0]), int(nums[1]) + 1)])
 
-            vlans.append(Vlan(name=vlan_name,id_num=vlan_id,ports=vlan_ports,switch_name=self._name, default=True))
-            if not self._quiet:
-                print('Vlan #%d id: %d, name: %s, ports: %s' % (idx,vlan_id,vlan_name,vlan_ports))#If it all goes pear shaped the script will timeout after 20 seconds.
-        
+            vlans.append(Vlan(name=vlan_name, id_num=vlan_id, ports=vlan_ports,
+                              switch_name=self._name, default=True))
+            # if not self._quiet:
+            #     print('Vlan #%d id: %d, name: %s, ports: %s' % (idx,
+            #     vlan_id,vlan_name,vlan_ports))
+            #     #If it all goes pear shaped the script will timeout after
+            #     20 seconds.
+            logger.debug('VLAN:\n' + json.dumps({
+                'index': idx,
+                'id'   : vlan_id,
+                'name' : vlan_name,
+                'ports': vlan_ports
+            }, indent=4))
+
         self._vlans = vlans
-        
+
         # go back to login mode
         child.send("exit\n")
-        child.expect_exact(self._name+"#")
+        child.expect_exact(self._name + "#")
 
         self.logout(child)
-        
-        logger.info('Default vlans loaded.')
 
+        logger.info('Default vlans loaded.')
 
     def make_vlan(self, ports: List[int], name: str) -> Vlan:
 
         # to get the object with the characteristic (max id)
         biggest_vlan_id = max(self._vlans, key=attrgetter("id_num"))
-        vlanid = biggest_vlan_id.id_num+1
+        vlanid = biggest_vlan_id.id_num + 1
 
         child = self.login()
-        
+
         # go to config mode
         child.send("configure terminal\n")
-        child.expect_exact(self._name+'(config)#')
+        child.expect_exact(self._name + '(config)#')
 
         child.send("vlan %d\n" % vlanid)
 
-        child.expect_exact(self._name+"(config-vlan)#")
+        child.expect_exact(self._name + "(config-vlan)#")
         child.send("name %s\n" % name)
 
-        child.expect_exact(self._name+"(config-vlan)#")
+        child.expect_exact(self._name + "(config-vlan)#")
         child.send("exit\n")
 
         for portnum in ports:
-
-            child.expect_exact(self._name+"(config)#")
+            child.expect_exact(self._name + "(config)#")
             child.send("interface gi%d\n" % portnum)
 
-            child.expect_exact(self._name+"(config-if)")
+            child.expect_exact(self._name + "(config-if)")
             child.send("switchport mode access\n")
 
-            child.expect_exact(self._name+"(config-if)")
+            child.expect_exact(self._name + "(config-if)")
             child.send("switchport access vlan %d\n" % vlanid)
 
-            child.expect_exact(self._name+"(config-if)")
+            child.expect_exact(self._name + "(config-if)")
             child.send("exit\n")
-            
-        child.expect_exact(self._name+'(config)#')
+
+        child.expect_exact(self._name + '(config)#')
 
         # go back to login mode
         child.send("exit\n")
-        child.expect_exact(self._name+"#")
+        child.expect_exact(self._name + "#")
 
-        new_vlan = Vlan(name=name,id_num=vlanid,ports=ports,switch_name=self._name, default=False)
+        new_vlan = Vlan(name=name, id_num=vlanid, ports=ports,
+                        switch_name=self._name, default=False)
         self._vlans.append(new_vlan)
-        logger.info('New vlan with id: %d added.'% vlanid)
+        logger.info('New vlan with id: %d added.' % vlanid)
         return new_vlan
-    
-    def hard_remove_vlan(self,id_num: int):
+
+    def hard_remove_vlan(self, id_num: int):
 
         child = self.login()
 
         # go to config mode
         child.send("configure terminal\n")
-        child.expect_exact(self._name+'(config)#')
+        child.expect_exact(self._name + '(config)#')
 
         # remove it
         child.send("no vlan %d\n" % id_num)
-        child.expect_exact(self._name+"(config)")
+        child.expect_exact(self._name + "(config)")
 
         # go back to login mode
         child.send("exit\n")
-        child.expect_exact(self._name+"#")
+        child.expect_exact(self._name + "#")
 
         self.logout(child)
 
         logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
 
     def remove_vlan(self, id_num: int):
-        vlan = [ vl for vl in self._vlans if vl.id_num == id_num ]
+        vlan = [vl for vl in self._vlans if vl.id_num == id_num]
         if len(vlan) == 0:
             logger.error('There is no vlan with id: %d to be removed.' % id_num)
             return
         vlan = vlan[0]
 
         child = self.login()
-        
+
         # go to config mode
         child.send("configure terminal\n")
-        child.expect_exact(self._name+'(config)#')
+        child.expect_exact(self._name + '(config)#')
 
         # remove it
         child.send("no vlan %d\n" % id_num)
-        child.expect_exact(self._name+"(config)")
+        child.expect_exact(self._name + "(config)")
 
         # go back to login mode
         child.send("exit\n")
-        child.expect_exact(self._name+"#")
+        child.expect_exact(self._name + "#")
 
         self._vlans.remove(vlan)
         logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
-        
 
     def tear_down(self) -> None:
         """
@@ -289,7 +308,8 @@ class ManagedSwitch(AbstractContextManager):
         """
         logger.warning('Removing workload switch vlans.')
 
-        non_defalut_vlan_ids = [ vl.id_num for vl in self._vlans if vl.default == False]
+        non_defalut_vlan_ids = [vl.id_num for vl in self._vlans if
+                                vl.default == False]
         # remove all non default vlans
         for nd_id_num in non_defalut_vlan_ids:
             self.remove_vlan(nd_id_num)
