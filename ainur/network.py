@@ -20,7 +20,6 @@ from .physical import PhysicalLayer
 class Layer3Error(Exception):
     pass
 
-
 class NetworkLayer(AbstractContextManager,
                    Mapping[str, Layer3ConnectedWorkloadHost]):
     """
@@ -59,7 +58,7 @@ class NetworkLayer(AbstractContextManager,
 
         # check that the given IP addresses all belong to the same network
         networks = list(map(lambda a: a.network, host_ips.values()))
-        if not functools.reduce(lambda a, b: a == b, networks):
+        if not functools.reduce(lambda a, b: a if a == b else None, networks):
             raise Layer3Error('IPs provided do not all belong to same '
                               f'network.\n Inferred networks: {networks}.')
 
