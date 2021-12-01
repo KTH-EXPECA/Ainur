@@ -144,13 +144,6 @@ class WorkloadHost(AnsibleHost):
         return f'{self.ansible_host} (management address {self.management_ip})'
 
 
-@dataclass(frozen=True, eq=True)
-class ConnectedWorkloadHost(AnsibleHost):
-    phy: Phy
-    ip: IPv4Interface
-    connected_interface: str
-
-
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class Layer2ConnectedWorkloadHost(WorkloadHost):

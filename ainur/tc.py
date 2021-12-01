@@ -6,7 +6,7 @@ import ansible_runner
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import ConnectedWorkloadHost
+from .hosts import Layer3ConnectedWorkloadHost
 from .tc_defs import *
 
 
@@ -19,7 +19,7 @@ class TrafficControl(AbstractContextManager):
     """
 
     def __init__(self,
-                 hosts: set[ConnectedWorkloadHost],
+                 hosts: set[Layer3ConnectedWorkloadHost],
                  ansible_context: AnsibleContext,
                  quiet: bool = True):
 
@@ -36,7 +36,7 @@ class TrafficControl(AbstractContextManager):
             'all': {
                 'hosts': {
                     host.ansible_host: {
-                        'interface_name': host.workload_interface.name,
+                        'interface_name': host.workload_interface,
                     } for host in self._hosts
                 }
             }

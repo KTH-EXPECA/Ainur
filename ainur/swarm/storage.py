@@ -16,7 +16,7 @@ from loguru import logger
 
 from .. import NetworkLayer
 from ..ansible import AnsibleContext
-from ..hosts import ConnectedWorkloadHost, WorkloadHost
+from ..hosts import Layer3ConnectedWorkloadHost, WorkloadHost
 from ..misc import docker_client_context
 
 
@@ -39,7 +39,7 @@ class ExperimentStorage(AbstractContextManager):
 
         logger.info(f'Initializing centralized storage {storage_name}.')
         self._storage_name = storage_name
-        self._vols: List[Tuple[ConnectedWorkloadHost, Volume]] = list()
+        self._vols: List[Tuple[Layer3ConnectedWorkloadHost, Volume]] = list()
 
         # start by ensuring paths exists
         host_path = Path(host_path)
@@ -101,8 +101,8 @@ class ExperimentStorage(AbstractContextManager):
                 exceptions = deque()
                 ex_cond = threading.Condition()
 
-                def _add_storage(host: ConnectedWorkloadHost) \
-                        -> Tuple[ConnectedWorkloadHost, Volume]:
+                def _add_storage(host: Layer3ConnectedWorkloadHost) \
+                        -> Tuple[Layer3ConnectedWorkloadHost, Volume]:
                     logger.info(
                         f'Creating Docker volume for centralized storage '
                         f'{storage_name} on host {host}.')
@@ -161,7 +161,8 @@ class ExperimentStorage(AbstractContextManager):
             exceptions = deque()
             exc_cond = threading.Condition()
 
-            def _remove_vol(host_vol: Tuple[ConnectedWorkloadHost, Volume]):
+            def _remove_vol(host_vol: Tuple[Layer3ConnectedWorkloadHost,
+                                            Volume]):
                 host, vol = host_vol
                 wait = 0.01
                 while True:

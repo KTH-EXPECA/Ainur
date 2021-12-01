@@ -12,7 +12,7 @@ __all__ = [
     'NetworkLayer',
     'PhysicalLayer',
     'DockerSwarm',
-    'WorkloadHost', 'AnsibleHost', 'ConnectedWorkloadHost',
+    'WorkloadHost', 'AnsibleHost',
     'NetplanInterface', 'ConnectionSpec', 'EthernetInterface', 'WiFiInterface',
     'Phy', 'WiFi', 'Wire',
     'SwitchConnection', 'SoftwareDefinedRadio',
