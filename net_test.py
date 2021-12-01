@@ -143,10 +143,10 @@ if __name__ == '__main__':
         ) as swarm:
             with ExperimentStorage(
                 storage_name=workload.name,
-                storage_host=DisconnectedWorkloadHost(
+                storage_host=WorkloadHost(
                     ansible_host='galadriel.expeca',
-                    workload_nic='',
-                    management_ip=IPv4Interface('192.168.1.2')
+                    management_ip=IPv4Interface('192.168.1.2'),
+                    interfaces={}
                 ),
                 network=workload_net,
                 ansible_ctx=ansible_ctx
