@@ -25,7 +25,7 @@ def pull_image(url: str, image: str) -> None:
 def cli(image: str):
     hosts = [f'workload-client-{i:02d}.expeca' for i in range(13)] + \
             ['elrond.expeca']
-    with Pool() as pool:
+    with Pool(processes=len(hosts)) as pool:
         pool.starmap(
             pull_image,
             zip(hosts, itertools.repeat(image))
