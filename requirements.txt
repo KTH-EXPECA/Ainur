@@ -1,7 +1,7 @@
 pip
 ansible
-jsonschema
-pyyaml
+jsonschema<4
+pyyaml<6
 click
 ansible-runner
 docker
@@ -14,3 +14,4 @@ python-on-whales
 docker-compose
 dacite
 pexpect
+websocket-client<1
