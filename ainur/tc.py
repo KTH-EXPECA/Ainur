@@ -1,16 +1,7 @@
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-
 from contextlib import AbstractContextManager
-from ipaddress import IPv4Interface, IPv4Network
-from typing import FrozenSet, Mapping
-from operator import attrgetter
-from typing import List, Dict, Any, Tuple
 
-from datetime import datetime
 import ansible_runner
 from loguru import logger
 
@@ -18,7 +9,6 @@ from .ansible import AnsibleContext
 from .hosts import ConnectedWorkloadHost
 from .tc_defs import *
 
-import json
 
 class TrafficControl(AbstractContextManager):
     """
@@ -29,7 +19,7 @@ class TrafficControl(AbstractContextManager):
     """
 
     def __init__(self,
-                 hosts: set(ConnectedWorkloadHost),
+                 hosts: set[ConnectedWorkloadHost],
                  ansible_context: AnsibleContext,
                  quiet: bool = True):
 
@@ -38,15 +28,15 @@ class TrafficControl(AbstractContextManager):
         self._hosts = hosts
 
         # take the first sample from the network
-        self.sample()
+        self.sample(quiet=quiet)
 
-    def sample(self):
-        
+    def sample(self, quiet: bool = True):
+
         inventory = {
             'all': {
                 'hosts': {
                     host.ansible_host: {
-                        'interface_name':host.workload_interface.name,
+                        'interface_name': host.workload_interface.name,
                     } for host in self._hosts
                 }
             }
@@ -59,53 +49,63 @@ class TrafficControl(AbstractContextManager):
                 playbook='get_traffic_info.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=True,
+                quiet=quiet,
             )
-            
+
             # TODO: better error checking
             assert res.status != 'failed'
 
             for event in res.events:
                 if "task" in event["event_data"]:
-                    if ( event["event_data"]["task"] == "report" ) and ( "res" in event["event_data"] ):
-                        #print(json.dumps(event["event_data"]["host"]))
-                        #print(json.dumps(event["event_data"]["res"]["msg"]))
-                        #print(event["event_data"]["res"]["msg"])
+                    if (event["event_data"]["task"] == "report") and (
+                            "res" in event["event_data"]):
+                        # print(json.dumps(event["event_data"]["host"]))
+                        # print(json.dumps(event["event_data"]["res"]["msg"]))
+                        # print(event["event_data"]["res"]["msg"])
                         host_name = event["event_data"]["host"]
 
                         main_dict = event["event_data"]["res"]["msg"]
                         ip_conf = IpConf.from_dict(main_dict['ip'][0])
-                        ip_rx_stats = IpRxStats.from_dict(main_dict['ip'][0]['stats64']['rx'])
-                        ip_tx_stats = IpTxStats.from_dict(main_dict['ip'][0]['stats64']['tx'])
+                        ip_rx_stats = IpRxStats.from_dict(
+                            main_dict['ip'][0]['stats64']['rx'])
+                        ip_tx_stats = IpTxStats.from_dict(
+                            main_dict['ip'][0]['stats64']['tx'])
 
                         tc_q_list = []
                         for item in main_dict['tc']:
-                            if( 'root' in item ):
+                            if ('root' in item):
                                 if (item['root'] == True):
-                                    item = { 'parent': '0:' , **item } 
+                                    item = {'parent': '0:', **item}
 
-                            if(item['kind'] == "fq_codel"):
+                            if (item['kind'] == "fq_codel"):
                                 item = {**item['options'], **item}
-                                item.pop('options',None)
+                                item.pop('options', None)
                                 tc_q_conf = CodelTxQueueConf.from_dict(item)
                                 tc_q_stat = CodelTxQueueStats.from_dict(item)
                             else:
                                 tc_q_conf = TcTxQueueConf.from_dict(item)
                                 tc_q_stat = TcTxQueueStats.from_dict(item)
 
-                            tc_q_list.append(TcTxQueue(conf=tc_q_conf,stat=tc_q_stat))
+                            tc_q_list.append(
+                                TcTxQueue(conf=tc_q_conf, stat=tc_q_stat))
 
-                        net_ip = NetIpStats.from_dict(main_dict['netstat']['Ip'])
-                        net_udp = NetUdpStats.from_dict(main_dict['netstat']['Udp'])
+                        net_ip = NetIpStats.from_dict(
+                            main_dict['netstat']['Ip'])
+                        net_udp = NetUdpStats.from_dict(
+                            main_dict['netstat']['Udp'])
                         net_tcp = NetTcpStats.from_dict(main_dict['netstat'])
-                        ns_stats = NetStats(ip=net_ip,udp=net_udp,tcp=net_tcp)
+                        ns_stats = NetStats(ip=net_ip, udp=net_udp, tcp=net_tcp)
 
                         timestamp = int(main_dict['timestamp'])
 
-                        sample = TrafficInfoSample(host=host_name,timestamp=timestamp,ip_conf=ip_conf,ip_stats=(ip_rx_stats,ip_tx_stats),tc_queues=tc_q_list,ns_stats=ns_stats)
+                        sample = TrafficInfoSample(host=host_name,
+                                                   timestamp=timestamp,
+                                                   ip_conf=ip_conf,
+                                                   ip_stats=(ip_rx_stats,
+                                                             ip_tx_stats),
+                                                   tc_queues=tc_q_list,
+                                                   ns_stats=ns_stats)
                         self._traffic_info_samples.append(sample)
-
-
 
     def tear_down(self) -> None:
         """
@@ -114,6 +114,7 @@ class TrafficControl(AbstractContextManager):
         invalid state and should not be used any more.
         """
         logger.warning('Removing traffic control.')
+        # TODO: Samie, this doesn't do anything?
 
     def __enter__(self) -> TrafficControl:
         return self
