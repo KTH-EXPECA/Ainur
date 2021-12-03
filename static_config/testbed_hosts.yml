@@ -1,0 +1,24 @@
+---
+elrond:
+  description: 'x86 cloudlet'
+  ansible_host: elrond.expeca
+  management_ip: 192.168.1.4/24
+  interfaces:
+    enp4s0:
+      mac: 'd8:47:32:a3:25:20'
+      switch_connection:
+        name: glorfindel
+        port: 2
+
+workload-client-00:
+  description: 'workload client'
+  ansible_host: workload-client-00.expeca
+  management_ip: 192.168.1.100/24
+  interfaces:
+    eth0:
+      mac: 'dc:a6:32:b4:d8:b5'
+      switch_connection:
+        name: glorfindel
+        port: 2
+
+...
