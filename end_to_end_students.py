@@ -7,6 +7,50 @@ from ainur import *
 
 inventory = {
     'hosts' : {
+        'workload-client-00': WorkloadHost(
+            ansible_host='workload-client-00',
+            management_ip=IPv4Interface('192.168.1.100/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:b4:d8:b5',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=25),
+            ),
+            },
+        ),
+        'workload-client-01': WorkloadHost(
+            ansible_host='workload-client-01',
+            management_ip=IPv4Interface('192.168.1.101/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:53:04',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=26),
+            ),
+            },
+        ),
+        'workload-client-02': WorkloadHost(
+            ansible_host='workload-client-02',
+            management_ip=IPv4Interface('192.168.1.102/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:52:95',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=27),
+            ),
+            },
+        ),
+        'workload-client-03': WorkloadHost(
+            ansible_host='workload-client-03',
+            management_ip=IPv4Interface('192.168.1.103/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:52:a1',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=28),
+            ),
+            },
+        ),
         'workload-client-04': WorkloadHost(
             ansible_host='workload-client-04',
             management_ip=IPv4Interface('192.168.1.104/24'),
@@ -77,6 +121,39 @@ inventory = {
             ),
             },
         ),
+        'workload-client-10': WorkloadHost(
+            ansible_host='workload-client-10',
+            management_ip=IPv4Interface('192.168.1.110/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:52:b0',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=35),
+            ),
+            },
+        ),
+        'workload-client-11': WorkloadHost(
+            ansible_host='workload-client-11',
+            management_ip=IPv4Interface('192.168.1.111/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:54:1b',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=36),
+            ),
+            },
+        ),
+        'workload-client-12': WorkloadHost(
+            ansible_host='workload-client-12',
+            management_ip=IPv4Interface('192.168.1.112/24'),
+            interfaces={'eth0': EthernetInterface(
+                name='eth0',
+                mac='dc:a6:32:bf:52:b3',
+                switch_connection=SwitchConnection(name='glorfindel',
+                                                   port=37),
+            ),
+            },
+        ),
         'elrond'            : WorkloadHost(
             ansible_host='elrond',
             management_ip=IPv4Interface('192.168.1.4/24'),
@@ -128,51 +205,93 @@ workload_network_desc = {
         #     beacon_interval=100,
         #     ht_capable=True,
         # ),
-        'eth_net' : WiredNetwork(
+        'eth_net': WiredNetwork(
             name='eth_net',
         ),
     },
     'connection_specs': {
-        'workload-client-07': {
+        'workload-client-00'   : {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.7/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
+                ip=IPv4Interface('10.0.1.0/16'),
+                phy=Wire(network='eth_net'),
             ),
         },
-        'workload-client-08': {
+        'workload-client-01'   : {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.8/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='native', is_ap=False),
+                ip=IPv4Interface('10.0.1.1/16'),
+                phy=Wire(network='eth_net'),
             ),
         },
-        'workload-client-09': {
+        'workload-client-02'   : {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.9/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='RFSOM-00001', is_ap=False),
+                ip=IPv4Interface('10.0.1.2/16'),
+                phy=Wire(network='eth_net'),
             ),
         },
-        'workload-client-04': {
+        'workload-client-03'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.3/16'),
+                phy=Wire(network='eth_net'),
+            ),
+        }, 'workload-client-04': {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.4/16'),
                 phy=Wire(network='eth_net'),
             ),
         },
-        'workload-client-05': {
+        'workload-client-05'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.5/16'),
                 phy=Wire(network='eth_net'),
             ),
         },
-        'workload-client-06': {
+        'workload-client-06'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.6/16'),
                 phy=Wire(network='eth_net'),
             ),
         },
-        'elrond'            : {
+        'workload-client-07'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.7/16'),
+                phy=Wire(network='eth_net')
+                # phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
+            ),
+        },
+        'workload-client-08'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.8/16'),
+                phy=Wire(network='eth_net')
+                # phy=WiFi(network='wlan_net', radio='native', is_ap=False),
+            ),
+        },
+        'workload-client-09'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.9/16'),
+                phy=Wire(network='eth_net')
+                # phy=WiFi(network='wlan_net', radio='RFSOM-00001',
+                # is_ap=False),
+            ),
+        },
+        'workload-client-10'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.10/16'),
+                phy=Wire(network='eth_net'),
+            ),
+        },
+        'workload-client-11'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.11/16'),
+                phy=Wire(network='eth_net'),
+            ),
+        },
+        'workload-client-12'   : {
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.12/16'),
+                phy=Wire(network='eth_net'),
+            ),
+        },
+        'elrond'               : {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.1/16'),
                 phy=Wire(network='eth_net'),
