@@ -1,5 +1,6 @@
 [submodule "DemoWorkload"]
-	url = git@github.com:KTH-EXPECA/DemoWorkload.git
+    path = DemoWorkload
+	url = git@github.com:KTH-EXPECA/DemoWorkload
 [submodule "SDRManager"]
 	path = SDRManager
 	url = git@github.com:KTH-EXPECA/SDRManager
