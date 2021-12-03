@@ -1,12 +1,3 @@
-[submodule "workload-definition-schema"]
-	path = workload-definition-schema
-	url = git@github.com:KTH-EXPECA/workload-definition-schema.git
-[submodule "TestbedConfig"]
-	path = TestbedConfig
-	url = git@github.com:KTH-EXPECA/TestbedConfig.git
-[submodule "EchoWorkload"]
-	path = DemoWorkload
-	url = git@github.com:KTH-EXPECA/EchoWorkload.git
 [submodule "DemoWorkload"]
 	url = git@github.com:KTH-EXPECA/DemoWorkload.git
 [submodule "SDRManager"]
