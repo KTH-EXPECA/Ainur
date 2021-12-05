@@ -10,148 +10,209 @@ inventory = {
         'workload-client-00': WorkloadHost(
             ansible_host='workload-client-00',
             management_ip=IPv4Interface('192.168.1.100/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:b4:d8:b5',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=25),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:b4:d8:b5',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=25),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3f:f0',
+                ),
             },
         ),
         'workload-client-01': WorkloadHost(
             ansible_host='workload-client-01',
             management_ip=IPv4Interface('192.168.1.101/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:53:04',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=26),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:04',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=26),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3f:ea',
+                ),
             },
         ),
         'workload-client-02': WorkloadHost(
             ansible_host='workload-client-02',
             management_ip=IPv4Interface('192.168.1.102/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:52:95',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=27),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:95',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=27),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3f:e8',
+                ),
             },
         ),
         'workload-client-03': WorkloadHost(
             ansible_host='workload-client-03',
             management_ip=IPv4Interface('192.168.1.103/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:52:a1',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=28),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:a1',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=28),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3e:04',
+                ),
             },
         ),
         'workload-client-04': WorkloadHost(
             ansible_host='workload-client-04',
             management_ip=IPv4Interface('192.168.1.104/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:53:b8',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=29),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:b8',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=29),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='fc:34:97:25:a1:9b',
+                ),
             },
         ),
         'workload-client-05': WorkloadHost(
             ansible_host='workload-client-05',
             management_ip=IPv4Interface('192.168.1.105/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:07:fe:f2',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=30),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:07:fe:f2',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=30),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3e:a8',
+                ),
             },
         ),
         'workload-client-06': WorkloadHost(
             ansible_host='workload-client-06',
             management_ip=IPv4Interface('192.168.1.106/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:53:f4',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=31),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:f4',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=31),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='fc:34:97:25:a2:92',
+                ),
             },
         ),
         'workload-client-07': WorkloadHost(
             ansible_host='workload-client-07',
             management_ip=IPv4Interface('192.168.1.107/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:52:83',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=32),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:83',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=32),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='24:4b:fe:b7:26:92',
+                ),
             },
         ),
         'workload-client-08': WorkloadHost(
             ansible_host='workload-client-08',
             management_ip=IPv4Interface('192.168.1.108/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:54:12',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=33),
-            ),
-                # 'wlan0'       : WiFiInterface(
-                #     name='wlan0',
-                #     mac='f0:2f:74:63:5c:d9',
-                # ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:54:12',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=33),
+                ),
+                'wlan0': WiFiInterface(
+                    name='wlan0',
+                    mac='f0:2f:74:63:5c:d9',
+                ),
             },
         ),
         'workload-client-09': WorkloadHost(
             ansible_host='workload-client-09',
             management_ip=IPv4Interface('192.168.1.109/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:53:40',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=34),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:40',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=34),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='3c:7c:3f:a2:50:bd',
+                ),
             },
         ),
         'workload-client-10': WorkloadHost(
             ansible_host='workload-client-10',
             management_ip=IPv4Interface('192.168.1.110/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:52:b0',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=35),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:b0',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=35),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='fc:34:97:25:a2:0d',
+                ),
             },
         ),
         'workload-client-11': WorkloadHost(
             ansible_host='workload-client-11',
             management_ip=IPv4Interface('192.168.1.111/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:54:1b',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=36),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:54:1b',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=36),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:16:17:2e',
+                ),
             },
         ),
         'workload-client-12': WorkloadHost(
             ansible_host='workload-client-12',
             management_ip=IPv4Interface('192.168.1.112/24'),
-            interfaces={'eth0': EthernetInterface(
-                name='eth0',
-                mac='dc:a6:32:bf:52:b3',
-                switch_connection=SwitchConnection(name='glorfindel',
-                                                   port=37),
-            ),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:b3',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=37),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:16:17:2d',
+                ),
             },
         ),
         'elrond'            : WorkloadHost(
