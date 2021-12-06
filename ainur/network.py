@@ -11,7 +11,7 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import Layer3ConnectedWorkloadHost
+from .hosts import Layer3ConnectedWorkloadHost, PhyNetwork
 from .physical import PhysicalLayer
 
 
@@ -19,6 +19,7 @@ from .physical import PhysicalLayer
 
 class Layer3Error(Exception):
     pass
+
 
 class NetworkLayer(AbstractContextManager,
                    Mapping[str, Layer3ConnectedWorkloadHost]):
@@ -29,7 +30,10 @@ class NetworkLayer(AbstractContextManager,
     of workload networks.
     """
 
+    # TODO: fix ugly networks parameter
+
     def __init__(self,
+                 network_cfg: Mapping[str, PhyNetwork],
                  host_ips: Mapping[str, IPv4Interface],
                  layer2: PhysicalLayer,
                  ansible_context: AnsibleContext,
@@ -37,6 +41,8 @@ class NetworkLayer(AbstractContextManager,
         """
         Parameters
         ----------
+        network_cfg
+            Name to PhyNetwork mapping.
         host_ips
             Mapping from host ID to desired IP address.
         layer2:
@@ -75,7 +81,11 @@ class NetworkLayer(AbstractContextManager,
                 interfaces=layer2[name].interfaces,
                 workload_interface=layer2[name].workload_interface,
                 workload_ip=ip,
-                phy=layer2[name].phy
+                phy=layer2[name].phy,
+                # FIXME: ugly getattr workaround. Use polymorphism and
+                #  inheritance for this shit!!
+                wifi_ssid=getattr(network_cfg[layer2[name].phy.network],
+                                  'ssid', None)
             ) for name, ip in host_ips.items()
         })
 
