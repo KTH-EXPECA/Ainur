@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from ipaddress import IPv4Interface
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional
 
 from dataclasses_json import config, dataclass_json
 
@@ -43,7 +43,7 @@ class SoftwareDefinedRadio:
 # Physical Layer Network Concept Representation Classes
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class PhyNetwork():
+class PhyNetwork:
     name: str
 
 
@@ -160,6 +160,8 @@ class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
             decoder=IPv4Interface
         )
     )
+    # TODO: fix?
+    wifi_ssid: Optional[str] = field(default=None)
 
     def __str__(self) -> str:
         return f'{self.ansible_host} (management address ' \

@@ -47,7 +47,7 @@
                 routes: []
                 routing-policy: []
                 access-points:
-                  {{ phy.network }}: {}
+                  {{ wifi_ssid }}: {}
         mode: 0644
 
     - name: Apply the netplan config
