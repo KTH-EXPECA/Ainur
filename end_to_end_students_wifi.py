@@ -260,14 +260,14 @@ inventory = {
 #  layers.
 workload_network_desc = {
     'subnetworks'     : {
-        # 'wlan_net': WiFiNetwork(
-        #     name='wlan_net',
-        #     ssid='expeca_wlan_1',
-        #     channel=11,
-        #     beacon_interval=100,
-        #     ht_capable=True,
-        # ),
-        'eth_net': WiredNetwork(
+        'wlan_net': WiFiNetwork(
+            name='wlan_net',
+            ssid='expeca_wlan_1',
+            channel=11,
+            beacon_interval=100,
+            ht_capable=True,
+        ),
+        'eth_net' : WiredNetwork(
             name='eth_net',
         ),
     },
@@ -275,88 +275,111 @@ workload_network_desc = {
         'workload-client-00'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.0/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-01'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.1/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-02'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.2/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-03'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.3/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         }, 'workload-client-04': {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.4/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-05'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.5/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-06'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.6/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-07'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.7/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-08'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.8/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='native', is_ap=False),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-09'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.9/16'),
-                phy=Wire(network='eth_net')
-                # phy=WiFi(network='wlan_net', radio='RFSOM-00001',
-                # is_ap=False),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-10'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.10/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-11'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.11/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'workload-client-12'   : {
             'eth0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.12/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
             ),
         },
         'elrond'               : {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.1/16'),
-                phy=Wire(network='eth_net'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True)
             ),
         },
     }
@@ -365,12 +388,12 @@ workload_network_desc = {
 # language=yaml
 workload_def = '''
 ---
-name: MOSN_30m_eth_plant12_tick200
+name: MOSN_30m_wifi_plant3_sample_rate_100
 author: "Mosn2444"
 email: "sandiv@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "35m"
+max_duration: "2m"
 compose:
   version: "3.9"
   services:
@@ -384,13 +407,13 @@ compose:
         PORT: "50000"
         NAME: "controller.{{.Task.Slot}}"
       deploy:
-        replicas: 12
+        replicas: 1
         placement:
           constraints:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: MOSN_30m_eth_plant12_tick200
+          source: MOSN_30m_wifi_plant3_sample_rate_100
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -403,20 +426,22 @@ compose:
         NAME: "plant.{{.Task.Slot}}"
         CONTROLLER_ADDRESS: "controller.{{.Task.Slot}}"
         CONTROLLER_PORT: "50000"
-        TICK_RATE: "200"
-        EMU_DURATION: "30m"
+        TICK_RATE: "100"
+        EMU_DURATION: "1m"
         FAIL_ANGLE_RAD: "1"
+        SAMPLE_RATE: "100"
       deploy:
-        replicas: 12
+        replicas: 1
         placement:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
+          - "node.hostname==workload-client-00"
         restart_policy:
           condition: on-failure
       volumes:
         - type: volume
-          source: MOSN_30m_eth_plant12_tick200
+          source: MOSN_30m_wifi_plant3_sample_rate_100
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -436,55 +461,55 @@ workers:
   workload-client-00:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-01:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-02:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-03:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-04:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-05:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-06:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-07:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-08:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-09:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-10:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-11:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
   workload-client-12:
     type: client
     arch: arm64
-    conn: eth
+    conn: wifi
 ...
 '''
 
