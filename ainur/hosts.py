@@ -108,7 +108,7 @@ class EthernetInterface(NetplanInterface):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiFiInterface(NetplanInterface):
-    netplan_type: Literal['wifis'] = field(default='ethernets', init=False)
+    netplan_type: Literal['wifis'] = field(default='wifis', init=False)
 
 
 @dataclass_json
