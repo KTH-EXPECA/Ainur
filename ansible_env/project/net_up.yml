@@ -27,28 +27,28 @@
         mode: 0644
 
     - name: Write netplan config (wifi)
-        when: interfaces[workload_interface].netplan_type == 'wifis'
-        ansible.builtin.copy:
-          dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
-          # language=YAML
-          content: |
-            #######################################################
-            # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
-            #######################################################
-            network:
-              version: 2
-              renderer: networkd
-              wifis:
-                {{ workload_interface }}:
-                  addresses:
-                    - {{ workload_ip }}
-                  dhcp4: no
-                  # no routes, stub network
-                  routes: []
-                  routing-policy: []
-                  access-points:
-                    {{ phy.network }}: {}
-          mode: 0644
+      when: interfaces[workload_interface].netplan_type == 'wifis'
+      ansible.builtin.copy:
+        dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
+        # language=YAML
+        content: |
+          #######################################################
+          # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
+          #######################################################
+          network:
+            version: 2
+            renderer: networkd
+            wifis:
+              {{ workload_interface }}:
+                addresses:
+                  - {{ workload_ip }}
+                dhcp4: no
+                # no routes, stub network
+                routes: []
+                routing-policy: []
+                access-points:
+                  {{ phy.network }}: {}
+        mode: 0644
 
     - name: Apply the netplan config
       command: netplan apply
