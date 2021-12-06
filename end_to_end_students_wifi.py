@@ -258,6 +258,7 @@ inventory = {
 
 # TODO: connection spec should not include IP addresses, as this mixes the
 #  layers.
+# TODO: connection spec needs to be simplified to match phy!
 workload_network_desc = {
     'subnetworks'     : {
         'wlan_net': WiFiNetwork(
@@ -273,7 +274,7 @@ workload_network_desc = {
     },
     'connection_specs': {
         'workload-client-00'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.0/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -281,7 +282,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-01'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.1/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -289,7 +290,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-02'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.2/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -297,14 +298,14 @@ workload_network_desc = {
             ),
         },
         'workload-client-03'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.3/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
                          is_ap=False),
             ),
         }, 'workload-client-04': {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.4/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -312,7 +313,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-05'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.5/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -320,7 +321,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-06'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.6/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -328,7 +329,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-07'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.7/16'),
                 # phy=Wire(network='eth_net')
                 phy=WiFi(network='wlan_net', radio='native',
@@ -336,7 +337,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-08'   : {
-            'eth0': ConnectionSpec(
+            'wlan0': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.8/16'),
                 # phy=Wire(network='eth_net')
                 phy=WiFi(network='wlan_net', radio='native',
@@ -344,7 +345,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-09'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.9/16'),
                 # phy=Wire(network='eth_net')
                 phy=WiFi(network='wlan_net', radio='native',
@@ -352,7 +353,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-10'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.10/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -360,7 +361,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-11'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.11/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
@@ -368,7 +369,7 @@ workload_network_desc = {
             ),
         },
         'workload-client-12'   : {
-            'eth0': ConnectionSpec(
+            'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.12/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
