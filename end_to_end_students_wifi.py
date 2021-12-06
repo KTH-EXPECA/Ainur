@@ -1,7 +1,9 @@
+import time
 from ipaddress import IPv4Interface
 from pathlib import Path
 
 import yaml
+from loguru import logger
 
 from ainur import *
 
@@ -167,54 +169,54 @@ inventory = {
                 ),
             },
         ),
-        'workload-client-10': WorkloadHost(
-            ansible_host='workload-client-10',
-            management_ip=IPv4Interface('192.168.1.110/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:52:b0',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=35),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='fc:34:97:25:a2:0d',
-                ),
-            },
-        ),
-        'workload-client-11': WorkloadHost(
-            ansible_host='workload-client-11',
-            management_ip=IPv4Interface('192.168.1.111/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:54:1b',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=36),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='7c:10:c9:16:17:2e',
-                ),
-            },
-        ),
-        'workload-client-12': WorkloadHost(
-            ansible_host='workload-client-12',
-            management_ip=IPv4Interface('192.168.1.112/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:52:b3',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=37),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='7c:10:c9:16:17:2d',
-                ),
-            },
-        ),
+        # 'workload-client-10': WorkloadHost(
+        #     ansible_host='workload-client-10',
+        #     management_ip=IPv4Interface('192.168.1.110/24'),
+        #     interfaces={
+        #         'eth0' : EthernetInterface(
+        #             name='eth0',
+        #             mac='dc:a6:32:bf:52:b0',
+        #             switch_connection=SwitchConnection(name='glorfindel',
+        #                                                port=35),
+        #         ),
+        #         'wlan1': WiFiInterface(
+        #             name='wlan1',
+        #             mac='fc:34:97:25:a2:0d',
+        #         ),
+        #     },
+        # ),
+        # 'workload-client-11': WorkloadHost(
+        #     ansible_host='workload-client-11',
+        #     management_ip=IPv4Interface('192.168.1.111/24'),
+        #     interfaces={
+        #         'eth0' : EthernetInterface(
+        #             name='eth0',
+        #             mac='dc:a6:32:bf:54:1b',
+        #             switch_connection=SwitchConnection(name='glorfindel',
+        #                                                port=36),
+        #         ),
+        #         'wlan1': WiFiInterface(
+        #             name='wlan1',
+        #             mac='7c:10:c9:16:17:2e',
+        #         ),
+        #     },
+        # ),
+        # 'workload-client-12': WorkloadHost(
+        #     ansible_host='workload-client-12',
+        #     management_ip=IPv4Interface('192.168.1.112/24'),
+        #     interfaces={
+        #         'eth0' : EthernetInterface(
+        #             name='eth0',
+        #             mac='dc:a6:32:bf:52:b3',
+        #             switch_connection=SwitchConnection(name='glorfindel',
+        #                                                port=37),
+        #         ),
+        #         'wlan1': WiFiInterface(
+        #             name='wlan1',
+        #             mac='7c:10:c9:16:17:2d',
+        #         ),
+        #     },
+        # ),
         'elrond'            : WorkloadHost(
             ansible_host='elrond',
             management_ip=IPv4Interface('192.168.1.4/24'),
@@ -352,30 +354,30 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
-        'workload-client-10'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.10/16'),
-                # phy=Wire(network='eth_net'),
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
-        },
-        'workload-client-11'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.11/16'),
-                # phy=Wire(network='eth_net'),
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
-        },
-        'workload-client-12'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.12/16'),
-                # phy=Wire(network='eth_net'),
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
-        },
+        # 'workload-client-10'   : {
+        #     'wlan1': ConnectionSpec(
+        #         ip=IPv4Interface('10.0.1.10/16'),
+        #         # phy=Wire(network='eth_net'),
+        #         phy=WiFi(network='wlan_net', radio='native',
+        #                  is_ap=False),
+        #     ),
+        # },
+        # 'workload-client-11'   : {
+        #     'wlan1': ConnectionSpec(
+        #         ip=IPv4Interface('10.0.1.11/16'),
+        #         # phy=Wire(network='eth_net'),
+        #         phy=WiFi(network='wlan_net', radio='native',
+        #                  is_ap=False),
+        #     ),
+        # },
+        # 'workload-client-12'   : {
+        #     'wlan1': ConnectionSpec(
+        #         ip=IPv4Interface('10.0.1.12/16'),
+        #         # phy=Wire(network='eth_net'),
+        #         phy=WiFi(network='wlan_net', radio='native',
+        #                  is_ap=False),
+        #     ),
+        # },
         'elrond'               : {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.1/16'),
@@ -437,7 +439,6 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.type==client"
-          - "node.hostname==workload-client-00"
         restart_policy:
           condition: on-failure
       volumes:
@@ -499,18 +500,18 @@ workers:
     type: client
     arch: arm64
     conn: wifi
-  workload-client-10:
-    type: client
-    arch: arm64
-    conn: wifi
-  workload-client-11:
-    type: client
-    arch: arm64
-    conn: wifi
-  workload-client-12:
-    type: client
-    arch: arm64
-    conn: wifi
+  # workload-client-10:
+  #   type: client
+  #   arch: arm64
+  #   conn: wifi
+  # workload-client-11:
+  #   type: client
+  #   arch: arm64
+  #   conn: wifi
+  # workload-client-12:
+  #   type: client
+  #   arch: arm64
+  #   conn: wifi
 ...
 '''
 
@@ -543,6 +544,13 @@ if __name__ == '__main__':
                 ansible_context=ansible_ctx,
                 ansible_quiet=True
         ) as workload_net:
+            # TODO: connection check before swarm start! For now, just sleep
+            #  for 30s to let all devices connect
+            logger.warning('Sleeping for 30s to allow for all devices to '
+                           'connect to network...')
+            time.sleep(30)
+            logger.warning('Continuing with workload deployment!')
+
             with DockerSwarm(
                     network=workload_net,
                     managers=managers,
