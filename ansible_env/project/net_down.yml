@@ -9,6 +9,9 @@
         path: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
         state: absent
 
+    - name: Generate netplan config
+      command: netplan generate
+
     - name: Apply the netplan config
       command: netplan apply
 

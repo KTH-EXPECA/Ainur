@@ -50,6 +50,9 @@
                   {{ wifi_ssid }}: {}
         mode: 0644
 
+    - name: Generate netplan config
+      command: netplan generate
+
     - name: Apply the netplan config
       command: netplan apply
 
