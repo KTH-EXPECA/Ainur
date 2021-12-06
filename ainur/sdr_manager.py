@@ -105,7 +105,7 @@ class SDRManager(AbstractContextManager):
             sta_sdr_names_dict['name_' + str(idx + 1)] = sta_wifi.radio
         if len(sta_wifis) == 0:
             sta_sdr_names_dict = ''
-
+        
         foreign_sta_macs_dict = {}
         for idx, mac in enumerate(foreign_sta_macs):
             foreign_sta_macs_dict['mac_' + str(idx + 1)] = mac
@@ -123,7 +123,7 @@ class SDRManager(AbstractContextManager):
             'sta_sdr_names'   : sta_sdr_names_dict,
             'foreign_sta_macs': foreign_sta_macs_dict,
         }
-
+        
         self.send_command('start', start_sdrs_cmd)
         logger.info(f'SDR network with ssid: {wifi_network.ssid} is up.')
 
@@ -162,18 +162,17 @@ class SDRManager(AbstractContextManager):
                 #  elif check exactly the same condition. Also, we really
                 #  should avoid isinstance checks, we can handle this
                 #  behavior with inheritance and polymorphism.
-
+                
                 if isinstance(phy_, WiFi):
-                    if (phy_.radio != 'native') and (not phy_.is_ap):
-                        if phy_.network == wifi_sdr_ap.network:
-                            sdr_stations.append(phy_)
-                elif isinstance(phy_, WiFi):
-                    if (phy_.radio == 'native') and (not phy_.is_ap):
-                        if phy_.network == wifi_sdr_ap.network:
-                            native_phy_mac = \
-                                workload_hosts[host_name_].interfaces[
-                                    if_name_].mac
-                            native_stations_macs.append(native_phy_mac)
+                    if (not phy_.is_ap):
+                        if (phy_.radio != 'native'):
+                            if phy_.network == wifi_sdr_ap.network:
+                                sdr_stations.append(phy_)
+                        else: #native
+                            if phy_.network == wifi_sdr_ap.network:
+                                native_phy_mac = \
+                                    workload_hosts[host_name_].interfaces[if_name_].mac
+                                native_stations_macs.append(native_phy_mac)
 
         return sdr_stations, native_stations_macs
 
