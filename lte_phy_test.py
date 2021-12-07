@@ -284,6 +284,7 @@ inventory = {
 workload_network_desc = {
     'subnetworks'     : {
         'lte_net' : LTENetwork(
+            name='lte_net',
             TAC='1',
             MNC='208',
             MCC='96',
@@ -368,6 +369,7 @@ workload_network_desc = {
 
 
 if __name__ == '__main__':
+    '''
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
     conn_specs = workload_network_desc['connection_specs']
 
@@ -389,3 +391,5 @@ if __name__ == '__main__':
                 ansible_quiet=True
         ) as workload_net:
             input("Press Enter to continue...")
+    '''
+    input("Press Enter to continue...")

@@ -61,18 +61,18 @@ class WiFiNetwork(PhyNetwork):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class LTENetwork(PhyNetwork):
-    TAC: str,
-    MNC: str,
-    MCC: str,
-    HPLMN: str,
-    LTE_K: str,
-    OP_KEY: str,
-    FIRST_MSIN: str,
-    MAX_N_UE: int,
-    downlink_frequency: int,
-    uplink_frequency_offset: int,
-    eutra_band: int,
-    N_RB_DL: int,
+    TAC: str
+    MNC: str
+    MCC: str
+    HPLMN: str
+    LTE_K: str
+    OP_KEY: str
+    FIRST_MSIN: str
+    MAX_N_UE: int
+    downlink_frequency: int
+    uplink_frequency_offset: int
+    eutra_band: int
+    N_RB_DL: int
 
 # Wired network
 @dataclass_json
