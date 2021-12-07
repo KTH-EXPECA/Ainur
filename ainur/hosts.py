@@ -57,6 +57,23 @@ class WiFiNetwork(PhyNetwork):
     ht_capable: bool
 
 
+# LTE network
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class LTENetwork(PhyNetwork):
+    TAC: str,
+    MNC: str,
+    MCC: str,
+    HPLMN: str,
+    LTE_K: str,
+    OP_KEY: str,
+    FIRST_MSIN: str,
+    MAX_N_UE: int,
+    downlink_frequency: int,
+    uplink_frequency_offset: int,
+    eutra_band: int,
+    N_RB_DL: int,
+
 # Wired network
 @dataclass_json
 @dataclass(frozen=True, eq=True)
@@ -84,6 +101,12 @@ class WiFi(Phy):
 class Wire(Phy):
     pass
 
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class LTE(Phy):
+    is_enb: bool    
+    radio_host: str  # corresponds to the name of radiohost
 
 ############
 # Workload Network Interface
