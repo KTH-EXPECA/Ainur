@@ -482,10 +482,10 @@ managers:
   elrond:
     type: cloudlet
     arch: x86_64
+workers:
   cloud:
     type: cloud
     arch: x86_64
-workers:
   # workload-client-00:
   #   type: client
   #   arch: arm64
@@ -572,9 +572,9 @@ if __name__ == '__main__':
         ) as workload_net:
             # TODO: connection check before swarm start! For now, just sleep
             #  for 30s to let all devices connect
-            logger.warning('Sleeping for 30s to allow for all devices to '
+            logger.warning('Sleeping for 10s to allow for all devices to '
                            'connect to network...')
-            time.sleep(30)
+            time.sleep(10)
             logger.warning('Continuing with workload deployment!')
 
             with VPNRouting(
