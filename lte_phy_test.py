@@ -355,21 +355,33 @@ workload_network_desc = {
         'elrond': {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.2.1/24'),
-                phy=LTE(network='lte_net', radio_host='finarfin', is_enb=True),
+                phy=LTE(network='lte_net', is_enb=True, radio_host='finarfin'),
             ),
         },
         'workload-client-03': {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.2.3/24'),
-                phy=LTE(network='lte_net', radio_host='fingolfin', is_enb=False),
+            'eth0': ConnectionSpec(
+                ip=IPv4Interface('10.0.2.4/24'),
+                phy=LTE(network='lte_net', is_enb=False, radio_host='fingolfin'),
             ),
         },
-    }
+    },
+    'radio_hosts_config': {
+        'finarfin': RadioHostConfig(
+            interfaces={
+                'enp5s0': IPv4Interface('10.0.2.2/24'),
+            }
+        ),
+        'fingolfin': RadioHostConfig(
+            interfaces={ 
+                'enp4s0': IPv4Interface('10.0.2.3/24'),
+            }
+        ),
+    },
 }
 
 
 if __name__ == '__main__':
-    '''
+    
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
     conn_specs = workload_network_desc['connection_specs']
 
@@ -391,5 +403,6 @@ if __name__ == '__main__':
                 ansible_quiet=True
         ) as workload_net:
             input("Press Enter to continue...")
-    '''
-    input("Press Enter to continue...")
+    
+
+    #input("Press Enter to continue...")

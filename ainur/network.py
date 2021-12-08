@@ -64,9 +64,9 @@ class NetworkLayer(AbstractContextManager,
 
         # check that the given IP addresses all belong to the same network
         networks = list(map(lambda a: a.network, host_ips.values()))
-        if not functools.reduce(lambda a, b: a if a == b else None, networks):
-            raise Layer3Error('IPs provided do not all belong to same '
-                              f'network.\n Inferred networks: {networks}.')
+        #if not functools.reduce(lambda a, b: a if a == b else None, networks):
+        #    raise Layer3Error('IPs provided do not all belong to same '
+        #                      f'network.\n Inferred networks: {networks}.')
 
         logger.info(f'IP address mappings:\n{host_ips}')
 

@@ -12,7 +12,7 @@ from typing import FrozenSet, List, Tuple
 import pexpect
 from loguru import logger
 
-from .hosts import WiFi, Wire
+from .hosts import LTE, WiFi, Wire
 
 
 @dataclass(frozen=True, eq=True)
@@ -108,6 +108,7 @@ class ManagedSwitch(AbstractContextManager):
 
         workload_hosts = inventory['hosts']
         radios = inventory['radios']
+        radiohosts = inventory['radiohosts']
 
         # Make workload switch vlans
         ports_wirednets = {}
@@ -130,6 +131,15 @@ class ManagedSwitch(AbstractContextManager):
                     # connect the ones with the same network name
                     ports_wirednets[
                         interface.switch_connection.port] = phy.network
+                elif isinstance(phy, LTE):
+                    # LTE nodes vlans
+                    # connect the host to its radiohost
+                    host_port = interface.switch_connection.port
+                    ports = [host_port,
+                                 radiohosts[phy.radio_host].interfaces[phy.radio_host_data_interface].switch_connection.port]
+                    vlan_name = workload_hosts[host_name].ansible_host \
+                                    + '_to_' + phy.radio_host
+                    self.make_vlan(ports=ports, name=vlan_name)
 
         # Grouping dictionary by values and make lists of ports for each
         # network name

@@ -107,6 +107,7 @@ class Wire(Phy):
 class LTE(Phy):
     is_enb: bool    
     radio_host: str  # corresponds to the name of radiohost
+    radio_host_data_interface: str # corresponds to the name of the interface
 
 ############
 # Workload Network Interface
@@ -139,6 +140,12 @@ class WiFiInterface(NetplanInterface):
 class ConnectionSpec:
     ip: IPv4Interface
     phy: Phy
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class RadioHostConfig:
+    data_interface: str
+    data_ip: IPv4Interface
 
 
 ############
