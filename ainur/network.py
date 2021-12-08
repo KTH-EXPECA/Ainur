@@ -340,4 +340,4 @@ class CloudNetworkLayer(Layer3Network):
         return self._local_net.address
 
     def tear_down(self) -> None:
-        return self._local_net.tear_down()
+        pass
