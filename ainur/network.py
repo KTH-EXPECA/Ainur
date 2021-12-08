@@ -40,18 +40,18 @@ class Layer3Network(AbstractContextManager,
     def __contains__(self, item: Any) -> bool:
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def is_down(self) -> bool:
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def hosts(self) -> frozendict[str, Layer3ConnectedWorkloadHost]:
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def address(self) -> IPv4Network:
         pass
 
