@@ -107,7 +107,6 @@ class Wire(Phy):
 class LTE(Phy):
     is_enb: bool    
     radio_host: str  # corresponds to the name of radiohost
-    radio_host_data_interface: str # corresponds to the name of the interface
 
 ############
 # Workload Network Interface
@@ -145,7 +144,13 @@ class ConnectionSpec:
 @dataclass(frozen=True, eq=True)
 class RadioHostConfig:
     workload_interface: str
-    connection_specs: Dict[str, IPv4Interface]
+    workload_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+
 
 
 ############
@@ -196,3 +201,6 @@ class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
     def __str__(self) -> str:
         return f'{self.ansible_host} (management address ' \
                f'{self.management_ip}; workload address: {self.workload_ip})'
+
+
+

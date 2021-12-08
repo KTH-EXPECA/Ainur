@@ -1,0 +1,20 @@
+---
+- name: Tear down a radiohost network configuration
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Delete the netplan config
+      ansible.builtin.file:
+        path: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
+        state: absent
+
+    - name: Generate netplan config
+      command: netplan generate
+
+    - name: Apply the netplan config
+      command: netplan apply
+
+    - name: Flush IP addresses.
+      command: ip addr flush {{ workload_interface }}
+...

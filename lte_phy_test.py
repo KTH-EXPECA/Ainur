@@ -298,85 +298,29 @@ workload_network_desc = {
             eutra_band=7,
             N_RB_DL=25,
         ),
-        'wlan_net': WiFiNetwork(
-            name='wlan_net',
-            ssid='expeca_wlan_1',
-            channel=11,
-            beacon_interval=100,
-            ht_capable=True,
-        ),
-        'eth_net' : WiredNetwork(
-            name='eth_net',
-        ),
     },
     'connection_specs': {
-        'workload-client-07': {
-            'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.7/24'),
-                phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True),
-            ),
-        },
-        'workload-client-08': {
-            'wlan0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.8/24'),
-                phy=WiFi(network='wlan_net', radio='native', is_ap=False),
-            ),
-        },
-        'workload-client-09': {
-            'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.9/24'),
-                phy=WiFi(network='wlan_net', radio='RFSOM-00001', is_ap=False),
-            ),
-        },
-        'workload-client-10': {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.10/24'),
-                phy=WiFi(network='wlan_net', radio='native', is_ap=False),
-            ),
-        },
-        'workload-client-04': {
-            'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.4/24'),
-                phy=Wire(network='eth_net'),
-            ),
-        },
         'workload-client-05': {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.5/24'),
-                phy=Wire(network='eth_net'),
+                ip=IPv4Interface('10.0.0.6/24'),
+                phy=LTE(network='lte_net', is_enb=True, radio_host='finarfin')
             ),
         },
         'workload-client-06': {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.6/24'),
-                phy=Wire(network='eth_net'),
-            ),
-        },
-        'elrond': {
-            'enp4s0': ConnectionSpec(
-                ip=IPv4Interface('10.0.2.1/24'),
-                phy=LTE(network='lte_net', is_enb=True, radio_host='finarfin'),
-            ),
-        },
-        'workload-client-03': {
-            'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.2.4/24'),
-                phy=LTE(network='lte_net', is_enb=False, radio_host='fingolfin'),
+                ip=IPv4Interface('10.0.1.3/24'),
+                phy=LTE(network='lte_net', is_enb=False, radio_host='fingolfin')
             ),
         },
     },
-    'radio_hosts_config': {
+    'radiohosts_config': {
         'finarfin': RadioHostConfig(
-            connection_specs={
-                'enp5s0': IPv4Interface('10.0.2.2/24'),
-            }
             workload_interface='enp5s0',
+            workload_ip=IPv4Interface('10.0.0.5/24'),
         ),
         'fingolfin': RadioHostConfig(
-            connection_specs={
-                'enp4s0': IPv4Interface('10.0.2.3/24'),
-            }
             workload_interface='enp4s0',
+            workload_ip=IPv4Interface('10.0.1.4/24'),
         ),
     },
 }

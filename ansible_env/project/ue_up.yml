@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: no
+  vars:
+  tasks:
+    - name: Start UE
+      command: sh -c "{ cd /home/wlab/oai-all-in-docker/lte-ue && docker-compose up -d prod-oai-lte-ue; }"

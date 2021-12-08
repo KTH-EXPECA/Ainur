@@ -1,0 +1,30 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: no
+  vars:
+    my_format: !unsafe '{{.State.Status}}'
+    my_format_health: !unsafe '{{.State.Health.Status}}'
+  tasks:
+    - name: Start Cassandra
+      command: sh -c "{ cd /home/wlab/openair-epc-fed/docker-compose/oai-mme-legacy/ && docker-compose up -d db_init; }"
+     
+    - name: Wait for db_init
+      command: docker inspect --format={{my_format}} prod-db-init
+      retries: 10
+      delay: 5
+      register: result
+      until: result.stdout == 'exited'
+
+    - name: Start EPC
+      command: sh -c "{ cd /home/wlab/openair-epc-fed/docker-compose/oai-mme-legacy/ && docker rm -f prod-db-init && docker-compose up -d oai_spgwu; }"
+
+    - name: Wait for EPC until it is healthy
+      command: docker inspect --format={{my_format_health}} prod-oai-spgwu-tiny
+      retries: 10
+      delay: 5
+      register: result
+      until: result.stdout == 'healthy'
+
+    - name: Start eNB
+      command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose up -d prod-oai-enb; }"

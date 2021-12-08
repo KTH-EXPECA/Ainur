@@ -1,0 +1,31 @@
+---
+- name: Set up radiohost interfaces IPs
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Write netplan config (ethernet)
+      ansible.builtin.copy:
+        dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
+        # language=YAML
+        content: |
+          #######################################################
+          # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
+          #######################################################
+          network:
+            version: 2
+            renderer: NetworkManager
+            ethernets:
+              {{ workload_interface }}:
+                addresses:
+                  - {{ workload_ip }}
+                dhcp4: no
+                dhcp6: no
+
+    - name: Generate netplan config
+      command: netplan generate
+
+    - name: Apply the netplan config
+      command: netplan apply
+
+...

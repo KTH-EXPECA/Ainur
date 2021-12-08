@@ -9,6 +9,7 @@ from .ansible import AnsibleContext
 from .hosts import Layer2ConnectedWorkloadHost
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager
+from .radiohost_manager import RadioHostManager
 
 
 class PhysicalLayer(AbstractContextManager,
@@ -40,9 +41,9 @@ class PhysicalLayer(AbstractContextManager,
                                      quiet=True)
 
         # Make workload switch vlans
-        self._switch.make_connections(inventory=inventory,
-                                      conn_specs=network_desc[
-                                          'connection_specs'])
+        #self._switch.make_connections(inventory=inventory,
+        #                              conn_specs=network_desc[
+        #                                  'connection_specs'])
 
         # Instantiate sdr network container
         self._sdr_manager = SDRManager(
@@ -54,10 +55,21 @@ class PhysicalLayer(AbstractContextManager,
         )
 
         # Make workload wireless LANS
-        self._sdr_manager.create_wlans(workload_hosts=inventory['hosts'],
-                                       conn_specs=network_desc[
-                                           'connection_specs'],
-                                       networks=network_desc['subnetworks'])
+        #self._sdr_manager.create_wlans(workload_hosts=inventory['hosts'],
+        #                               conn_specs=network_desc[
+        #                                   'connection_specs'],
+        #                               networks=network_desc['subnetworks'])
+
+
+        self._radiohost_manager = RadioHostManager(
+            radiohosts=inventory['radiohosts'],
+            workload_hosts=inventory['hosts'],
+            conn_specs=network_desc['connection_specs'],
+            ansible_context=ansible_context,
+            ansible_quiet=ansible_quiet,
+            configs=network_desc['radiohosts_config'],
+        )
+        
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
@@ -75,6 +87,10 @@ class PhysicalLayer(AbstractContextManager,
                 list(network_desc['connection_specs'][host_name].keys())[0],
             ) for host_name in network_desc['connection_specs'].keys()
         }
+
+        # Implement RadioHosts Configurations
+        # assign IPs
+
 
         logger.info('All connections are ready and double-checked.')
 
@@ -101,10 +117,11 @@ class PhysicalLayer(AbstractContextManager,
         # prepare a temp ansible environment and run the appropriate playbook
         logger.warning('Tearing down physical layer!')
 
+        self._radiohost_manager.tear_down()
         self._switch.tear_down()
         self._sdr_manager.tear_down()
         self._hosts.clear()
-
+        
         logger.warning('Physical layer has been torn down.')
 
     def __enter__(self) -> PhysicalLayer:
