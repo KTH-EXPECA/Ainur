@@ -456,11 +456,11 @@ compose:
 
 cloud_hosts = {
     'cloud': Layer3ConnectedWorkloadHost(
-        ansible_host='172.31.102.128',
-        management_ip=IPv4Interface('172.31.102.128/23'),
+        ansible_host='192.168.50.3',
+        management_ip=IPv4Interface('192.168.50.3'),
         interfaces={},
         workload_interface='eth0',
-        workload_ip=IPv4Interface('172.31.102.128/23'),
+        workload_ip=IPv4Interface('192.168.50.3'),
         phy=Phy('cloud'),
         wifi_ssid=None
     )
@@ -575,7 +575,7 @@ if __name__ == '__main__':
                     IPv4Network('10.100.0.0/30'),
                     IPv4Network('10.100.1.0/30'),
                     IPv4Network('10.100.1.4/30'),
-                    IPv4Network('172.31.0.0/16')
+                    IPv4Network('192.168.50.0/24')
                 ],
                 ansible_ctx=ansible_ctx,
                 ansible_quiet=True

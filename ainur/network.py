@@ -235,7 +235,6 @@ class VPNRouting(AbstractContextManager):
 
         # build the inventory
         workload_gw_ip = self._network[self._gw_host].workload_ip.ip
-        management_gw_ip = self._network[self._gw_host].management_ip.ip
 
         self._inventory = {
             'all': {
@@ -249,17 +248,6 @@ class VPNRouting(AbstractContextManager):
                             name: host.to_dict()
                             for name, host in self._network.items()
                             if name != self._gw_host
-                        }
-                    },
-                    'management': {
-                        'vars' : {
-                            'gateway'    : str(management_gw_ip),
-                            'remote_nets': [str(net) for net in remote_networks]
-                        },
-                        'hosts': {
-                            'localhost': {
-                                'ansible_connection': 'local'
-                            }
                         }
                     }
                 }
