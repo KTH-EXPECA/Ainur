@@ -367,14 +367,16 @@ workload_network_desc = {
     },
     'radio_hosts_config': {
         'finarfin': RadioHostConfig(
-            interfaces={
+            connection_specs={
                 'enp5s0': IPv4Interface('10.0.2.2/24'),
             }
+            workload_interface='enp5s0',
         ),
         'fingolfin': RadioHostConfig(
-            interfaces={ 
+            connection_specs={
                 'enp4s0': IPv4Interface('10.0.2.3/24'),
             }
+            workload_interface='enp4s0',
         ),
     },
 }

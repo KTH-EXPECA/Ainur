@@ -144,8 +144,8 @@ class ConnectionSpec:
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class RadioHostConfig:
-    data_interface: str
-    data_ip: IPv4Interface
+    workload_interface: str
+    connection_specs: Dict[str, IPv4Interface]
 
 
 ############
