@@ -91,7 +91,7 @@ class RadioHostManager(AbstractContextManager):
                 playbook='enb_up.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=False,
+                quiet=self._ansible_quiet,
             )
 
             # TODO: better error checking
@@ -111,7 +111,7 @@ class RadioHostManager(AbstractContextManager):
                 playbook='ue_up.yml',
                 json_mode=True,
                 private_data_dir=str(tmp_dir),
-                quiet=False,
+                quiet=self._ansible_quiet,
             )
 
             # TODO: better error checking

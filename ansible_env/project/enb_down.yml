@@ -3,10 +3,11 @@
   become: yes
   gather_facts: no
   tasks:
+    - name: Stop eNB
+      ignore_errors: True
+      command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose down; }"
+
     - name: Stop EPC
       ignore_errors: True
       command: sh -c "{ cd /home/wlab/openair-epc-fed/docker-compose/oai-mme-legacy/ && docker-compose down; }"
     
-    - name: Stop eNB
-      ignore_errors: True
-      command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose down; }"
