@@ -275,7 +275,7 @@ workload_network_desc = {
         ),
     },
     'connection_specs': {
-        'workload-client-00'   : {
+        'workload-client-00': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.0/16'),
                 # phy=Wire(network='eth_net'),
@@ -378,7 +378,7 @@ workload_network_desc = {
         #                  is_ap=False),
         #     ),
         # },
-        'elrond'               : {
+        'elrond'            : {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.1/16'),
                 # phy=Wire(network='eth_net'),
@@ -391,35 +391,15 @@ workload_network_desc = {
 # language=yaml
 workload_def = '''
 ---
-name: MOSN_30m_wifi_plant3_sample_rate_100
-author: "Mosn2444"
-email: "sandiv@kth.se"
+name: offload_demo
+author: ""
+email: ""
 version: "1.0a"
 url: "expeca.proj.kth.se"
 max_duration: "2m"
 compose:
   version: "3.9"
   services:
-    # controller:
-    #   image: mosn2444/final_cleave:version1.1
-    #   hostname: "controller.{{.Task.Slot}}"
-    #   command:
-    #     - run-controller
-    #     - examples/inverted_pendulum/controller/config.py
-    #   environment:
-    #     PORT: "50000"
-    #     NAME: "controller.{{.Task.Slot}}"
-    #   deploy:
-    #     replicas: 1
-    #     placement:
-    #       constraints:
-    #       - "node.labels.type==cloudlet"
-    #   volumes:
-    #     - type: volume
-    #       source: MOSN_30m_wifi_plant3_sample_rate_100
-    #       target: /opt/controller_metrics/
-    #       volume:
-    #         nocopy: true
     controller:
       image: soarinferret/iptablesproxy
       hostname: "controller.{{.Task.Slot}}"
