@@ -405,6 +405,8 @@ compose:
     controller:
       image: mosn2444/final_cleave:version1.1
       hostname: "controller.{{.Task.Slot}}"
+      networks:
+        network: {}
       command:
         - run-controller
         - examples/inverted_pendulum/controller/config.py
@@ -424,6 +426,8 @@ compose:
             nocopy: true
     plant:
       image: mosn2444/final_cleave:version1.1
+      networks:
+        network: {}
       command:
         - run-plant
         - examples/inverted_pendulum/plant/config.py
@@ -451,6 +455,11 @@ compose:
             nocopy: true
       depends_on:
       - controller
+      
+  networks:
+    network:
+      driver: overlay
+      attachable: yes
 ...
 '''
 
