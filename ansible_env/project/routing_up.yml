@@ -1,0 +1,9 @@
+---
+- name: "Add static routes"
+  become: yes
+  hosts: all
+  tasks:
+    - name: "Add static routes through {{ gateway }}"
+      command: "ip route add {{ item }} via {{ gateway }}"
+      loop: "{{ remote_nets }}"
+...

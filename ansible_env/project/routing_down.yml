@@ -1,0 +1,9 @@
+---
+- name: "Remove static routes"
+  become: yes
+  hosts: all
+  tasks:
+    - name: "Remove static routes through {{ gateway }}"
+      command: "ip route del {{ item }} via {{ gateway }}"
+      loop: "{{ remote_nets }}"
+...
