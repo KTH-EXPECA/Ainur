@@ -401,7 +401,7 @@ compose:
   version: "3.9"
   services:
     controller:
-      image: expeca:awsproxy:latest
+      image: expeca/awsproxy:latest
       hostname: "controller.{{.Task.Slot}}"
       environment:
         SERVERIP: "ec2-13-53-37-7.eu-north-1.compute.amazonaws.com"
