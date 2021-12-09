@@ -404,7 +404,7 @@ compose:
       image: expeca/awsproxy:latest
       hostname: "controller.{{.Task.Slot}}"
       environment:
-        SERVERIP: "ec2-13-53-37-7.eu-north-1.compute.amazonaws.com"
+        SERVERIP: "13.53.37.7"
       cap_add:
         - NET_ADMIN
       deploy:
