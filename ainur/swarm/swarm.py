@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from typing import Any, Collection, Dict, FrozenSet, Optional
 
-import yaml
 from docker.models.services import Service
 from frozendict import frozendict
 from loguru import logger
