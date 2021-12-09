@@ -437,7 +437,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: MOSN_30m_wifi_plant3_sample_rate_100
+          source: offload_demo
           target: /opt/plant_metrics/
           volume:
             nocopy: true
