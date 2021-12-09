@@ -423,10 +423,10 @@ compose:
         NAME: "plant.{{.Task.Slot}}"
         CONTROLLER_ADDRESS: "controller.{{.Task.Slot}}"
         CONTROLLER_PORT: "5000{{.Task.Slot}}"
-        TICK_RATE: "100"
+        TICK_RATE: "110"
         EMU_DURATION: "1m"
-        FAIL_ANGLE_RAD: "1"
-        SAMPLE_RATE: "25"
+        FAIL_ANGLE_RAD: "2"
+        SAMPLE_RATE: "11"
       deploy:
         replicas: 5
         placement:
