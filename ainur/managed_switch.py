@@ -104,7 +104,7 @@ class ManagedSwitch(AbstractContextManager):
         child.send("exit\n")
         child.expect(pexpect.EOF)
 
-    def make_connections(self, inventory, conn_specs):
+    def make_connections(self, inventory, conn_specs, radiohosts_config):
 
         workload_hosts = inventory['hosts']
         radios = inventory['radios']
@@ -125,6 +125,7 @@ class ManagedSwitch(AbstractContextManager):
                                  radios[phy.radio].switch_connection.port]
                         vlan_name = workload_hosts[host_name].ansible_host \
                                     + '_to_' + phy.radio
+
                         self.make_vlan(ports=ports, name=vlan_name)
                 elif isinstance(phy, Wire):
                     # wired nodes vlans
@@ -136,7 +137,7 @@ class ManagedSwitch(AbstractContextManager):
                     # connect the host to its radiohost
                     host_port = interface.switch_connection.port
                     ports = [host_port,
-                                 radiohosts[phy.radio_host].interfaces[phy.radio_host_data_interface].switch_connection.port]
+                                 radiohosts[phy.radio_host].interfaces[radiohosts_config[host_name].workload_interface].switch_connection.port]
                     vlan_name = workload_hosts[host_name].ansible_host \
                                     + '_to_' + phy.radio_host
                     self.make_vlan(ports=ports, name=vlan_name)

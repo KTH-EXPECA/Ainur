@@ -6,3 +6,18 @@
   tasks:
     - name: Start UE
       command: sh -c "{ cd /home/wlab/oai-all-in-docker/lte-ue && docker-compose up -d prod-oai-lte-ue; }"
+
+    - name: Wait until UE connects
+      command: ip --brief address show oaitun_ue1
+      retries: 10
+      delay: 3
+      register: result
+      until: result.stdout.split()[2] is defined
+
+      #result.stdout.split()[0] interface name
+      #result.stdout.split()[1] operstate
+      #result.stdout.split()[2] ip
+      #result.stdout.split()[3] mac addr
+
+    - name: UE got IP Address
+      debug: msg="{{ result.stdout.split()[2] }}"

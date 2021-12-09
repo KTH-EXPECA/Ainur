@@ -41,9 +41,11 @@ class PhysicalLayer(AbstractContextManager,
                                      quiet=True)
 
         # Make workload switch vlans
-        #self._switch.make_connections(inventory=inventory,
-        #                              conn_specs=network_desc[
-        #                                  'connection_specs'])
+        self._switch.make_connections(inventory=inventory,
+                                      conn_specs=network_desc[
+                                          'connection_specs'],
+                                      radiohosts_config=network_desc[
+                                          'radiohosts_config'])
 
         # Instantiate sdr network container
         self._sdr_manager = SDRManager(
@@ -55,10 +57,10 @@ class PhysicalLayer(AbstractContextManager,
         )
 
         # Make workload wireless LANS
-        #self._sdr_manager.create_wlans(workload_hosts=inventory['hosts'],
-        #                               conn_specs=network_desc[
-        #                                   'connection_specs'],
-        #                               networks=network_desc['subnetworks'])
+        self._sdr_manager.create_wlans(workload_hosts=inventory['hosts'],
+                                       conn_specs=network_desc[
+                                           'connection_specs'],
+                                       networks=network_desc['subnetworks'])
 
 
         self._radiohost_manager = RadioHostManager(
@@ -118,8 +120,8 @@ class PhysicalLayer(AbstractContextManager,
         logger.warning('Tearing down physical layer!')
 
         self._radiohost_manager.tear_down()
-        self._switch.tear_down()
-        self._sdr_manager.tear_down()
+        #self._switch.tear_down()
+        #self._sdr_manager.tear_down()
         self._hosts.clear()
         
         logger.warning('Physical layer has been torn down.')
