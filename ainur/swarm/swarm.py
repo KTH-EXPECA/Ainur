@@ -472,10 +472,10 @@ class DockerSwarm(AbstractContextManager):
             health_check_timer.start()
 
             # inspect services for debugging
-            logger.debug('Deployed services:')
-            for s in services:
-                s.reload()
-                logger.debug(f'\n{yaml.safe_dump(s.attrs)}')
+            # logger.debug('Deployed services:')
+            # for s in services:
+            #     s.reload()
+            #     logger.debug(f'\n{yaml.safe_dump(s.attrs)}')
 
             # block and wait for workload to either finish, fail,
             # or time-out.
