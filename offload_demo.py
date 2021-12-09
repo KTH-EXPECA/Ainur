@@ -426,7 +426,7 @@ compose:
         TICK_RATE: "100"
         EMU_DURATION: "1m"
         FAIL_ANGLE_RAD: "1"
-        SAMPLE_RATE: "100"
+        SAMPLE_RATE: "25"
       deploy:
         replicas: 5
         placement:
