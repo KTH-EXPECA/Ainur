@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from typing import Any, Collection, Dict, FrozenSet, Optional
 
+import yaml
 from docker.models.services import Service
 from frozendict import frozendict
 from loguru import logger
@@ -469,6 +470,12 @@ class DockerSwarm(AbstractContextManager):
                 max_failed_health_checks=max_failed_health_checks
             )
             health_check_timer.start()
+
+            # inspect services for debugging
+            logger.debug('Deployed services:')
+            for s in services:
+                s.reload()
+                logger.debug(f'\n{yaml.safe_dump(s.attrs)}')
 
             # block and wait for workload to either finish, fail,
             # or time-out.
