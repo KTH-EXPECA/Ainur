@@ -396,7 +396,7 @@ author: ""
 email: ""
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "2m"
+max_duration: "35s"
 compose:
   version: "3.9"
   services:
@@ -431,7 +431,7 @@ compose:
         CONTROLLER_ADDRESS: "controller.{{.Task.Slot}}"
         CONTROLLER_PORT: "50000"
         TICK_RATE: "110"
-        EMU_DURATION: "1m"
+        EMU_DURATION: "30s"
         FAIL_ANGLE_RAD: "2"
         SAMPLE_RATE: "11"
       deploy:
