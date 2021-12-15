@@ -74,7 +74,9 @@ class PhysicalLayer(AbstractContextManager,
                                             configs=network_desc['radiohosts_config'],
                                             )
 
-        except Exception as ex:        
+        except Exception as ex:       
+            #tb = traceback.format_exc()
+            #print(tb)
             input("Caught an error, press Enter to tear down...")
             self.tear_down()
             raise ex

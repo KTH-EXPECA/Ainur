@@ -1,0 +1,12 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Remove the secondary route
+      command: ip route del {{ remote_network }}
+
+    - name: Remove the tunnel
+      command: ip tunnel del {{ interface_name }}
+
+

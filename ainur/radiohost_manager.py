@@ -49,11 +49,13 @@ class RadioHostManager(AbstractContextManager):
                 #  polymorphism.
                 if isinstance(phy, LTE):
                     if phy.is_enb:
-                        self._enb_radiohost_name = phy.radio_host
+                        self._epc_radiohost_name = phy.radio_host
+                        self._epc_workload_ip = conn_specs[host_name][if_name].ip
                     else:
                         self._ue_radiohost_name = phy.radio_host
+                        self._ue_workload_ip = conn_specs[host_name][if_name].ip
         
-        #print(self._enb_radiohost_name)
+        #print(self._epc_radiohost_name)
         #print(self._ue_radiohost_name)
 
         # build an Ansible inventory from the radio hosts
@@ -64,9 +66,9 @@ class RadioHostManager(AbstractContextManager):
             }
         }
         # start ENB and EPC on ENB machine
-        self._enb_inventory = {
+        self._epc_inventory = {
             'all': {
-                'hosts': {self._enb_radiohost_name: ""}
+                'hosts': {self._epc_radiohost_name: ""}
             }
         }
         
@@ -76,10 +78,37 @@ class RadioHostManager(AbstractContextManager):
                 'hosts': {self._ue_radiohost_name: ""}
             }
         }
+       
+        self._epc_tunnel_ip = IPv4Interface('172.17.0.1/24')
+        self._ue_tunnel_ip = IPv4Interface('172.17.0.2/24')
         
-        #print(self._radiohosts_inventory)
-        #print(self._enb_inventory)
-        #print(self._ue_inventory)
+        self._tunnels_inventory = {
+            'all': {
+                'hosts': {
+                    self._epc_radiohost_name: {
+                        'interface_name': 'tun0',
+                        'interface_ip': str(self._epc_tunnel_ip.with_prefixlen),
+                        'local_ip': '192.168.61.193',
+                        'remote_ip': '',
+                        'remote_network': str(self._ue_workload_ip.network),
+                        'interface_only_ip': str(self._epc_tunnel_ip.ip),
+                    },
+                    self._ue_radiohost_name: {
+                        'interface_name': 'tun0',
+                        'interface_ip': str(self._ue_tunnel_ip.with_prefixlen),
+                        'local_ip': '',
+                        'remote_ip': '192.168.61.193',
+                        'remote_network': str(self._epc_workload_ip.network),
+                        'interface_only_ip': str(self._ue_tunnel_ip.ip),
+                    },
+                }
+            }
+        }
+
+        print(self._radiohosts_inventory)
+        print(self._epc_inventory)
+        print(self._ue_inventory)
+        print(self._tunnels_inventory)
 
         # network is now up and running
         self._torn_down = False
@@ -89,7 +118,7 @@ class RadioHostManager(AbstractContextManager):
             logger.info('Setting radiohosts workload interfaces.')
             res = ansible_runner.run(
                 playbook='radiohost_up.yml',
-                json_mode=True,
+                json_mode=False,
                 private_data_dir=str(tmp_dir),
                 quiet=self._ansible_quiet,
             )
@@ -98,11 +127,11 @@ class RadioHostManager(AbstractContextManager):
             assert res.status != 'failed'
 
         # 3. start EPC+ENB
-        with self._ansible_context(self._enb_inventory) as tmp_dir:
+        with self._ansible_context(self._epc_inventory) as tmp_dir:
             logger.info('Bringing up EPC + ENB.')
             res = ansible_runner.run(
                 playbook='enb_up.yml',
-                json_mode=True,
+                json_mode=False,
                 private_data_dir=str(tmp_dir),
                 quiet=self._ansible_quiet,
             )
@@ -115,7 +144,34 @@ class RadioHostManager(AbstractContextManager):
             logger.info('Bringing up UE.')
             res = ansible_runner.run(
                 playbook='ue_up.yml',
-                json_mode=True,
+                json_mode=False,
+                private_data_dir=str(tmp_dir),
+                quiet=self._ansible_quiet,
+            )
+
+            # TODO: better error checking
+            assert res.status != 'failed'
+
+            self._ue_cell_ip = IPv4Interface(res.get_fact_cache(self._ue_radiohost_name)['ip_address'])
+            #print(self._ue_cell_ip)
+            #print(res.events)
+            #for event in res.events:
+            #    if(event['event_data']['task']=='cellular IP address'):
+            #        print(event)
+
+
+
+        # 5. setup epc and ue tunnels
+        # complete the inventory with ue ip address
+        self._tunnels_inventory['all']['hosts'][self._epc_radiohost_name]['remote_ip'] = str(self._ue_cell_ip.ip)
+        self._tunnels_inventory['all']['hosts'][self._ue_radiohost_name]['local_ip'] = str(self._ue_cell_ip.ip)
+
+        print(self._tunnels_inventory)
+        with self._ansible_context(self._tunnels_inventory) as tmp_dir:
+            logger.info('Setup the cellular tunnels.')
+            res = ansible_runner.run(
+                playbook='tunnel_up.yml',
+                json_mode=False,
                 private_data_dir=str(tmp_dir),
                 #quiet=self._ansible_quiet,
                 quiet=False,
@@ -124,9 +180,12 @@ class RadioHostManager(AbstractContextManager):
             # TODO: better error checking
             assert res.status != 'failed'
 
-        # 5. setup the routing
-        # TODO
-
+        # 6. setup secondary routings
+        # behind EPC subnet = EPC host workload interface subnet
+        #behind_epc_subnet = self._radiohosts[self._epc_radiohost_name].workload_ip.network
+        # behind UE subnet = UE host workload interface subnet
+        #behind_ue_subnet = self._radiohosts[self._ue_radiohost_name].workload_ip.network
+        
 
     @property
     def is_down(self) -> bool:
@@ -143,7 +202,19 @@ class RadioHostManager(AbstractContextManager):
         if self._torn_down:
             return
 
-        # prepare a temp ansible environment and run the appropriate playbook
+        with self._ansible_context(self._tunnels_inventory) as tmp_dir:
+            logger.info('Tearing down cellular tunnels.')
+            res = ansible_runner.run(
+                playbook='tunnel_down.yml',
+                json_mode=False,
+                private_data_dir=str(tmp_dir),
+                quiet=self._ansible_quiet,
+            )
+
+            # TODO: better error checking
+            assert res.status != 'failed'
+
+
         with self._ansible_context(self._ue_inventory) as tmp_dir:
             logger.warning('Tearing down UE.')
             res = ansible_runner.run(
@@ -158,7 +229,7 @@ class RadioHostManager(AbstractContextManager):
 
 
         # prepare a temp ansible environment and run the appropriate playbook
-        with self._ansible_context(self._enb_inventory) as tmp_dir:
+        with self._ansible_context(self._epc_inventory) as tmp_dir:
             logger.warning('Tearing down EPC + ENB.')
             res = ansible_runner.run(
                 playbook='enb_down.yml',

@@ -1,0 +1,16 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Create the tunnel interface
+      command: ip tunnel add {{ interface_name }} mode gre remote {{ remote_ip }} local {{ local_ip }}
+
+    - name: Assign IP to the tunnel interface
+      command: ip addr add {{ interface_ip }} dev {{ interface_name }}
+
+    - name: Bring up the tunnel interface
+      command: ip link set {{ interface_name }} up
+
+    - name: Add route
+      command: ip route add {{ remote_network }} via {{ interface_only_ip }} dev {{ interface_name }}

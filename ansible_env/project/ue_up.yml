@@ -19,8 +19,13 @@
       #result.stdout.split()[2] ip
       #result.stdout.split()[3] mac addr
 
-    - name: UE got IP Address
-      debug: msg="{{ result.stdout.split()[2] }}"
+      #- name: cellular IP address
+      #debug: msg="{{ result.stdout.split()[2] }}"
+
+    - name: Save IP address
+      set_fact:
+        ip_address: "{{ result.stdout.split()[2] }}"
+        cacheable: yes
 
     - name: Configure UE primary routing
       command: ip route add 192.168.61.192/26 via 12.1.1.1 dev oaitun_ue1
