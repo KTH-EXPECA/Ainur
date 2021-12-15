@@ -28,3 +28,6 @@
 
     - name: Start eNB
       command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose up -d prod-oai-enb; }"
+
+    - name: Configure EPC primary routing
+      command: ip route add 12.1.1.0/24 via 192.168.61.197

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from ipaddress import IPv4Interface
 from operator import attrgetter
 from typing import FrozenSet, List, Tuple
+from dataclasses_json import config, dataclass_json
 
 import pexpect
 from loguru import logger
@@ -15,6 +16,15 @@ from loguru import logger
 from .hosts import LTE, WiFi, Wire
 
 
+# Switch connection dataclass
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class SwitchConnection:
+    name: str
+    port: int
+
+
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class Vlan:
     default: bool
@@ -35,23 +45,24 @@ class ManagedSwitch(AbstractContextManager):
 
     def __init__(self,
                  name: str,
-                 credentials: Tuple[str, str],
-                 address: IPv4Interface,
-                 timeout: int,
+                 management_ip: str,
+                 username: str,
+                 password: str,
+                 timeout: int = 5,  # in seconds
                  quiet: bool = True):
 
         # we do login - logout for every command since there is a timeout for
         # each login session on the cisco switch
 
         self._name = name
-        self._address = address
+        self._address = management_ip
         self._timeout = timeout
-        # self._quiet = quiet
+        self._quiet = quiet
 
         # Second argument is assigned to the variable user
-        self._user = credentials[0]
+        self._user = username
         # Third argument is assigned to the variable password
-        self._password = credentials[1]
+        self._password = password
 
         logger.info('Contacting the network switch.')
 
@@ -137,7 +148,7 @@ class ManagedSwitch(AbstractContextManager):
                     # connect the host to its radiohost
                     host_port = interface.switch_connection.port
                     ports = [host_port,
-                                 radiohosts[phy.radio_host].interfaces[radiohosts_config[host_name].workload_interface].switch_connection.port]
+                                 radiohosts[phy.radio_host].interfaces[radiohosts_config[phy.radio_host].workload_interface].switch_connection.port]
                     vlan_name = workload_hosts[host_name].ansible_host \
                                     + '_to_' + phy.radio_host
                     self.make_vlan(ports=ports, name=vlan_name)

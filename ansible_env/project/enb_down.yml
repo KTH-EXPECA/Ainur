@@ -3,6 +3,10 @@
   become: yes
   gather_facts: no
   tasks:
+    - name: Remove EPC primary routing
+      ignore_errors: True
+      command: ip route del 12.1.1.0/24
+
     - name: Stop eNB
       ignore_errors: True
       command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose down; }"

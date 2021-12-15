@@ -21,3 +21,6 @@
 
     - name: UE got IP Address
       debug: msg="{{ result.stdout.split()[2] }}"
+
+    - name: Configure UE primary routing
+      command: ip route add 192.168.61.192/26 via 12.1.1.1 dev oaitun_ue1

@@ -271,7 +271,7 @@ inventory = {
             switch_connection=SwitchConnection(name='glorfindel', port=43)
         ),
     },
-    'switch': Switch(
+    'switch': ManagedSwitch(
         name='glorfindel',
         management_ip='192.168.1.5/24',
         username='cisco',
