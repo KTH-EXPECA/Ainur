@@ -39,6 +39,9 @@ class RadioHostManager(AbstractContextManager):
                  conn_specs,
                 ):
         
+        self._epc_radiohost_name = ""
+        self._ue_radiohost_name = ""
+
         # make inventories 
         # 1. find enb and ue
         for host_name in conn_specs.keys():
@@ -54,7 +57,7 @@ class RadioHostManager(AbstractContextManager):
                     else:
                         self._ue_radiohost_name = phy.radio_host
                         self._ue_workload_ip = conn_specs[host_name][if_name].ip
-        
+
         #print(self._epc_radiohost_name)
         #print(self._ue_radiohost_name)
 

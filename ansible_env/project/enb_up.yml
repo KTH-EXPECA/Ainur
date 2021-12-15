@@ -26,6 +26,10 @@
       register: result
       until: result.stdout == 'healthy'
 
+    - name: Pause for 5 seconds for EPC to come up
+      pause:
+        seconds: 5
+
     - name: Start eNB
       command: sh -c "{ cd /home/wlab/oai-all-in-docker/enodeb && docker-compose up -d prod-oai-enb; }"
 

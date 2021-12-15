@@ -4,9 +4,11 @@
   gather_facts: no
   tasks:
     - name: Remove the secondary route
+      ignore_errors: True
       command: ip route del {{ remote_network }}
 
     - name: Remove the tunnel
+      ignore_errors: True
       command: ip tunnel del {{ interface_name }}
 
 

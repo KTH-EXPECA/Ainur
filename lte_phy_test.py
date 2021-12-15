@@ -302,13 +302,13 @@ workload_network_desc = {
     'connection_specs': {
         'workload-client-05': {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.0.6/24'),
+                ip=IPv4Interface('15.0.0.2/24'),
                 phy=LTE(network='lte_net', is_enb=True, radio_host='finarfin')
             ),
         },
-        'workload-client-06': {
+        'workload-client-04': {
             'eth0': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.3/24'),
+                ip=IPv4Interface('15.0.1.2/24'),
                 phy=LTE(network='lte_net', is_enb=False, radio_host='fingolfin')
             ),
         },
@@ -316,11 +316,11 @@ workload_network_desc = {
     'radiohosts_config': {
         'finarfin': RadioHostConfig(
             workload_interface='enp5s0',
-            workload_ip=IPv4Interface('10.0.0.5/24'),
+            workload_ip=IPv4Interface('15.0.0.1/24'),
         ),
         'fingolfin': RadioHostConfig(
             workload_interface='enp4s0',
-            workload_ip=IPv4Interface('10.0.1.4/24'),
+            workload_ip=IPv4Interface('15.0.1.1/24'),
         ),
     },
 }
