@@ -106,68 +106,68 @@ inventory = {
             },
         ),
         'workload-client-06': WorkloadHost(
-            ansible_host='workload-client-06',
-            management_ip=IPv4Interface('192.168.1.106/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:53:f4',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=31),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='fc:34:97:25:a2:92',
-                ),
-            },
+           ansible_host='workload-client-06',
+           management_ip=IPv4Interface('192.168.1.106/24'),
+           interfaces={
+               'eth0' : EthernetInterface(
+                   name='eth0',
+                   mac='dc:a6:32:bf:53:f4',
+                   switch_connection=SwitchConnection(name='glorfindel',
+                                                      port=31),
+               ),
+               'wlan1': WiFiInterface(
+                   name='wlan1',
+                   mac='fc:34:97:25:a2:92',
+               ),
+           },
         ),
         'workload-client-07': WorkloadHost(
-            ansible_host='workload-client-07',
-            management_ip=IPv4Interface('192.168.1.107/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:52:83',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=32),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='24:4b:fe:b7:26:92',
-                ),
-            },
+           ansible_host='workload-client-07',
+           management_ip=IPv4Interface('192.168.1.107/24'),
+           interfaces={
+               'eth0' : EthernetInterface(
+                   name='eth0',
+                   mac='dc:a6:32:bf:52:83',
+                   switch_connection=SwitchConnection(name='glorfindel',
+                                                     port=32),
+               ),
+               'wlan1': WiFiInterface(
+                   name='wlan1',
+                   mac='24:4b:fe:b7:26:92',
+               ),
+           },
         ),
         'workload-client-08': WorkloadHost(
-            ansible_host='workload-client-08',
-            management_ip=IPv4Interface('192.168.1.108/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:54:12',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=33),
-                ),
-                'wlan0': WiFiInterface(
-                    name='wlan0',
-                    mac='f0:2f:74:63:5c:d9',
-                ),
-            },
+           ansible_host='workload-client-08',
+           management_ip=IPv4Interface('192.168.1.108/24'),
+           interfaces={
+               'eth0' : EthernetInterface(
+                   name='eth0',
+                   mac='dc:a6:32:bf:54:12',
+                   switch_connection=SwitchConnection(name='glorfindel',
+                                                      port=33),
+               ),
+               'wlan0': WiFiInterface(
+                   name='wlan0',
+                   mac='f0:2f:74:63:5c:d9',
+               ),
+           },
         ),
         'workload-client-09': WorkloadHost(
-            ansible_host='workload-client-09',
-            management_ip=IPv4Interface('192.168.1.109/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:bf:53:40',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=34),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='3c:7c:3f:a2:50:bd',
-                ),
-            },
+           ansible_host='workload-client-09',
+           management_ip=IPv4Interface('192.168.1.109/24'),
+           interfaces={
+               'eth0' : EthernetInterface(
+                   name='eth0',
+                   mac='dc:a6:32:bf:53:40',
+                   switch_connection=SwitchConnection(name='glorfindel',
+                                                      port=34),
+               ),
+               'wlan1': WiFiInterface(
+                   name='wlan1',
+                   mac='3c:7c:3f:a2:50:bd',
+               ),
+           },
         ),
         # 'workload-client-10': WorkloadHost(
         #     ansible_host='workload-client-10',
@@ -275,7 +275,7 @@ workload_network_desc = {
         ),
     },
     'connection_specs': {
-        'workload-client-00'   : {
+        'workload-client-00': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.0/16'),
                 # phy=Wire(network='eth_net'),
@@ -283,7 +283,7 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
-        'workload-client-01'   : {
+        'workload-client-01': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.1/16'),
                 # phy=Wire(network='eth_net'),
@@ -291,7 +291,7 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
-        'workload-client-02'   : {
+        'workload-client-02': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.2/16'),
                 # phy=Wire(network='eth_net'),
@@ -299,14 +299,15 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
-        'workload-client-03'   : {
+        'workload-client-03': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.3/16'),
                 # phy=Wire(network='eth_net'),
                 phy=WiFi(network='wlan_net', radio='native',
                          is_ap=False),
             ),
-        }, 'workload-client-04': {
+        },
+        'workload-client-04': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.4/16'),
                 # phy=Wire(network='eth_net'),
@@ -314,7 +315,7 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
-        'workload-client-05'   : {
+        'workload-client-05': {
             'wlan1': ConnectionSpec(
                 ip=IPv4Interface('10.0.1.5/16'),
                 # phy=Wire(network='eth_net'),
@@ -323,36 +324,36 @@ workload_network_desc = {
             ),
         },
         'workload-client-06'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.6/16'),
-                # phy=Wire(network='eth_net'),
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
+           'wlan1': ConnectionSpec(
+               ip=IPv4Interface('10.0.1.6/16'),
+               # phy=Wire(network='eth_net'),
+               phy=WiFi(network='wlan_net', radio='native',
+                        is_ap=False),
+           ),
         },
         'workload-client-07'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.7/16'),
-                # phy=Wire(network='eth_net')
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
+           'wlan1': ConnectionSpec(
+               ip=IPv4Interface('10.0.1.7/16'),
+               # phy=Wire(network='eth_net')
+               phy=WiFi(network='wlan_net', radio='native',
+                        is_ap=False),
+           ),
         },
         'workload-client-08'   : {
-            'wlan0': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.8/16'),
-                # phy=Wire(network='eth_net')
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
+           'wlan0': ConnectionSpec(
+               ip=IPv4Interface('10.0.1.8/16'),
+               # phy=Wire(network='eth_net')
+               phy=WiFi(network='wlan_net', radio='native',
+                        is_ap=False),
+           ),
         },
         'workload-client-09'   : {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.9/16'),
-                # phy=Wire(network='eth_net')
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
+           'wlan1': ConnectionSpec(
+               ip=IPv4Interface('10.0.1.9/16'),
+               # phy=Wire(network='eth_net')
+               phy=WiFi(network='wlan_net', radio='native',
+                        is_ap=False),
+           ),
         },
         # 'workload-client-10'   : {
         #     'wlan1': ConnectionSpec(
@@ -378,7 +379,7 @@ workload_network_desc = {
         #                  is_ap=False),
         #     ),
         # },
-        'elrond'               : {
+        'elrond'            : {
             'enp4s0': ConnectionSpec(
                 ip=IPv4Interface('10.0.0.1/16'),
                 # phy=Wire(network='eth_net'),
@@ -391,12 +392,12 @@ workload_network_desc = {
 # language=yaml
 workload_def = '''
 ---
-name: MOSN_30m_wifi_plant3_sample_rate_100
-author: "Mosn2444"
-email: "sandiv@kth.se"
+name: MOSN_20m_wifi_plant10_sample_rate_20
+author: ""
+email: ""
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "2m"
+max_duration: "25m"
 compose:
   version: "3.9"
   services:
@@ -410,13 +411,13 @@ compose:
         PORT: "50000"
         NAME: "controller.{{.Task.Slot}}"
       deploy:
-        replicas: 1
+        replicas: 10
         placement:
           constraints:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: MOSN_30m_wifi_plant3_sample_rate_100
+          source: MOSN_20m_wifi_plant10_sample_rate_20
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -430,11 +431,11 @@ compose:
         CONTROLLER_ADDRESS: "controller.{{.Task.Slot}}"
         CONTROLLER_PORT: "50000"
         TICK_RATE: "100"
-        EMU_DURATION: "1m"
-        FAIL_ANGLE_RAD: "1"
-        SAMPLE_RATE: "100"
+        EMU_DURATION: "20m"
+        FAIL_ANGLE_RAD: "-1"
+        SAMPLE_RATE: "20"
       deploy:
-        replicas: 1
+        replicas: 10
         placement:
           max_replicas_per_node: 1
           constraints:
@@ -443,7 +444,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: MOSN_30m_wifi_plant3_sample_rate_100
+          source: MOSN_20m_wifi_plant10_sample_rate_20
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -485,21 +486,21 @@ workers:
     arch: arm64
     conn: wifi
   workload-client-06:
-    type: client
-    arch: arm64
-    conn: wifi
+   type: client
+   arch: arm64
+   conn: wifi
   workload-client-07:
-    type: client
-    arch: arm64
-    conn: wifi
+   type: client
+   arch: arm64
+   conn: wifi
   workload-client-08:
-    type: client
-    arch: arm64
-    conn: wifi
+   type: client
+   arch: arm64
+   conn: wifi
   workload-client-09:
-    type: client
-    arch: arm64
-    conn: wifi
+   type: client
+   arch: arm64
+   conn: wifi
   # workload-client-10:
   #   type: client
   #   arch: arm64
