@@ -537,7 +537,7 @@ if __name__ == '__main__':
                                                     run_idx=run)
         workload: WorkloadSpecification = \
             WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
-        
+
         # Start phy layer
         with PhysicalLayer(inventory,
                            workload_network_desc,
@@ -564,8 +564,8 @@ if __name__ == '__main__':
 
                 with DockerSwarm(
                         network=workload_net,
-                        managers=managers,
-                        workers=workers
+                        managers=dict(managers),
+                        workers=dict(workers)
                 ) as swarm:
                     with ExperimentStorage(
                             storage_name=workload.name,
