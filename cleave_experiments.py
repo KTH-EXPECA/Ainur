@@ -456,7 +456,7 @@ workers:
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_{sample_rate:03d}Hz
+name: cleave_sample_{sample_rate:03d}Hz_tick_{tick_rate:03d}Hz
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
@@ -481,7 +481,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_{sample_rate:03d}Hz
+          source: cleave_sample_{sample_rate:03d}Hz_tick_{tick_rate:03d}Hz
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -494,7 +494,7 @@ compose:
         NAME: "plant.run_{run_idx:02d}"
         CONTROLLER_ADDRESS: "controller.run_{run_idx:02d}"
         CONTROLLER_PORT: "50000"
-        TICK_RATE: "100"
+        TICK_RATE: "{tick_rate:d}"
         EMU_DURATION: "10m"
         FAIL_ANGLE_RAD: "-1"
         SAMPLE_RATE: "{sample_rate:d}"
@@ -508,7 +508,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_{sample_rate:03d}Hz
+          source: cleave_sample_{sample_rate:03d}Hz_tick_{tick_rate:03d}Hz
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -529,7 +529,8 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    sampling_rates = (20, 25, 50, 100)
+    sampling_rates = (5, 10, 15, 20)
+    tick_rate = 120
 
     # Phy, network, and Swarm layers are the same for all runs!
     with PhysicalLayer(inventory,
@@ -567,6 +568,7 @@ if __name__ == '__main__':
                         f'Sampling rate {rate}Hz, run {run} out of 10.')
                     wkld_def = workload_def_template.format(
                         sample_rate=rate,
+                        tick_rate=tick_rate,
                         run_idx=run
                     )
                     workload: WorkloadSpecification = WorkloadSpecification \
