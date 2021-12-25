@@ -529,10 +529,9 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    sampling_rates = (10, 20, 25, 50, 100)
+    sampling_rates = (20, 25, 50, 100)
 
-    # Phy and network layers are the same for all runs!
-    # Start phy layer
+    # Phy, network, and Swarm layers are the same for all runs!
     with PhysicalLayer(inventory,
                        workload_network_desc,
                        ansible_ctx,
@@ -556,19 +555,23 @@ if __name__ == '__main__':
             time.sleep(30)
             logger.warning('Continuing with workload deployment!')
 
-            for rate, run in itertools.product(sampling_rates, range(1, 11)):
-                logger.warning(f'Sampling rate {rate}Hz, run {run} out of 10.')
-                wkld_def = workload_def_template.format(sample_rate=rate,
-                                                        run_idx=run)
-                workload: WorkloadSpecification = \
-                    WorkloadSpecification.from_dict(yaml.safe_load(wkld_def))
+            # TODO: fix dicts
+            with DockerSwarm(
+                    network=workload_net,
+                    managers=dict(managers),
+                    workers=dict(workers)
+            ) as swarm:
+                for rate, run in itertools.product(sampling_rates,
+                                                   range(1, 11)):
+                    logger.warning(
+                        f'Sampling rate {rate}Hz, run {run} out of 10.')
+                    wkld_def = workload_def_template.format(
+                        sample_rate=rate,
+                        run_idx=run
+                    )
+                    workload: WorkloadSpecification = WorkloadSpecification \
+                        .from_dict(yaml.safe_load(wkld_def))
 
-                # TODO: fix dicts
-                with DockerSwarm(
-                        network=workload_net,
-                        managers=dict(managers),
-                        workers=dict(workers)
-                ) as swarm:
                     with ExperimentStorage(
                             storage_name=workload.name,
                             storage_host=WorkloadHost(
