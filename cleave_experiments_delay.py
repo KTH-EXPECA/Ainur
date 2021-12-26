@@ -120,7 +120,7 @@ workers:
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_20Hz_delay_{delay:01.3f}s
+name: cleave_20Hz_delay_{delay:03d}s
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
@@ -146,7 +146,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay:01.3f}s
+          source: cleave_20Hz_delay_{delay:03d}s
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -173,7 +173,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay:01.3f}s
+          source: cleave_20Hz_delay_{delay:03d}s
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -194,7 +194,7 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    delays = (50, 100, 200, 400)
+    delays = (0.01, 0.05, 0.100, 0.200, 0.400)
 
     # Phy, network, and Swarm layers are the same for all runs!
     with PhysicalLayer(inventory,
@@ -231,7 +231,7 @@ if __name__ == '__main__':
                     logger.warning(
                         f'Delay {delay}s, run {run} out of 10.')
                     wkld_def = workload_def_template.format(
-                        delay=delay,
+                        delay=int(delay * 1000),
                         run_idx=run
                     )
                     workload: WorkloadSpecification = WorkloadSpecification \
