@@ -120,7 +120,7 @@ workers:
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_20Hz_delay_{delay:03d}s
+name: cleave_20Hz_delay_{delay_ms:03d}ms
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
@@ -138,7 +138,7 @@ compose:
       environment:
         PORT: "50000"
         NAME: "controller.run_{run_idx:02d}"
-        DELAY: "{delay:0.3f}"
+        DELAY: "{delay_s:0.3f}"
       deploy:
         replicas: 1
         placement:
@@ -146,7 +146,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay:03d}s
+          source: cleave_20Hz_delay_{delay_ms:03d}ms
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -173,7 +173,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay:03d}s
+          source: cleave_20Hz_delay_{delay_ms:03d}ms
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -231,7 +231,8 @@ if __name__ == '__main__':
                     logger.warning(
                         f'Delay {delay}s, run {run} out of 10.')
                     wkld_def = workload_def_template.format(
-                        delay=int(delay * 1000),
+                        delay_ms=int(delay * 1000),
+                        delay_s=delay,
                         run_idx=run
                     )
                     workload: WorkloadSpecification = WorkloadSpecification \
