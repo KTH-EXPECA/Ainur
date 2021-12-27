@@ -529,7 +529,8 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    sampling_rates = (5, 10, 15, 20)
+    # sampling_rates = (5, 10, 15, 20)
+    sampling_rates = (5, 10)
     tick_rate = 120
 
     # Phy, network, and Swarm layers are the same for all runs!
@@ -562,8 +563,8 @@ if __name__ == '__main__':
                     managers=dict(managers),
                     workers=dict(workers)
             ) as swarm:
-                for rate, run in itertools.product(sampling_rates,
-                                                   range(1, 11)):
+                for run, rate in itertools.product(range(1, 11),
+                                                   sampling_rates):
                     logger.warning(
                         f'Sampling rate {rate}Hz, run {run} out of 10.')
                     wkld_def = workload_def_template.format(
