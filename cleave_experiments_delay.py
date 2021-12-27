@@ -120,7 +120,7 @@ workers:
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_20Hz_delay_{delay_ms:03d}ms
+name: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
@@ -146,7 +146,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay_ms:03d}ms
+          source: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -159,7 +159,7 @@ compose:
         NAME: "plant.run_{run_idx:02d}"
         CONTROLLER_ADDRESS: "controller.run_{run_idx:02d}"
         CONTROLLER_PORT: "50000"
-        TICK_RATE: "100"
+        TICK_RATE: "120"
         EMU_DURATION: "10m"
         FAIL_ANGLE_RAD: "-1"
         SAMPLE_RATE: "20"
@@ -173,7 +173,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay_ms:03d}ms
+          source: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
           target: /opt/plant_metrics/
           volume:
             nocopy: true
