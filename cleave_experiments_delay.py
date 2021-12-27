@@ -1,5 +1,7 @@
 import itertools
+import random
 import time
+from contextlib import ExitStack
 from ipaddress import IPv4Interface
 from pathlib import Path
 
@@ -120,12 +122,12 @@ workers:
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
+name: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
 url: "expeca.proj.kth.se"
-max_duration: "11m"
+max_duration: "6m"
 compose:
   version: "3.9"
   services:
@@ -146,7 +148,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
+          source: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -159,10 +161,10 @@ compose:
         NAME: "plant.run_{run_idx:02d}"
         CONTROLLER_ADDRESS: "controller.run_{run_idx:02d}"
         CONTROLLER_PORT: "50000"
-        TICK_RATE: "120"
-        EMU_DURATION: "10m"
+        TICK_RATE: "{trate:d}"
+        EMU_DURATION: "5m"
         FAIL_ANGLE_RAD: "-1"
-        SAMPLE_RATE: "20"
+        SAMPLE_RATE: "{srate:d}"
       deploy:
         replicas: 1
         placement:
@@ -173,7 +175,7 @@ compose:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_20Hz_delay_{delay_ms:03d}ms_tick_120Hz
+          source: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -184,8 +186,6 @@ compose:
 
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
-    # workload: WorkloadSpecification = \
-    #     WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 
     swarm_cfg = yaml.safe_load(swarm_config)
 
@@ -194,64 +194,80 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    delays = (0.01, 0.05, 0.100, 0.200, 0.400)
+    sampling_rates = (5, 10, 20, 40)
+    delays = (0.0, 0.025, 0.05, 0.100, 0.200)
+    tick_rate = 120
+    num_runs = 10
 
-    # Phy, network, and Swarm layers are the same for all runs!
-    with PhysicalLayer(inventory,
-                       workload_network_desc,
-                       ansible_ctx,
-                       ansible_quiet=True) as phy_layer:
+    with ExitStack() as stack:
+        phy_layer = stack.enter_context(
+            PhysicalLayer(inventory,
+                          workload_network_desc,
+                          ansible_ctx,
+                          ansible_quiet=True)
+        )
+
         host_ips = {}
         for host_name, host in phy_layer.items():
             conn_spec = conn_specs[host_name][host.workload_interface]
             host_ips[host_name] = conn_spec.ip
 
-        with NetworkLayer(
+        workload_net = stack.enter_context(
+            NetworkLayer(
                 network_cfg=workload_network_desc['subnetworks'],
                 host_ips=host_ips,
                 layer2=phy_layer,
                 ansible_context=ansible_ctx,
                 ansible_quiet=True
-        ) as workload_net:
-            # TODO: connection check before swarm start! For now, just sleep
-            #  for 30s to let all devices connect
-            logger.warning('Sleeping for 30s to allow for all devices to '
-                           'connect to network...')
-            time.sleep(30)
-            logger.warning('Continuing with workload deployment!')
+            )
+        )
+        logger.warning('Sleeping for 30s to allow for all devices to '
+                       'connect to network...')
+        time.sleep(30)
+        logger.warning('Continuing with workload deployment!')
 
-            # TODO: fix dicts
-            with DockerSwarm(
+        swarm = stack.enter_context(
+            DockerSwarm(
+                network=workload_net,
+                managers=dict(managers),
+                workers=dict(workers)
+            )
+        )
+
+        # shuffle delay/sampling rate combinations
+        delay_sampling_combs = list(itertools.product(delays, sampling_rates))
+        random.shuffle(delay_sampling_combs)
+
+        for run, (delay, srate) in itertools.product(range(1, num_runs + 1),
+                                                     delay_sampling_combs):
+            logger.warning(
+                f'Delay {delay}s, sampling rate {srate}Hz, '
+                f'run {run} out of {num_runs}.'
+            )
+            wkld_def = workload_def_template.format(
+                delay_ms=int(delay * 1000),
+                delay_s=delay,
+                run_idx=run,
+                trate=tick_rate,
+                srate=srate
+            )
+            workload: WorkloadSpecification = WorkloadSpecification \
+                .from_dict(yaml.safe_load(wkld_def))
+
+            with ExperimentStorage(
+                    storage_name=workload.name,
+                    storage_host=WorkloadHost(
+                        ansible_host='galadriel.expeca',
+                        management_ip=IPv4Interface('192.168.1.2'),
+                        interfaces={}
+                    ),
                     network=workload_net,
-                    managers=dict(managers),
-                    workers=dict(workers)
-            ) as swarm:
-                for delay, run in itertools.product(delays,
-                                                    range(1, 11)):
-                    logger.warning(
-                        f'Delay {delay}s, run {run} out of 10.')
-                    wkld_def = workload_def_template.format(
-                        delay_ms=int(delay * 1000),
-                        delay_s=delay,
-                        run_idx=run
-                    )
-                    workload: WorkloadSpecification = WorkloadSpecification \
-                        .from_dict(yaml.safe_load(wkld_def))
-
-                    with ExperimentStorage(
-                            storage_name=workload.name,
-                            storage_host=WorkloadHost(
-                                ansible_host='galadriel.expeca',
-                                management_ip=IPv4Interface('192.168.1.2'),
-                                interfaces={}
-                            ),
-                            network=workload_net,
-                            ansible_ctx=ansible_ctx
-                    ) as storage:
-                        swarm.deploy_workload(
-                            specification=workload,
-                            attach_volume=storage.docker_vol_name,
-                            health_check_poll_interval=10.0,
-                            complete_threshold=3,
-                            max_failed_health_checks=-1
-                        )
+                    ansible_ctx=ansible_ctx
+            ) as storage:
+                swarm.deploy_workload(
+                    specification=workload,
+                    attach_volume=storage.docker_vol_name,
+                    health_check_poll_interval=10.0,
+                    complete_threshold=3,
+                    max_failed_health_checks=-1
+                )
