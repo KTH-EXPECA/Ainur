@@ -194,8 +194,13 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    sampling_rates = (5, 10, 20, 40)
-    delays = (0.0, 0.025, 0.05, 0.100, 0.200)
+    # sampling_rates = (5, 10, 20, 40)
+    # delays = (0.0, 0.025, 0.05, 0.100, 0.200)
+    # tick_rate = 120
+    # num_runs = 10
+
+    sampling_rates = (12, 15)
+    delays = (0.0,)
     tick_rate = 120
     num_runs = 10
 
