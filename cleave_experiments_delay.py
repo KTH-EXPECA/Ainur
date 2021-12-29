@@ -196,7 +196,9 @@ if __name__ == '__main__':
 
     # sampling_rates = (5, 10, 20, 40)
     delays = (0.0, 0.025, 0.05, 0.100, 0.200)
-    sampling_rates = (5, 10, 60, 120)
+    # batch sampling rates to get some results before others
+    sampling_rate_batches = ((5, 10), (60, 120), (12, 15), (20, 40))
+
     tick_rate = 120
     num_runs = 10
 
@@ -235,40 +237,44 @@ if __name__ == '__main__':
             )
         )
 
-        # shuffle delay/sampling rate combinations
-        delay_sampling_combs = list(itertools.product(delays, sampling_rates))
-        random.shuffle(delay_sampling_combs)
+        for sampling_rates in sampling_rate_batches:
+            logger.warning(f'Sampling rate batch: {sampling_rates}Hz')
 
-        for run, (delay, srate) in itertools.product(range(1, num_runs + 1),
-                                                     delay_sampling_combs):
-            logger.warning(
-                f'Delay {delay}s, sampling rate {srate}Hz, '
-                f'run {run} out of {num_runs}.'
-            )
-            wkld_def = workload_def_template.format(
-                delay_ms=int(delay * 1000),
-                delay_s=delay,
-                run_idx=run,
-                trate=tick_rate,
-                srate=srate
-            )
-            workload: WorkloadSpecification = WorkloadSpecification \
-                .from_dict(yaml.safe_load(wkld_def))
+            # shuffle delay/sampling rate combinations
+            delay_sampling_combs = list(itertools.product(delays,
+                                                          sampling_rates))
+            random.shuffle(delay_sampling_combs)
 
-            with ExperimentStorage(
-                    storage_name=workload.name,
-                    storage_host=WorkloadHost(
-                        ansible_host='galadriel.expeca',
-                        management_ip=IPv4Interface('192.168.1.2'),
-                        interfaces={}
-                    ),
-                    network=workload_net,
-                    ansible_ctx=ansible_ctx
-            ) as storage:
-                swarm.deploy_workload(
-                    specification=workload,
-                    attach_volume=storage.docker_vol_name,
-                    health_check_poll_interval=10.0,
-                    complete_threshold=3,
-                    max_failed_health_checks=-1
+            for run, (delay, srate) in itertools.product(range(1, num_runs + 1),
+                                                         delay_sampling_combs):
+                logger.warning(
+                    f'Delay {delay}s, sampling rate {srate}Hz, '
+                    f'run {run} out of {num_runs}.'
                 )
+                wkld_def = workload_def_template.format(
+                    delay_ms=int(delay * 1000),
+                    delay_s=delay,
+                    run_idx=run,
+                    trate=tick_rate,
+                    srate=srate
+                )
+                workload: WorkloadSpecification = WorkloadSpecification \
+                    .from_dict(yaml.safe_load(wkld_def))
+
+                with ExperimentStorage(
+                        storage_name=workload.name,
+                        storage_host=WorkloadHost(
+                            ansible_host='galadriel.expeca',
+                            management_ip=IPv4Interface('192.168.1.2'),
+                            interfaces={}
+                        ),
+                        network=workload_net,
+                        ansible_ctx=ansible_ctx
+                ) as storage:
+                    swarm.deploy_workload(
+                        specification=workload,
+                        attach_volume=storage.docker_vol_name,
+                        health_check_poll_interval=10.0,
+                        complete_threshold=3,
+                        max_failed_health_checks=-1
+                    )
