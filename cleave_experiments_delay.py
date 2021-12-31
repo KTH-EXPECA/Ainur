@@ -195,7 +195,7 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     # sampling_rates = (5, 10, 20, 40)
-    delays = (0.50,)
+    delays = (0.050,)
     # batch sampling rates to get some results before others
     sampling_rate_batches = ((60, 120),)
 
