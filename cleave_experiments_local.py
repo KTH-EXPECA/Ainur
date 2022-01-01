@@ -24,22 +24,6 @@ inventory = {
                 )
             },
         ),
-        'workload-client-00': WorkloadHost(
-            ansible_host='workload-client-00',
-            management_ip=IPv4Interface('192.168.1.100/24'),
-            interfaces={
-                'eth0' : EthernetInterface(
-                    name='eth0',
-                    mac='dc:a6:32:b4:d8:b5',
-                    switch_connection=SwitchConnection(name='glorfindel',
-                                                       port=25),
-                ),
-                'wlan1': WiFiInterface(
-                    name='wlan1',
-                    mac='7c:10:c9:1c:3f:f0',
-                ),
-            },
-        ),
     },
     'radios': {
         'RFSOM-00001': SoftwareDefinedRadio(
@@ -93,14 +77,6 @@ workload_network_desc = {
                 phy=WiFi(network='wlan_net', radio='RFSOM-00002', is_ap=True)
             ),
         },
-        'workload-client-00': {
-            'wlan1': ConnectionSpec(
-                ip=IPv4Interface('10.0.1.0/16'),
-                # phy=Wire(network='eth_net'),
-                phy=WiFi(network='wlan_net', radio='native',
-                         is_ap=False),
-            ),
-        },
     }
 }
 
@@ -111,18 +87,14 @@ managers:
   elrond:
     type: cloudlet
     arch: x86_64
-workers:
-  workload-client-00:
-    type: client
-    arch: arm64
-    conn: wifi
+workers: {}
 ...
 '''
 
 # language=yaml
 workload_def_template = '''
 ---
-name: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
+name: cleave_local_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
 author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
@@ -148,7 +120,7 @@ compose:
           - "node.labels.type==cloudlet"
       volumes:
         - type: volume
-          source: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
+          source: cleave_local_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
           target: /opt/controller_metrics/
           volume:
             nocopy: true
@@ -168,14 +140,13 @@ compose:
       deploy:
         replicas: 1
         placement:
-          max_replicas_per_node: 1
           constraints:
-          - "node.labels.type==client"
+          - "node.labels.type==cloudlet"
         restart_policy:
           condition: on-failure
       volumes:
         - type: volume
-          source: cleave_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
+          source: cleave_local_s{srate:03d}Hz_t{trate:03d}Hz_d{delay_ms:03d}ms
           target: /opt/plant_metrics/
           volume:
             nocopy: true
@@ -195,9 +166,9 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     # sampling_rates = (5, 10, 20, 40)
-    delays = (0.0, 0.025, 0.050, 0.100)  # 200?
+    delays = (0.0,)
     # batch sampling rates to get some results before others
-    sampling_rate_batches = ((5, 10, 12, 15, 20, 40, 60),)  # 120Hz?
+    sampling_rate_batches = ((5, 10, 20), (40, 60), (120,))
 
     tick_rate = 120
     num_runs = 10
