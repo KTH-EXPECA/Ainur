@@ -168,7 +168,7 @@ if __name__ == '__main__':
     # sampling_rates = (5, 10, 20, 40)
     delays = (0.0,)
     # batch sampling rates to get some results before others
-    sampling_rate_batches = ((5, 10, 20), (40, 60), (120,))
+    sampling_rate_batches = ((40, 60), (120,))
 
     tick_rate = 120
     num_runs = 10
