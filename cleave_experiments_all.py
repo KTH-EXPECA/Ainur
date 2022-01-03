@@ -154,8 +154,8 @@ class ExperimentConfig:
         suffix = '_local_' if self.local else '_'
 
         self.name = f'cleave{suffix}' \
-                    f's{self.sampling_rate_hz}Hz' \
-                    f'_t{self.tick_rate_hz}Hz' \
+                    f's{self.sampling_rate_hz:03d}Hz' \
+                    f'_t{self.tick_rate_hz:03d}Hz' \
                     f'_d{self.delay_ms:03d}ms'
 
         delay_s = self.delay_ms / 1000.0
