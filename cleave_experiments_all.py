@@ -232,12 +232,11 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     # experiments over wifi
-    # 20 runs each (~18hrs)
     wifi_exps: Deque[ExperimentConfig] = deque()
     wifi_combs = list(itertools.product(
-        range(21, 31),
-        (25, 50, 100),
-        (20, 40, 60)
+        range(1, 31),
+        (50,),
+        (20, 60)
     ))
     random.shuffle(wifi_combs)
     for i, d, s in wifi_combs:
