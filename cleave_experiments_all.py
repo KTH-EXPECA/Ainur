@@ -235,7 +235,7 @@ if __name__ == '__main__':
     # 20 runs each (~18hrs)
     wifi_exps: Deque[ExperimentConfig] = deque()
     wifi_combs = list(itertools.product(
-        range(11, 21),
+        range(21, 31),
         (25, 50, 100),
         (20, 40, 60)
     ))
