@@ -232,12 +232,28 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     # experiments over wifi
-    wifi_exps: Deque[ExperimentConfig] = deque()
-    wifi_combs = list(itertools.product(
+    # 60Hz x 25ms x 30
+    # 40Hz x 50ms x 30
+
+    combs_60hz = list(itertools.product(
+        range(1, 31),
+        (25,),
+        (60,)
+    ))
+
+    combs_40hz = list(itertools.product(
         range(1, 31),
         (50,),
-        (20, 60)
+        (40,)
     ))
+
+    wifi_exps: Deque[ExperimentConfig] = deque()
+    wifi_combs = deque()
+    wifi_combs.extend(combs_40hz)
+    wifi_combs.extend(combs_60hz)
+
+    assert len(wifi_combs) == 60
+
     random.shuffle(wifi_combs)
     for i, d, s in wifi_combs:
         wifi_exps.append(
