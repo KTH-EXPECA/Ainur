@@ -143,6 +143,7 @@ class ExperimentConfig:
     delay_ms: int
     sampling_rate_hz: int
     run_idx: int
+    emu_duration: str = '5m'
     tick_rate_hz: int = 120
     local: bool = False
     name: str = field(init=False, default='')
@@ -208,7 +209,7 @@ plant_{self.name}:
     CONTROLLER_ADDRESS: "proxy.run_{self.run_idx:02d}"
     CONTROLLER_PORT: "50000"
     TICK_RATE: "{self.tick_rate_hz:d}"
-    EMU_DURATION: "5m"
+    EMU_DURATION: "{self.emu_duration}"
     FAIL_ANGLE_RAD: "-1"
     SAMPLE_RATE: "{self.sampling_rate_hz:d}"
   deploy:
@@ -256,35 +257,46 @@ if __name__ == '__main__':
     # 60Hz x 25ms x 30
     # 40Hz x 50ms x 30
 
-    combs_60hz = list(itertools.product(
-        range(1, 31),
-        (25,),
-        (60,)
-    ))
+    # combs_60hz = list(itertools.product(
+    #     range(1, 31),
+    #     (25,),
+    #     (60,)
+    # ))
+    #
+    # combs_40hz = list(itertools.product(
+    #     range(1, 31),
+    #     (50,),
+    #     (40,)
+    # ))
+    #
+    # wifi_exps: Deque[ExperimentConfig] = deque()
+    # wifi_combs = deque()
+    # wifi_combs.extend(combs_40hz)
+    # wifi_combs.extend(combs_60hz)
+    #
+    # assert len(wifi_combs) == 60
+    #
+    # random.shuffle(wifi_combs)
+    # for i, d, s in wifi_combs:
+    #     wifi_exps.append(
+    #         ExperimentConfig(
+    #             delay_ms=d,
+    #             sampling_rate_hz=s,
+    #             run_idx=i,
+    #             local=False
+    #         )
+    #     )
 
-    combs_40hz = list(itertools.product(
-        range(1, 31),
-        (50,),
-        (40,)
-    ))
-
-    wifi_exps: Deque[ExperimentConfig] = deque()
-    wifi_combs = deque()
-    wifi_combs.extend(combs_40hz)
-    wifi_combs.extend(combs_60hz)
-
-    assert len(wifi_combs) == 60
-
-    random.shuffle(wifi_combs)
-    for i, d, s in wifi_combs:
-        wifi_exps.append(
-            ExperimentConfig(
-                delay_ms=d,
-                sampling_rate_hz=s,
-                run_idx=i,
-                local=False
-            )
+    wifi_exps = deque()
+    wifi_exps.append(
+        ExperimentConfig(
+            delay_ms=50,
+            sampling_rate_hz=60,
+            run_idx=1,
+            local=False,
+            emu_duration='15s'
         )
+    )
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
