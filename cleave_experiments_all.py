@@ -172,6 +172,7 @@ controller_{self.name}:
   environment:
     PORT: "50000"
     NAME: "controller.run_{self.run_idx:02d}"
+    DELAY: "{delay_s:0.3f}"
   deploy:
     replicas: 1
     placement:
@@ -183,21 +184,6 @@ controller_{self.name}:
       target: /opt/controller_metrics/
       volume:
         nocopy: true
-proxy_{self.name}:
-  image: expeca/awsproxy:latest
-  hostname: "proxy.run_{self.run_idx:02d}"
-  environment:
-    SERVERIP: "controller.run_{self.run_idx:02d}"
-    {"DELAY: " + str(self.delay_ms) if self.delay_ms > 0 else ""}
-  cap_add:
-    - NET_ADMIN
-  deploy:
-    replicas: 1
-    placement:
-      constraints:
-      - "node.labels.type==cloudlet"
-  depends_on:
-    - controller_{self.name}
 plant_{self.name}:
   image: molguin/cleave:cleave
   command:
@@ -205,7 +191,7 @@ plant_{self.name}:
     - examples/inverted_pendulum/plant/config.py
   environment:
     NAME: "plant.run_{self.run_idx:02d}"
-    CONTROLLER_ADDRESS: "proxy.run_{self.run_idx:02d}"
+    CONTROLLER_ADDRESS: "controller.run_{self.run_idx:02d}"
     CONTROLLER_PORT: "50000"
     TICK_RATE: "{self.tick_rate_hz:d}"
     EMU_DURATION: "5m"
@@ -226,8 +212,7 @@ plant_{self.name}:
       volume:
         nocopy: true
   depends_on:
-    - proxy_{self.name}
-    - controller_{self.name}
+  - controller_{self.name}
 '''
 
         self.service_dict = yaml.safe_load(self.service_cfg)
@@ -247,12 +232,6 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     # experiments over wifi
-    # delays = 0 25 50 100
-    # srates = 10 20 40 60
-    # combs = 16
-    # 6 mins/each -> 16 hours
-    # 4 mins/each -> ~11 hours
-
     # 60Hz x 25ms x 30
     # 40Hz x 50ms x 30
 
