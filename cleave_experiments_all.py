@@ -581,7 +581,7 @@ if __name__ == '__main__':
                 replicas=6,
                 add_constraints=tuple([f'node.hostname!={c}'
                                        for c in load_clients]),
-                id_suffix=f'.run_{run:02d}'
+                id_suffix=f'run_{run:02d}'
             )
         )
     random.shuffle(exp_configs)
