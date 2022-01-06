@@ -1,12 +1,10 @@
-import itertools
-import random
+import abc
 import time
-from collections import deque
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from ipaddress import IPv4Interface
 from pathlib import Path
-from typing import Any, Deque, Dict
+from typing import Any, Dict, Literal, Tuple
 
 import yaml
 from loguru import logger
@@ -40,6 +38,150 @@ inventory = {
                 'wlan1': WiFiInterface(
                     name='wlan1',
                     mac='7c:10:c9:1c:3f:f0',
+                ),
+            },
+        ),
+        'workload-client-01': WorkloadHost(
+            ansible_host='workload-client-01',
+            management_ip=IPv4Interface('192.168.1.101/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:04',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=26),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3f:ea',
+                ),
+            },
+        ),
+        'workload-client-02': WorkloadHost(
+            ansible_host='workload-client-02',
+            management_ip=IPv4Interface('192.168.1.102/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:95',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=27),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3f:e8',
+                ),
+            },
+        ),
+        'workload-client-03': WorkloadHost(
+            ansible_host='workload-client-03',
+            management_ip=IPv4Interface('192.168.1.103/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:a1',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=28),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3e:04',
+                ),
+            },
+        ),
+        'workload-client-04': WorkloadHost(
+            ansible_host='workload-client-04',
+            management_ip=IPv4Interface('192.168.1.104/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:b8',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=29),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='fc:34:97:25:a1:9b',
+                ),
+            },
+        ),
+        'workload-client-05': WorkloadHost(
+            ansible_host='workload-client-05',
+            management_ip=IPv4Interface('192.168.1.105/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:07:fe:f2',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=30),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='7c:10:c9:1c:3e:a8',
+                ),
+            },
+        ),
+        'workload-client-06': WorkloadHost(
+            ansible_host='workload-client-06',
+            management_ip=IPv4Interface('192.168.1.106/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:f4',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=31),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='fc:34:97:25:a2:92',
+                ),
+            },
+        ),
+        'workload-client-07': WorkloadHost(
+            ansible_host='workload-client-07',
+            management_ip=IPv4Interface('192.168.1.107/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:52:83',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=32),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='24:4b:fe:b7:26:92',
+                ),
+            },
+        ),
+        'workload-client-08': WorkloadHost(
+            ansible_host='workload-client-08',
+            management_ip=IPv4Interface('192.168.1.108/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:54:12',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=33),
+                ),
+                'wlan0': WiFiInterface(
+                    name='wlan0',
+                    mac='f0:2f:74:63:5c:d9',
+                ),
+            },
+        ),
+        'workload-client-09': WorkloadHost(
+            ansible_host='workload-client-09',
+            management_ip=IPv4Interface('192.168.1.109/24'),
+            interfaces={
+                'eth0' : EthernetInterface(
+                    name='eth0',
+                    mac='dc:a6:32:bf:53:40',
+                    switch_connection=SwitchConnection(name='glorfindel',
+                                                       port=34),
+                ),
+                'wlan1': WiFiInterface(
+                    name='wlan1',
+                    mac='3c:7c:3f:a2:50:bd',
                 ),
             },
         ),
@@ -104,6 +246,78 @@ workload_network_desc = {
                          is_ap=False),
             ),
         },
+        'workload-client-01': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.1/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-02': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.2/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-03': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.3/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-04': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.4/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-05': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.5/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-06': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.6/16'),
+                # phy=Wire(network='eth_net'),
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-07': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.7/16'),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-08': {
+            'wlan0': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.8/16'),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
+        'workload-client-09': {
+            'wlan1': ConnectionSpec(
+                ip=IPv4Interface('10.0.1.9/16'),
+                # phy=Wire(network='eth_net')
+                phy=WiFi(network='wlan_net', radio='native',
+                         is_ap=False),
+            ),
+        },
     }
 }
 
@@ -119,6 +333,42 @@ workers:
     type: client
     arch: arm64
     conn: wifi
+  workload-client-01:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-02:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-03:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-04:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-05:
+    type: client
+    arch: arm64
+    conn: wifi
+  workload-client-06:
+   type: client
+   arch: arm64
+   conn: wifi
+  workload-client-07:
+   type: client
+   arch: arm64
+   conn: wifi
+  workload-client-08:
+   type: client
+   arch: arm64
+   conn: wifi
+  workload-client-09:
+   type: client
+   arch: arm64
+   conn: wifi
 ...
 '''
 
@@ -138,28 +388,38 @@ compose:
 '''
 
 
+class ServiceConfig(abc.ABC):
+    @abc.abstractmethod
+    def as_service_dict(self) -> Dict[str, Any]:
+        pass
+
+
 @dataclass
-class ExperimentConfig:
-    delay_ms: int
+class ExperimentConfig(ServiceConfig):
+    name: str
     sampling_rate_hz: int
     run_idx: int
+    delay_ms: int = 0
+    replicas: int = 1
+    add_constraints: Tuple[str] = ()
     tick_rate_hz: int = 120
     local: bool = False
-    name: str = field(init=False, default='')
     service_cfg: str = field(init=False, default='', repr=False)
     service_dict: Dict[str, Any] = field(init=False, default_factory=dict,
                                          repr=False)
 
     def __post_init__(self):
-        suffix = '_local_' if self.local else '_'
+        # suffix = '_local_' if self.local else '_'
 
-        self.name = f'cleave{suffix}' \
-                    f's{self.sampling_rate_hz:03d}Hz' \
-                    f'_t{self.tick_rate_hz:03d}Hz' \
-                    f'_d{self.delay_ms:03d}ms'
+        # self.name = f'cleave{suffix}' \
+        #             f's{self.sampling_rate_hz:03d}Hz' \
+        #             f'_t{self.tick_rate_hz:03d}Hz' \
+        #             f'_d{self.delay_ms:03d}ms'
 
         delay_s = self.delay_ms / 1000.0
         plant_location = 'cloudlet' if self.local else 'client'
+        add_consts = '\n      '.join([f'- "{c.strip()}"'
+                                      for c in self.add_constraints])
 
         # language=yaml
         self.service_cfg = f'''
@@ -174,7 +434,7 @@ controller_{self.name}:
     NAME: "controller.run_{self.run_idx:02d}"
     DELAY: "{delay_s:0.3f}"
   deploy:
-    replicas: 1
+    replicas: {self.replicas}
     placement:
       constraints:
       - "node.labels.type==cloudlet"
@@ -198,11 +458,12 @@ plant_{self.name}:
     FAIL_ANGLE_RAD: "-1"
     SAMPLE_RATE: "{self.sampling_rate_hz:d}"
   deploy:
-    replicas: 1
+    replicas: {self.replicas}
     placement:
       max_replicas_per_node: 1
       constraints:
       - "node.labels.type=={plant_location}"
+      {add_consts}
     restart_policy:
       condition: on-failure
   volumes:
@@ -218,7 +479,63 @@ plant_{self.name}:
         self.service_dict = yaml.safe_load(self.service_cfg)
 
     def as_service_dict(self) -> Dict[str, Any]:
-        return self.service_dict
+        return dict(self.service_dict)
+
+
+@dataclass
+class LoadConfig(ServiceConfig):
+    target_kbps: int
+    client_hostname: str
+    transport: Literal['udp', 'tcp'] = 'udp'
+    direction: Literal['downlink', 'uplink'] = 'downlink'
+    image: str = 'taoyou/iperf3-alpine:latest'
+
+    _service_dict: str = field(default='', init=False, repr=False)
+
+    def __post_init__(self):
+        # language=yaml
+        _service_cfg = f'''
+load_server:
+  image: {self.image}
+  hostname: load_server
+  deploy:
+    replicas: 1
+    placement:
+      constraints:
+      - "node.labels.type==cloudlet"
+load_client:
+  image: {self.image}
+  hostname: load_client
+  command:
+  - -c
+  - load_server
+  - -b
+  - {self.target_kbps:d}K
+  {'- -R' if self.direction == 'downlink' else ''}
+  {'- -u' if self.transport == 'udp' else ''}
+  deploy:
+    replicas: 1
+    placement:
+      constraints:
+      - "node.hostname=={self.client_hostname}"
+  depends_on:
+  - load_server
+'''
+
+        self._service_dict = yaml.safe_load(_service_cfg)
+
+    def as_service_dict(self) -> Dict[str, Any]:
+        return dict(self._service_dict)
+
+
+class CompoundConfig(ServiceConfig):
+    def __init__(self, configs: Tuple[ServiceConfig]):
+        self._service_dict = {}
+        for c in configs:
+            self._service_dict.update(c.as_service_dict())
+
+    def as_service_dict(self) -> Dict[str, Any]:
+        return dict(self._service_dict)
 
 
 if __name__ == '__main__':
@@ -231,39 +548,18 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    # experiments over wifi
-    # 60Hz x 25ms x 30
-    # 40Hz x 50ms x 30
+    load_cfg = LoadConfig(
+        target_kbps=18000,  # 1080p video
+        client_hostname='workload-client-09'
+    )
 
-    combs_60hz = list(itertools.product(
-        range(1, 31),
-        (25,),
-        (60,)
-    ))
-
-    combs_40hz = list(itertools.product(
-        range(1, 31),
-        (50,),
-        (40,)
-    ))
-
-    wifi_exps: Deque[ExperimentConfig] = deque()
-    wifi_combs = deque()
-    wifi_combs.extend(combs_40hz)
-    wifi_combs.extend(combs_60hz)
-
-    assert len(wifi_combs) == 60
-
-    random.shuffle(wifi_combs)
-    for i, d, s in wifi_combs:
-        wifi_exps.append(
-            ExperimentConfig(
-                delay_ms=d,
-                sampling_rate_hz=s,
-                run_idx=i,
-                local=False
-            )
-        )
+    exp_config = ExperimentConfig(
+        name='cleave_test_video',
+        sampling_rate_hz=20,
+        run_idx=1,
+        replicas=9,
+        add_constraints=('node.hostname!=workload-client-09',)
+    )
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
@@ -300,31 +596,34 @@ if __name__ == '__main__':
             )
         )
 
-        for exp_def in wifi_exps:
-            base_def = yaml.safe_load(workload_def_template)
-            base_def['compose']['services'] = exp_def.as_service_dict()
+        # for exp_def in wifi_exps:
+        base_def = yaml.safe_load(workload_def_template)
 
-            workload: WorkloadSpecification = WorkloadSpecification \
-                .from_dict(base_def)
+        services = load_cfg.as_service_dict()
+        services.update(exp_config.as_service_dict())
+        base_def['compose']['services'] = services
 
-            logger.warning(
-                f'Running: {exp_def}'
+        workload: WorkloadSpecification = WorkloadSpecification \
+            .from_dict(base_def)
+
+        logger.warning(
+            f'Running: {exp_config} with {load_cfg}'
+        )
+
+        with ExperimentStorage(
+                storage_name=exp_config.name,
+                storage_host=WorkloadHost(
+                    ansible_host='galadriel.expeca',
+                    management_ip=IPv4Interface('192.168.1.2'),
+                    interfaces={}
+                ),
+                network=workload_net,
+                ansible_ctx=ansible_ctx
+        ) as storage:
+            swarm.deploy_workload(
+                specification=workload,
+                attach_volume=storage.docker_vol_name,
+                health_check_poll_interval=10.0,
+                complete_threshold=3,
+                max_failed_health_checks=-1
             )
-
-            with ExperimentStorage(
-                    storage_name=exp_def.name,
-                    storage_host=WorkloadHost(
-                        ansible_host='galadriel.expeca',
-                        management_ip=IPv4Interface('192.168.1.2'),
-                        interfaces={}
-                    ),
-                    network=workload_net,
-                    ansible_ctx=ansible_ctx
-            ) as storage:
-                swarm.deploy_workload(
-                    specification=workload,
-                    attach_volume=storage.docker_vol_name,
-                    health_check_poll_interval=10.0,
-                    complete_threshold=3,
-                    max_failed_health_checks=-1
-                )
