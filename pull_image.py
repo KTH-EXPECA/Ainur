@@ -1,5 +1,6 @@
 import itertools
 from multiprocessing import Pool
+from typing import Collection
 
 import click
 from docker import DockerClient
@@ -20,16 +21,23 @@ def pull_image(url: str, image: str) -> None:
         client.close()
 
 
+def parallel_pull_image(
+        docker_host_addrs: Collection[str],
+        image: str
+) -> None:
+    with Pool(processes=len(docker_host_addrs)) as pool:
+        pool.starmap(
+            pull_image,
+            zip(docker_host_addrs, itertools.repeat(image))
+        )
+
+
 @click.command()
 @click.argument('image', type=str)
 def cli(image: str):
     hosts = [f'workload-client-{i:02d}.expeca' for i in range(13)] + \
             ['elrond.expeca']
-    with Pool(processes=len(hosts)) as pool:
-        pool.starmap(
-            pull_image,
-            zip(hosts, itertools.repeat(image))
-        )
+    parallel_pull_image(hosts, image)
 
 
 if __name__ == '__main__':
