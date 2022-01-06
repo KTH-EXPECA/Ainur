@@ -514,9 +514,8 @@ load_client:
   command:
   - -c
   - load_server
-  - -b
+  - -b{self.target_kbps:d}K
   - -t0
-  - {self.target_kbps:d}K
   {'- -R' if self.direction == 'downlink' else ''}
   {'- -u' if self.transport == 'udp' else ''}
   deploy:
@@ -555,7 +554,7 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     load_cfg = LoadConfig(
-        target_kbps=18000,  # 1080p video
+        target_kbps=25000,  # 4K video
         client_hostname='workload-client-09'
     )
 
