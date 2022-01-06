@@ -557,26 +557,43 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    load_cfg = LoadConfig(
-        target_kbps=1000,
-        packet_size_bytes=1000,
-        client_hostname='workload-client-09',
-        server_hostname='workload-client-08'
-    )
+    load_clients = [
+        f'workload-client-{i:02d}'
+        for i in (7, 8, 9)
+    ]
+
+    load_cfgs = [
+        LoadConfig(
+            target_kbps=6000,
+            packet_size_bytes=1000,
+            client_hostname=c,
+            server_hostname='elrond',
+            name_suffix=f'_{i:d}'
+        )
+        for i, c in enumerate(load_clients)
+    ]
+
+    # load_cfg = LoadConfig(
+    #     target_kbps=1000,
+    #     packet_size_bytes=1000,
+    #     client_hostname='workload-client-09',
+    #     server_hostname='workload-client-08'
+    # )
 
     exp_config = ExperimentConfig(
         name='cleave_test_video',
         sampling_rate_hz=20,
-        replicas=8,
-        add_constraints=('node.hostname!=workload-client-09',
-                         'node.hostname!=workload-client-08')
+        replicas=7,
+        add_constraints=tuple([f'node.hostname!={c}'
+                               for c in load_clients])
     )
 
     # pull images
     docker_hosts = [str(host.management_ip.ip)
                     for _, host in inventory['hosts'].items()]
 
-    parallel_pull_image(docker_hosts, load_cfg.image)
+    for load_cfg in load_cfgs:
+        parallel_pull_image(docker_hosts, load_cfg.image)
     parallel_pull_image(docker_hosts, exp_config.image)
 
     with ExitStack() as stack:
@@ -618,7 +635,8 @@ if __name__ == '__main__':
         base_def = yaml.safe_load(workload_def_template)
 
         services = {}
-        services.update(load_cfg.as_service_dict())
+        for load_cfg in load_cfgs:
+            services.update(load_cfg.as_service_dict())
         # services.update(exp_config.as_service_dict())
         base_def['compose']['services'] = services
 
