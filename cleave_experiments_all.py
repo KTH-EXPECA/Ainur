@@ -493,6 +493,7 @@ class LoadConfig(ServiceConfig):
     packet_size_bytes: int
     client_hostname: str
     server_hostname: str
+    pacing_interval_ms: int = 1
     name_suffix: str = ''
     transport: Literal['udp', 'tcp'] = 'udp'
     direction: Literal['downlink', 'uplink'] = 'downlink'
@@ -519,6 +520,8 @@ load_client{self.name_suffix}:
   - load_server{self.name_suffix}
   - -b{self.target_kbps:d}K
   - -t0
+  - --pacing-timer
+  - {self.pacing_interval_ms}K
   - -l{self.packet_size_bytes}
   {'- -R' if self.direction == 'downlink' else ''}
   {'- -u' if self.transport == 'udp' else ''}
@@ -564,12 +567,13 @@ if __name__ == '__main__':
 
     load_cfgs = [
         LoadConfig(
-            target_kbps=18000,
+            target_kbps=12000,
             packet_size_bytes=8000,
             client_hostname=c,
             server_hostname='elrond',
             direction='uplink',
-            name_suffix=f'_{i:d}'
+            name_suffix=f'_{i:d}',
+            pacing_interval_ms=41  # 24fps
         )
         for i, c in enumerate(load_clients)
     ]
