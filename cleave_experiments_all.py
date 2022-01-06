@@ -580,21 +580,21 @@ if __name__ == '__main__':
 
     exp_configs = [
         ExperimentConfig(
-            name='cleave_vide0_20Hz',
+            name='cleave_video_20Hz',
             sampling_rate_hz=20,
             replicas=6,
             add_constraints=tuple([f'node.hostname!={c}'
                                    for c in load_clients])
         ),
         ExperimentConfig(
-            name='cleave_vide0_40Hz',
+            name='cleave_video_40Hz',
             sampling_rate_hz=40,
             replicas=6,
             add_constraints=tuple([f'node.hostname!={c}'
                                    for c in load_clients])
         ),
         ExperimentConfig(
-            name='cleave_vide0_60Hz',
+            name='cleave_video_60Hz',
             sampling_rate_hz=60,
             replicas=6,
             add_constraints=tuple([f'node.hostname!={c}'
