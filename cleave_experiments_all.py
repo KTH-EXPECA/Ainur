@@ -512,6 +512,7 @@ load_client:
   - -c
   - load_server
   - -b
+  - -t0
   - {self.target_kbps:d}K
   {'- -R' if self.direction == 'downlink' else ''}
   {'- -u' if self.transport == 'udp' else ''}
