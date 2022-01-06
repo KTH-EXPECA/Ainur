@@ -490,6 +490,7 @@ plant_{self.name}:
 @dataclass
 class LoadConfig(ServiceConfig):
     target_kbps: int
+    packet_size_bytes: int
     client_hostname: str
     server_hostname: str
     name_suffix: str = ''
@@ -557,6 +558,7 @@ if __name__ == '__main__':
 
     load_cfg = LoadConfig(
         target_kbps=6000,  # Full HD video, H264
+        packet_size_bytes=1000,
         client_hostname='workload-client-09',
         server_hostname='workload-client-08'
     )
