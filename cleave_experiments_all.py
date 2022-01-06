@@ -381,7 +381,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
 url: "expeca.proj.kth.se"
-max_duration: "1m"
+max_duration: "5m"
 compose:
   version: "3.9"
   services: {}
@@ -459,7 +459,7 @@ plant_{self.name}:
     CONTROLLER_ADDRESS: "controller{suffix}"
     CONTROLLER_PORT: "50000"
     TICK_RATE: "{self.tick_rate_hz:d}"
-    EMU_DURATION: "45s"
+    EMU_DURATION: "5m"
     FAIL_ANGLE_RAD: "-1"
     SAMPLE_RATE: "{self.sampling_rate_hz:d}"
   deploy:
@@ -578,28 +578,36 @@ if __name__ == '__main__':
         for i, c in enumerate(load_clients)
     ]
 
-    # load_cfg = LoadConfig(
-    #     target_kbps=1000,
-    #     packet_size_bytes=1000,
-    #     client_hostname='workload-client-09',
-    #     server_hostname='workload-client-08'
-    # )
-
-    exp_config = ExperimentConfig(
-        name='cleave_test_video',
-        sampling_rate_hz=60,
-        replicas=6,
-        add_constraints=tuple([f'node.hostname!={c}'
-                               for c in load_clients])
-    )
+    exp_configs = [
+        ExperimentConfig(
+            name='cleave_vide0_20Hz',
+            sampling_rate_hz=20,
+            replicas=6,
+            add_constraints=tuple([f'node.hostname!={c}'
+                                   for c in load_clients])
+        ),
+        ExperimentConfig(
+            name='cleave_vide0_40Hz',
+            sampling_rate_hz=40,
+            replicas=6,
+            add_constraints=tuple([f'node.hostname!={c}'
+                                   for c in load_clients])
+        ),
+        ExperimentConfig(
+            name='cleave_vide0_60Hz',
+            sampling_rate_hz=60,
+            replicas=6,
+            add_constraints=tuple([f'node.hostname!={c}'
+                                   for c in load_clients])
+        )
+    ]
 
     # pull images
     docker_hosts = [str(host.management_ip.ip)
                     for _, host in inventory['hosts'].items()]
 
-    for load_cfg in load_cfgs:
-        parallel_pull_image(docker_hosts, load_cfg.image)
-    parallel_pull_image(docker_hosts, exp_config.image)
+    parallel_pull_image(docker_hosts, load_cfgs[0].image)
+    parallel_pull_image(docker_hosts, exp_configs[0].image)
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
@@ -639,29 +647,30 @@ if __name__ == '__main__':
         # for exp_def in wifi_exps:
         base_def = yaml.safe_load(workload_def_template)
 
-        services = {}
-        for load_cfg in load_cfgs:
-            services.update(load_cfg.as_service_dict())
-        services.update(exp_config.as_service_dict())
-        base_def['compose']['services'] = services
+        for exp_config in exp_configs:
+            services = {}
+            for load_cfg in load_cfgs:
+                services.update(load_cfg.as_service_dict())
+            services.update(exp_config.as_service_dict())
+            base_def['compose']['services'] = services
 
-        workload: WorkloadSpecification = WorkloadSpecification \
-            .from_dict(base_def)
+            workload: WorkloadSpecification = WorkloadSpecification \
+                .from_dict(base_def)
 
-        with ExperimentStorage(
-                storage_name=exp_config.name,
-                storage_host=WorkloadHost(
-                    ansible_host='galadriel.expeca',
-                    management_ip=IPv4Interface('192.168.1.2'),
-                    interfaces={}
-                ),
-                network=workload_net,
-                ansible_ctx=ansible_ctx
-        ) as storage:
-            swarm.deploy_workload(
-                specification=workload,
-                attach_volume=storage.docker_vol_name,
-                health_check_poll_interval=10.0,
-                complete_threshold=3,
-                max_failed_health_checks=-1
-            )
+            with ExperimentStorage(
+                    storage_name=exp_config.name,
+                    storage_host=WorkloadHost(
+                        ansible_host='galadriel.expeca',
+                        management_ip=IPv4Interface('192.168.1.2'),
+                        interfaces={}
+                    ),
+                    network=workload_net,
+                    ansible_ctx=ansible_ctx
+            ) as storage:
+                swarm.deploy_workload(
+                    specification=workload,
+                    attach_volume=storage.docker_vol_name,
+                    health_check_poll_interval=10.0,
+                    complete_threshold=3,
+                    max_failed_health_checks=-1
+                )
