@@ -1,5 +1,8 @@
 import abc
+import itertools
+import random
 import time
+from collections import deque
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from ipaddress import IPv4Interface
@@ -381,7 +384,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
 url: "expeca.proj.kth.se"
-max_duration: "5m"
+max_duration: "6m"
 compose:
   version: "3.9"
   services: {}
@@ -540,16 +543,6 @@ load_client{self.name_suffix}:
         return dict(self._service_dict)
 
 
-class CompoundConfig(ServiceConfig):
-    def __init__(self, configs: Tuple[ServiceConfig]):
-        self._service_dict = {}
-        for c in configs:
-            self._service_dict.update(c.as_service_dict())
-
-    def as_service_dict(self) -> Dict[str, Any]:
-        return dict(self._service_dict)
-
-
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
 
@@ -578,29 +571,20 @@ if __name__ == '__main__':
         for i, c in enumerate(load_clients)
     ]
 
-    exp_configs = [
-        ExperimentConfig(
-            name='cleave_video_20Hz',
-            sampling_rate_hz=20,
-            replicas=6,
-            add_constraints=tuple([f'node.hostname!={c}'
-                                   for c in load_clients])
-        ),
-        ExperimentConfig(
-            name='cleave_video_40Hz',
-            sampling_rate_hz=40,
-            replicas=6,
-            add_constraints=tuple([f'node.hostname!={c}'
-                                   for c in load_clients])
-        ),
-        ExperimentConfig(
-            name='cleave_video_60Hz',
-            sampling_rate_hz=60,
-            replicas=6,
-            add_constraints=tuple([f'node.hostname!={c}'
-                                   for c in load_clients])
+    exp_configs = deque()
+    for rate, run in itertools.product((60,), (1,)):
+    # for rate, run in itertools.product((20, 40, 60), range(1, 31)):
+        exp_configs.append(
+            ExperimentConfig(
+                name=f'cleave_video_{rate:02d}Hz',
+                sampling_rate_hz=rate,
+                replicas=6,
+                add_constraints=tuple([f'node.hostname!={c}'
+                                       for c in load_clients]),
+                id_suffix=f'.run_{run:02d}'
+            )
         )
-    ]
+    random.shuffle(exp_configs)
 
     # pull images
     docker_hosts = [str(host.management_ip.ip)
