@@ -558,7 +558,7 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     load_cfg = LoadConfig(
-        target_kbps=3000,  # Full HD video, H264
+        target_kbps=1000,
         packet_size_bytes=1000,
         client_hostname='workload-client-09',
         server_hostname='workload-client-08'
@@ -577,7 +577,7 @@ if __name__ == '__main__':
                     for _, host in inventory['hosts'].items()]
 
     parallel_pull_image(docker_hosts, load_cfg.image)
-    # parallel_pull_image(docker_hosts, exp_config.image)
+    parallel_pull_image(docker_hosts, exp_config.image)
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
