@@ -554,7 +554,7 @@ if __name__ == '__main__':
     conn_specs = workload_network_desc['connection_specs']
 
     load_cfg = LoadConfig(
-        target_kbps=25000,  # 4K video
+        target_kbps=6000,  # Full HD video, H264
         client_hostname='workload-client-09'
     )
 
