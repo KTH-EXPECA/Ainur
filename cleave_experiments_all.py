@@ -565,9 +565,10 @@ if __name__ == '__main__':
     load_cfgs = [
         LoadConfig(
             target_kbps=6000,
-            packet_size_bytes=65400,
+            packet_size_bytes=8000,
             client_hostname=c,
             server_hostname='elrond',
+            direction='uplink',
             name_suffix=f'_{i:d}'
         )
         for i, c in enumerate(load_clients)
