@@ -399,7 +399,7 @@ class ServiceConfig(abc.ABC):
 class ExperimentConfig(ServiceConfig):
     name: str
     sampling_rate_hz: int
-    run_idx: int
+    id_suffix: str = ''
     image: str = 'molguin/cleave:cleave'
     delay_ms: int = 0
     replicas: int = 1
@@ -423,17 +423,20 @@ class ExperimentConfig(ServiceConfig):
         add_consts = '\n      '.join([f'- "{c.strip()}"'
                                       for c in self.add_constraints])
 
+        suffix = f'.{self.id_suffix}' if len(self.id_suffix) > 0 else ''
+        suffix = '.{{.Task.Slot}}' + suffix
+
         # language=yaml
         self.service_cfg = f'''
 controller_{self.name}:
   image: {self.image}
-  hostname: "controller.run_{self.run_idx:02d}"
+  hostname: "controller{suffix}"
   command:
     - run-controller
     - examples/inverted_pendulum/controller/config.py
   environment:
     PORT: "50000"
-    NAME: "controller.run_{self.run_idx:02d}"
+    NAME: "controller{suffix}"
     DELAY: "{delay_s:0.3f}"
   deploy:
     replicas: {self.replicas}
@@ -452,8 +455,8 @@ plant_{self.name}:
     - run-plant
     - examples/inverted_pendulum/plant/config.py
   environment:
-    NAME: "plant.run_{self.run_idx:02d}"
-    CONTROLLER_ADDRESS: "controller.run_{self.run_idx:02d}"
+    NAME: "plant{suffix}"
+    CONTROLLER_ADDRESS: "controller{suffix}"
     CONTROLLER_PORT: "50000"
     TICK_RATE: "{self.tick_rate_hz:d}"
     EMU_DURATION: "5m"
@@ -559,7 +562,6 @@ if __name__ == '__main__':
     exp_config = ExperimentConfig(
         name='cleave_test_video',
         sampling_rate_hz=20,
-        run_idx=1,
         replicas=9,
         add_constraints=('node.hostname!=workload-client-09',)
     )
