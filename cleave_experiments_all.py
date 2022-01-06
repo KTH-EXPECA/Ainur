@@ -519,6 +519,7 @@ load_client{self.name_suffix}:
   - load_server{self.name_suffix}
   - -b{self.target_kbps:d}K
   - -t0
+  - -l{self.packet_size_bytes}
   {'- -R' if self.direction == 'downlink' else ''}
   {'- -u' if self.transport == 'udp' else ''}
   deploy:
