@@ -381,7 +381,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.1a"
 url: "expeca.proj.kth.se"
-max_duration: "6m"
+max_duration: "1m"
 compose:
   version: "3.9"
   services: {}
@@ -557,12 +557,12 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
-    # load_cfg = LoadConfig(
-    #     target_kbps=6000,  # Full HD video, H264
-    #     packet_size_bytes=1000,
-    #     client_hostname='workload-client-09',
-    #     server_hostname='workload-client-08'
-    # )
+    load_cfg = LoadConfig(
+        target_kbps=3000,  # Full HD video, H264
+        packet_size_bytes=1000,
+        client_hostname='workload-client-09',
+        server_hostname='workload-client-08'
+    )
 
     exp_config = ExperimentConfig(
         name='cleave_test_video',
@@ -576,8 +576,8 @@ if __name__ == '__main__':
     docker_hosts = [str(host.management_ip.ip)
                     for _, host in inventory['hosts'].items()]
 
-    # parallel_pull_image(docker_hosts, load_cfg.image)
-    parallel_pull_image(docker_hosts, exp_config.image)
+    parallel_pull_image(docker_hosts, load_cfg.image)
+    # parallel_pull_image(docker_hosts, exp_config.image)
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
@@ -617,16 +617,13 @@ if __name__ == '__main__':
         # for exp_def in wifi_exps:
         base_def = yaml.safe_load(workload_def_template)
 
-        # services = load_cfg.as_service_dict()
+        services = {}
+        services.update(load_cfg.as_service_dict())
         # services.update(exp_config.as_service_dict())
-        base_def['compose']['services'] = exp_config.as_service_dict()
+        base_def['compose']['services'] = services
 
         workload: WorkloadSpecification = WorkloadSpecification \
             .from_dict(base_def)
-
-        logger.warning(
-            f'Running: {exp_config}'
-        )
 
         with ExperimentStorage(
                 storage_name=exp_config.name,
