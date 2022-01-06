@@ -562,12 +562,12 @@ if __name__ == '__main__':
 
     load_clients = [
         f'workload-client-{i:02d}'
-        for i in (7, 8, 9)
+        for i in (6, 7, 8, 9)
     ]
 
     load_cfgs = [
         LoadConfig(
-            target_kbps=12000,
+            target_kbps=6500,
             packet_size_bytes=8000,
             client_hostname=c,
             server_hostname='elrond',
@@ -587,8 +587,8 @@ if __name__ == '__main__':
 
     exp_config = ExperimentConfig(
         name='cleave_test_video',
-        sampling_rate_hz=20,
-        replicas=7,
+        sampling_rate_hz=60,
+        replicas=6,
         add_constraints=tuple([f'node.hostname!={c}'
                                for c in load_clients])
     )
