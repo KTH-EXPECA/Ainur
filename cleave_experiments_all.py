@@ -572,8 +572,8 @@ if __name__ == '__main__':
     ]
 
     exp_configs = deque()
-    for rate, run in itertools.product((60,), (1,)):
-    # for rate, run in itertools.product((20, 40, 60), range(1, 31)):
+    # for rate, run in itertools.product((60,), (1,)):
+    for rate, run in itertools.product((20, 40, 60), range(1, 31)):
         exp_configs.append(
             ExperimentConfig(
                 name=f'cleave_video_{rate:02d}Hz',
