@@ -559,7 +559,7 @@ if __name__ == '__main__':
 
     load_clients = [
         f'workload-client-{i:02d}'
-        for i in (7, 8, 9)
+        for i in (6, 7, 8, 9)
     ]
 
     load_cfgs = [
@@ -583,7 +583,7 @@ if __name__ == '__main__':
     exp_config = ExperimentConfig(
         name='cleave_test_video',
         sampling_rate_hz=20,
-        replicas=7,
+        replicas=6,
         add_constraints=tuple([f'node.hostname!={c}'
                                for c in load_clients])
     )
