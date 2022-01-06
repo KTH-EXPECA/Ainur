@@ -564,8 +564,8 @@ if __name__ == '__main__':
 
     load_cfgs = [
         LoadConfig(
-            target_kbps=4000,
-            packet_size_bytes=1000,
+            target_kbps=4500,
+            packet_size_bytes=128,
             client_hostname=c,
             server_hostname='elrond',
             name_suffix=f'_{i:d}'
