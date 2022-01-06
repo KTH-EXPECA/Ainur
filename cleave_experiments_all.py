@@ -10,6 +10,7 @@ import yaml
 from loguru import logger
 
 from ainur import *
+from pull_image import parallel_pull_image
 
 inventory = {
     'hosts' : {
@@ -399,6 +400,7 @@ class ExperimentConfig(ServiceConfig):
     name: str
     sampling_rate_hz: int
     run_idx: int
+    image: str = 'molguin/cleave:cleave'
     delay_ms: int = 0
     replicas: int = 1
     add_constraints: Tuple[str] = ()
@@ -424,7 +426,7 @@ class ExperimentConfig(ServiceConfig):
         # language=yaml
         self.service_cfg = f'''
 controller_{self.name}:
-  image: molguin/cleave:cleave
+  image: {self.image}
   hostname: "controller.run_{self.run_idx:02d}"
   command:
     - run-controller
@@ -445,7 +447,7 @@ controller_{self.name}:
       volume:
         nocopy: true
 plant_{self.name}:
-  image: molguin/cleave:cleave
+  image: {self.image}
   command:
     - run-plant
     - examples/inverted_pendulum/plant/config.py
@@ -560,6 +562,13 @@ if __name__ == '__main__':
         replicas=9,
         add_constraints=('node.hostname!=workload-client-09',)
     )
+
+    # pull images
+    docker_hosts = [str(host.management_ip.ip)
+                    for _, host in inventory['hosts'].items()]
+
+    parallel_pull_image(docker_hosts, load_cfg.image)
+    parallel_pull_image(docker_hosts, exp_config.image)
 
     with ExitStack() as stack:
         phy_layer = stack.enter_context(
