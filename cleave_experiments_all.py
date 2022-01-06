@@ -403,7 +403,7 @@ class ExperimentConfig(ServiceConfig):
     image: str = 'molguin/cleave:cleave'
     delay_ms: int = 0
     replicas: int = 1
-    add_constraints: Tuple[str] = ()
+    add_constraints: Tuple[str, ...] = ()
     tick_rate_hz: int = 120
     local: bool = False
     service_cfg: str = field(init=False, default='', repr=False)
@@ -491,6 +491,8 @@ plant_{self.name}:
 class LoadConfig(ServiceConfig):
     target_kbps: int
     client_hostname: str
+    server_hostname: str
+    name_suffix: str = ''
     transport: Literal['udp', 'tcp'] = 'udp'
     direction: Literal['downlink', 'uplink'] = 'downlink'
     image: str = 'taoyou/iperf3-alpine:latest'
@@ -500,20 +502,20 @@ class LoadConfig(ServiceConfig):
     def __post_init__(self):
         # language=yaml
         _service_cfg = f'''
-load_server:
+load_server{self.name_suffix}:
   image: {self.image}
-  hostname: load_server
+  hostname: load_server{self.name_suffix}
   deploy:
     replicas: 1
     placement:
       constraints:
-      - "node.labels.type==cloudlet"
-load_client:
+      - "node.hostname=={self.server_hostname}"
+load_client{self.name_suffix}:
   image: {self.image}
-  hostname: load_client
+  hostname: load_client{self.name_suffix}
   command:
   - -c
-  - load_server
+  - load_server{self.name_suffix}
   - -b{self.target_kbps:d}K
   - -t0
   {'- -R' if self.direction == 'downlink' else ''}
@@ -524,7 +526,7 @@ load_client:
       constraints:
       - "node.hostname=={self.client_hostname}"
   depends_on:
-  - load_server
+  - load_server{self.name_suffix}
 '''
 
         self._service_dict = yaml.safe_load(_service_cfg)
@@ -555,14 +557,16 @@ if __name__ == '__main__':
 
     load_cfg = LoadConfig(
         target_kbps=6000,  # Full HD video, H264
-        client_hostname='workload-client-09'
+        client_hostname='workload-client-09',
+        server_hostname='workload-client-08'
     )
 
     exp_config = ExperimentConfig(
         name='cleave_test_video',
         sampling_rate_hz=20,
-        replicas=9,
-        add_constraints=('node.hostname!=workload-client-09',)
+        replicas=8,
+        add_constraints=('node.hostname!=workload-client-09',
+                         'node.hostname!=workload-client-08')
     )
 
     # pull images
