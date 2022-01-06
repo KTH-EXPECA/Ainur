@@ -459,7 +459,7 @@ plant_{self.name}:
     CONTROLLER_ADDRESS: "controller{suffix}"
     CONTROLLER_PORT: "50000"
     TICK_RATE: "{self.tick_rate_hz:d}"
-    EMU_DURATION: "5m"
+    EMU_DURATION: "45s"
     FAIL_ANGLE_RAD: "-1"
     SAMPLE_RATE: "{self.sampling_rate_hz:d}"
   deploy:
@@ -559,12 +559,12 @@ if __name__ == '__main__':
 
     load_clients = [
         f'workload-client-{i:02d}'
-        for i in (6, 7, 8, 9)
+        for i in (7, 8, 9)
     ]
 
     load_cfgs = [
         LoadConfig(
-            target_kbps=3000,
+            target_kbps=4000,
             packet_size_bytes=1000,
             client_hostname=c,
             server_hostname='elrond',
@@ -583,7 +583,7 @@ if __name__ == '__main__':
     exp_config = ExperimentConfig(
         name='cleave_test_video',
         sampling_rate_hz=20,
-        replicas=6,
+        replicas=7,
         add_constraints=tuple([f'node.hostname!={c}'
                                for c in load_clients])
     )
@@ -637,7 +637,7 @@ if __name__ == '__main__':
         services = {}
         for load_cfg in load_cfgs:
             services.update(load_cfg.as_service_dict())
-        # services.update(exp_config.as_service_dict())
+        services.update(exp_config.as_service_dict())
         base_def['compose']['services'] = services
 
         workload: WorkloadSpecification = WorkloadSpecification \
