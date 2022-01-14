@@ -559,28 +559,29 @@ if __name__ == '__main__':
     ]
 
     load_cfgs = [
-        LoadConfig(
-            target_kbps=6500,
-            packet_size_bytes=8000,
-            client_hostname=c,
-            server_hostname='elrond',
-            direction='uplink',
-            name_suffix=f'_{i:d}',
-            pacing_interval_ms=41  # 24fps
-        )
-        for i, c in enumerate(load_clients)
+        # LoadConfig(
+        #     target_kbps=6500,
+        #     packet_size_bytes=8000,
+        #     client_hostname=c,
+        #     server_hostname='elrond',
+        #     direction='uplink',
+        #     name_suffix=f'_{i:d}',
+        #     pacing_interval_ms=41  # 24fps
+        # )
+        # for i, c in enumerate(load_clients)
     ]
 
     exp_configs = deque()
     # for rate, run in itertools.product((60,), (1,)):
-    for rate, run in itertools.product((20, 40, 60), range(1, 31)):
+    for rate, delay, run in itertools.product((40,), (50,), range(1, 31)):
         exp_configs.append(
             ExperimentConfig(
-                name=f'cleave_video_{rate:02d}Hz',
+                name=f'cleave_s{rate:03d}Hz_t120Hz_d{delay:03d}ms',
+                delay_ms=delay,
                 sampling_rate_hz=rate,
-                replicas=6,
-                add_constraints=tuple([f'node.hostname!={c}'
-                                       for c in load_clients]),
+                replicas=1,
+                # add_constraints=tuple([f'node.hostname!={c}'
+                #                        for c in load_clients]),
                 id_suffix=f'run_{run:02d}'
             )
         )
