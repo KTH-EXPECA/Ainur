@@ -591,7 +591,7 @@ if __name__ == '__main__':
     docker_hosts = [str(host.management_ip.ip)
                     for _, host in inventory['hosts'].items()]
 
-    parallel_pull_image(docker_hosts, load_cfgs[0].image)
+    # parallel_pull_image(docker_hosts, load_cfgs[0].image)
     parallel_pull_image(docker_hosts, exp_configs[0].image)
 
     with ExitStack() as stack:
