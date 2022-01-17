@@ -9,6 +9,7 @@ from .ansible import AnsibleContext
 from .hosts import Layer2ConnectedWorkloadHost
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager
+from .fluent_server import FluentServer
 
 
 class PhysicalLayer(AbstractContextManager,
@@ -43,6 +44,14 @@ class PhysicalLayer(AbstractContextManager,
         self._switch.make_connections(inventory=inventory,
                                       conn_specs=network_desc[
                                           'connection_specs'])
+
+        # Instantiate Logger Module
+        log_dirPath="./../Logs/" #Add path to log directory here, assuming it is situated in Ainur.
+        self._fluent_logger=FluentServer(log_dirPath)
+        self._fluent_logger.prune_fluent
+        self._fluent_logger.create_image
+        self._fluent_logger.start_container
+
 
         # Instantiate sdr network container
         self._sdr_manager = SDRManager(
