@@ -1,0 +1,15 @@
+---
+- name: Tear down VPNCloud
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Tear down VPNCloud connection
+      ansible.builtin.systemd:
+        name: vpncloud@expeca
+        state: stopped
+
+    - name: Delete VPNCloud config file
+      ansible.builtin.file:
+        path: /etc/vpncloud/expeca.net
+        state: absent
