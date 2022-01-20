@@ -15,3 +15,5 @@ docker-compose
 dacite
 pexpect
 websocket-client<1
+boto3 # for AWS
+boto3-stubs[essential]  # type hints for AWS...
