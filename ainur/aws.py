@@ -14,10 +14,10 @@ from mypy_boto3_ec2.service_resource import Instance
 
 
 @dataclass(frozen=True, eq=True)
-class AWSHost:
-    name: str
-    ec2_instance_id: str
+class EC2Host:
+    instance_id: str
     public_ip: IPv4Address
+    vpc_ip: IPv4Address
 
 
 @contextmanager
@@ -29,7 +29,7 @@ def aws_instance_ctx(
         security_groups: Collection[str] = ('sg-0170fa039ff0a56c4',),
         region: str = 'eu-north-1',
         startup_timeout_s: int = 60 * 3
-) -> Generator[Tuple[AWSHost, ...], None, None]:
+) -> Generator[Tuple[EC2Host, ...], None, None]:
     logger.warning(f'Deploying {num_instances} AWS compute instances of type '
                    f'{instance_type}...')
 
@@ -72,14 +72,14 @@ def aws_instance_ctx(
             raise TimeoutError(f'Timed-out waiting for '
                                f'instance {instance.instance_id}.')
 
-        logger.debug('Waiting for instances to finish boot...')
+        logger.debug('Waiting for instances to finish booting...')
         instances = list(tpool.map(_wait_for_instance, instances))
 
     # at this point, instances are up and running
-    yield tuple([AWSHost(
-        name='offload-1',
-        ec2_instance_id=inst.instance_id,
-        public_ip=IPv4Address(inst.public_ip_address)
+    yield tuple([EC2Host(
+        instance_id=inst.instance_id,
+        public_ip=IPv4Address(inst.public_ip_address),
+        vpc_ip=IPv4Address(inst.private_ip_address)
     ) for inst in instances])
 
     # contextmanager shutting down, tear down and terminate all the instances
@@ -96,9 +96,9 @@ def aws_instance_ctx(
 
 
 if __name__ == '__main__':
-    with aws_instance_ctx(10) as instances:
-        for i in instances:
-            print(i.public_ip)
+    with aws_instance_ctx(10) as insts:
+        for i in insts:
+            print(i)
 
         input('Press any key to shut down.')
 
