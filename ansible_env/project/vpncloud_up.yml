@@ -6,17 +6,17 @@
   tasks:
     - name: Write VPNCloud config file
       ansible.builtin.copy:
-        dest: /etc/vpncloud/expeca.net
+        dest: "/etc/vpncloud/{{ vpn_net_name }}.net"
         # language=YAML
         content:
-          listen: 3210
+          listen: "{{ vpn_port }}"
           peers: "{{ vpn_peers }}"
           crypto:
             password: "{{ vpn_psk }}"
-          ip: "{{ vpn_ip_addr }}"
+          ip: "{{ vpn_ip }}"
         mode: 0644
 
     - name: Bring up VPNCloud connection
       ansible.builtin.systemd:
-        name: vpncloud@expeca
+        name: "vpncloud@{{ vpn_net_name }}"
         state: restarted

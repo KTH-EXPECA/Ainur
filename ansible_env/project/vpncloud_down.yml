@@ -6,10 +6,10 @@
   tasks:
     - name: Tear down VPNCloud connection
       ansible.builtin.systemd:
-        name: vpncloud@expeca
+        name: "vpncloud@{{ vpn_net_name }}"
         state: stopped
 
     - name: Delete VPNCloud config file
       ansible.builtin.file:
-        path: /etc/vpncloud/expeca.net
+        path: "/etc/vpncloud/{{ vpn_net_name }}.net"
         state: absent

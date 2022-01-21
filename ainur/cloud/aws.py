@@ -4,7 +4,6 @@ import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from dataclasses import dataclass
 from ipaddress import IPv4Address
 from typing import Collection, Generator, Tuple
 
@@ -12,12 +11,7 @@ import boto3
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance
 
-
-@dataclass(frozen=True, eq=True)
-class EC2Host:
-    instance_id: str
-    public_ip: IPv4Address
-    vpc_ip: IPv4Address
+from .hosts import EC2Host
 
 
 @contextmanager
@@ -30,6 +24,31 @@ def aws_instance_ctx(
         region: str = 'eu-north-1',
         startup_timeout_s: int = 60 * 3
 ) -> Generator[Tuple[EC2Host, ...], None, None]:
+    """
+    Context manager for AWS EC2 instances.
+
+    Parameters
+    ----------
+    num_instances
+        How many instances to deploy.
+    ami_id
+        The desired AMI for the instances.
+    instance_type
+        The desired EC2 instance type.
+    key_name
+        The name of the AWS keys to use.
+    security_groups
+        Security group IDs to attach to the instances.
+    region
+        On which region to create the instances.
+    startup_timeout_s
+        Timeout for instance boot.
+
+    Yields
+    -------
+        A tuple of EC2Host objects describing the created instances.
+    """
+
     logger.warning(f'Deploying {num_instances} AWS compute instances of type '
                    f'{instance_type}...')
 
@@ -76,23 +95,26 @@ def aws_instance_ctx(
         instances = list(tpool.map(_wait_for_instance, instances))
 
     # at this point, instances are up and running
-    yield tuple([EC2Host(
-        instance_id=inst.instance_id,
-        public_ip=IPv4Address(inst.public_ip_address),
-        vpc_ip=IPv4Address(inst.private_ip_address)
-    ) for inst in instances])
+    try:
+        yield tuple([EC2Host(
+            instance_id=inst.instance_id,
+            public_ip=IPv4Address(inst.public_ip_address),
+            vpc_ip=IPv4Address(inst.private_ip_address)
+        ) for inst in instances])
 
-    # contextmanager shutting down, tear down and terminate all the instances
-    logger.warning('Shutting down AWS compute instances...')
-    with ThreadPoolExecutor() as tpool:
-        def _shutdown_instance(instance: Instance):
-            logger.debug(f'Terminating instance {instance.instance_id}...')
-            instance.terminate()
-            instance.wait_until_terminated()
-            logger.warning(f'Instance {instance.instance_id} terminated.')
+    finally:
+        # contextmanager shutting down, tear down and terminate all
+        # the instances
+        logger.warning('Shutting down AWS compute instances...')
+        with ThreadPoolExecutor() as tpool:
+            def _shutdown_instance(instance: Instance):
+                logger.debug(f'Terminating instance {instance.instance_id}...')
+                instance.terminate()
+                instance.wait_until_terminated()
+                logger.warning(f'Instance {instance.instance_id} terminated.')
 
-        # list() forces the .map() statement to be evaluated immediately
-        list(tpool.map(_shutdown_instance, instances))
+            # list() forces the .map() statement to be evaluated immediately
+            list(tpool.map(_shutdown_instance, instances))
 
 
 if __name__ == '__main__':
@@ -101,4 +123,3 @@ if __name__ == '__main__':
             print(i)
 
         input('Press any key to shut down.')
-
