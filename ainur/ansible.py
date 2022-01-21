@@ -1,8 +1,9 @@
 import os
+import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Mapping
+from typing import Any, Generator, Mapping
 
 import yaml
 from loguru import logger
@@ -58,7 +59,10 @@ class AnsibleContext:
         logger.debug(f'Initialized Ansible context at {self._base_dir}')
 
     @contextmanager
-    def __call__(self, inventory: Mapping) -> Generator[Path, None, None]:
+    def __call__(self,
+                 inventory: Mapping,
+                 extravars: Mapping[str, Any] = {}) \
+            -> Generator[Path, None, None]:
         """
         Creates a temporary environment to use in combination with
         ansible-runner.
@@ -75,6 +79,8 @@ class AnsibleContext:
         ----------
         inventory
             The inventory to use in this context.
+        extravars
+            Extravar overrides.
 
         Returns
         -------
@@ -86,9 +92,22 @@ class AnsibleContext:
             tmp_dir = Path(tmp_dir)
 
             # set up the file structure ansible-runner expects,
-            # inside the tmpdir by symlinking stuff
+            # inside the tmpdir
             os.symlink(self._proj_dir, tmp_dir / 'project')
-            os.symlink(self._env_dir, tmp_dir / 'env')
+            # os.symlink(self._env_dir, tmp_dir / 'env')
+            shutil.copytree(self._env_dir, tmp_dir / 'env')
+
+            # potentially override some extravars
+            extravars_file = ((tmp_dir / 'env') / 'extravars')
+            try:
+                with extravars_file.open('r') as fp:
+                    orig_extravars = yaml.safe_load(fp)
+            except FileNotFoundError:
+                orig_extravars = {}
+
+            orig_extravars.update(extravars)
+            with extravars_file.open('w') as fp:
+                yaml.safe_dump(orig_extravars, stream=fp)
 
             # make a temporary inventory dir and dump the dict
             inv_dir = tmp_dir / 'inventory'
@@ -98,6 +117,8 @@ class AnsibleContext:
 
             logger.debug(f'Created temporary Ansible '
                          f'execution context at {tmp_dir}')
-            yield tmp_dir
-            logger.debug(f'Tearing down temporary Ansible '
-                         f'execution context at {tmp_dir}')
+            try:
+                yield tmp_dir
+            finally:
+                logger.debug(f'Tearing down temporary Ansible '
+                             f'execution context at {tmp_dir}')
