@@ -517,7 +517,7 @@ workers:
 '''
 
 if __name__ == '__main__':
-    ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
+    ansible_ctx = AnsibleContext(base_dir=Path('../ansible_env'))
     workload: WorkloadSpecification = \
         WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 

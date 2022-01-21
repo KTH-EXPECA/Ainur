@@ -156,7 +156,7 @@ if __name__ == '__main__':
         }
     }
 
-    ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
+    ansible_ctx = AnsibleContext(base_dir=Path('../ansible_env'))
 
     # Start phy layer
     with PhysicalLayer(inventory, workload_network_desc, ansible_ctx,

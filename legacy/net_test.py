@@ -115,7 +115,7 @@ compose:
 if __name__ == '__main__':
     # quick test to verify network + swarm work
 
-    ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
+    ansible_ctx = AnsibleContext(base_dir=Path('../ansible_env'))
 
     workload: WorkloadSpecification = \
         WorkloadSpecification.from_dict(yaml.safe_load(workload_def))

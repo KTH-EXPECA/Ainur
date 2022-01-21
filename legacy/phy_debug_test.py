@@ -180,7 +180,7 @@ workload_network_desc = {
 
 
 if __name__ == '__main__':
-    ansible_ctx = AnsibleContext(base_dir=Path('./ansible_env'))
+    ansible_ctx = AnsibleContext(base_dir=Path('../ansible_env'))
     conn_specs = workload_network_desc['connection_specs']
 
     # Start phy layer
