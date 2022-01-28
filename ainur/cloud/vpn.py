@@ -30,6 +30,7 @@ class VPNGatewayConfig:
     public_ip: IPv4Address
     vpn_interface: IPv4Interface
     vpn_psk: str
+    local_network: IPv4Network
     public_port: int = 3210
 
     @property
@@ -102,15 +103,17 @@ def vpn_mesh_context(
         'all': {
             'hosts': {
                 host.instance_id: {
-                    'ansible_host': str(host.public_ip),
-                    'vpn_psk'     : gw_config.vpn_psk,
-                    'vpn_ip'      : str(next(vpn_addresses)),
-                    'vpn_net_name': vpn_network_name,
-                    'vpn_peers'   : [gw_config.vpn_host_string] + [
+                    'ansible_host'  : str(host.public_ip),
+                    'vpn_psk'       : gw_config.vpn_psk,
+                    'vpn_ip'        : str(next(vpn_addresses).ip),
+                    'vpn_net_name'  : vpn_network_name,
+                    'vpn_peers'     : [gw_config.vpn_host_string] + [
                         other.vpc_vpn_host_string for other in hosts
                         if other != host
                     ],
-                    'vpn_port'    : vpncloud_port
+                    'vpn_port'      : vpncloud_port,
+                    'vpn_gw_local_net': str(gw_config.local_network),
+                    'vpn_gw_ip'     : str(gw_config.vpn_interface.ip)
                 }
                 for host in hosts
             }
