@@ -1,8 +1,7 @@
-from typing import Collection
 from unittest import TestCase
 
 from ainur.hosts import *
-from ainur.hosts import _BaseNetplanIfaceCfg
+from ainur.hosts import InterfaceCfg
 
 
 class TestNetplanConfigs(TestCase):
@@ -40,7 +39,7 @@ network:
 
     def _test_netplan_cfg(self,
                           expected: str,
-                          to_test: Collection[_BaseNetplanIfaceCfg],
+                          to_test: Dict[str, InterfaceCfg],
                           version: int = 2,
                           renderer: str = 'networkd') -> None:
         valid = yaml.safe_load(expected)
@@ -49,8 +48,8 @@ network:
             renderer=renderer
         )
 
-        for cfg in to_test:
-            test_netplan_cfg.add_config(cfg)
+        for interface, cfg in to_test.items():
+            test_netplan_cfg.add_config(interface, cfg)
 
         self.assertDictEqual(
             valid,
@@ -67,24 +66,22 @@ Got:\n
     def test_eth_cfg(self) -> None:
         self._test_netplan_cfg(
             expected=self.valid_eth_cfg,
-            to_test=[
-                EthNetplanCfg(
-                    interface='eth0',
+            to_test={
+                'eth0': EthernetCfg(
                     ip_address=IPv4Interface('10.0.0.2/16'),
                     routes=(IPRoute(
                         to=IPv4Interface('0.0.0.0/0'),
                         via=IPv4Address('10.0.0.1')),
                     )
                 )
-            ]
+            }
         )
 
     def test_open_wifi_cfg(self) -> None:
         self._test_netplan_cfg(
             expected=self.valid_open_wifi_cfg,
-            to_test=[
-                WiFiNetplanCfg(
-                    interface='wlan0',
+            to_test={
+                'wlan0': WiFiCfg(
                     ip_address=IPv4Interface('10.0.0.2/16'),
                     routes=(IPRoute(
                         to=IPv4Interface('0.0.0.0/0'),
@@ -92,5 +89,5 @@ Got:\n
                     ),
                     ssid='test-wifi'
                 )
-            ]
+            }
         )

@@ -4,8 +4,7 @@ import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Any, Dict, FrozenSet, Literal, Optional, Set, \
-    Tuple
+from typing import Any, Dict, FrozenSet, List, Literal, Optional, Tuple
 
 import yaml
 from dataclasses_json import config, dataclass_json
@@ -98,11 +97,10 @@ class Wire(Phy):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class NetplanInterface:
+class NetplanInterface:  # TODO: rename?
     # wraps everything we need to know about specific interfaces, like their
     # MAC address, netplan type, etc.
     netplan_type: Literal['ethernets', 'wifis']
-    name: str
     mac: str
 
 
@@ -194,8 +192,7 @@ class IPRoute:
 
 
 @dataclass(frozen=True, eq=True)
-class _BaseNetplanIfaceCfg(abc.ABC):
-    interface: str
+class InterfaceCfg(abc.ABC):
     ip_address: IPv4Interface
     routes: Tuple[IPRoute] | FrozenSet[IPRoute]
 
@@ -211,32 +208,27 @@ class _BaseNetplanIfaceCfg(abc.ABC):
         """
 
         return {
-            self.interface: {
-                'addresses': [str(self.ip_address)],
-                'dhcp4'    : False,
-                'routes'   : [r.to_dict() for r in self.routes]
-            }
+            'addresses': [str(self.ip_address)],
+            'dhcp4'    : False,
+            'routes'   : [r.to_dict() for r in self.routes]
         }
 
 
 @dataclass(frozen=True, eq=True)
-class EthNetplanCfg(_BaseNetplanIfaceCfg):
+class EthernetCfg(InterfaceCfg):
     def to_netplan_dict(self) -> Dict[str, Any]:
-        return super(EthNetplanCfg, self).to_netplan_dict()
+        return super(EthernetCfg, self).to_netplan_dict()
 
 
 @dataclass(frozen=True, eq=True)
-class WiFiNetplanCfg(_BaseNetplanIfaceCfg):
+class WiFiCfg(InterfaceCfg):
     ssid: str
 
     # TODO: implement non-open wifi config?
 
     def to_netplan_dict(self) -> Dict[str, Any]:
-        cfg = super(WiFiNetplanCfg, self).to_netplan_dict()
-        cfg[self.interface]['access-points'] = {
-            self.ssid: {
-            }
-        }
+        cfg = super(WiFiCfg, self).to_netplan_dict()
+        cfg['access-points'] = {self.ssid: {}}
         return cfg
 
 
@@ -248,25 +240,26 @@ class NetplanConfig:
 
     version: int = 2
     renderer: str = 'networkd'
-    configs: Dict[str, Set[_BaseNetplanIfaceCfg]] \
-        = field(default_factory=lambda: defaultdict(set),
-                init=False)
+    configs: Dict[str, Dict[str, InterfaceCfg]] \
+        = field(default_factory=lambda: defaultdict(dict), init=False)
 
     def _add_config(self,
                     cfg_type: str,
-                    config: _BaseNetplanIfaceCfg) -> None:
-        self.configs[cfg_type].add(config)
+                    iface_name: str,
+                    config: InterfaceCfg) -> NetplanConfig:
+        self.configs[cfg_type][iface_name] = config
+        return self
 
-    @dispatch(EthNetplanCfg)
-    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
-        return self._add_config('ethernets', config)
+    @dispatch(str, EthernetCfg)
+    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
+        return self._add_config('ethernets', interface, config)
 
-    @dispatch(WiFiNetplanCfg)
-    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
-        return self._add_config('wifis', config)
+    @dispatch(str, WiFiCfg)
+    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
+        return self._add_config('wifis', interface, config)
 
-    @dispatch(object)
-    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
+    @dispatch(str, object)
+    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
         raise NotImplementedError(config)
 
     def to_netplan_dict(self):
@@ -281,8 +274,8 @@ class NetplanConfig:
         """
         cfg_dicts = defaultdict(dict)
         for cfg_cat, configs in self.configs.items():
-            for netplan_cfg in configs:
-                cfg_dicts[cfg_cat].update(netplan_cfg.to_netplan_dict())
+            for interface, cfg in configs.items():
+                cfg_dicts[cfg_cat][interface] = cfg.to_netplan_dict()
 
         network_cfg = {
             'version' : self.version,
@@ -303,3 +296,58 @@ class NetplanConfig:
 
         """
         return yaml.safe_dump(self.to_netplan_dict())
+
+    def __str__(self) -> str:
+        return self.to_netplan_yaml()
+
+
+class HostError(Exception):
+    pass
+
+
+class AinurHost:
+    def __init__(self,
+                 management_ip: IPv4Interface,
+                 wkld_interfaces: Dict[str, NetplanInterface]):
+        self._management_ip = management_ip
+        self._interfaces: Dict[str, NetplanInterface] = dict(wkld_interfaces)
+        self._configured_interfaces: Dict[str, InterfaceCfg] = dict()
+
+    def __str__(self) -> str:
+        return self.ansible_host
+
+    @property
+    def ansible_host(self) -> str:
+        return str(self._management_ip.ip)
+
+    @property
+    def interfaces(self) -> Dict[str, NetplanInterface]:
+        interfaces = {}
+        interfaces.update(self._configured_interfaces)
+        interfaces.update(self._interfaces)
+        return interfaces
+
+    def configure_interface(self,
+                            name: str,
+                            config: InterfaceCfg) -> None:
+        if name not in self._configured_interfaces:
+            if name in self._interfaces:
+                self._configured_interfaces[name] = config
+            else:
+                raise HostError(f'No such interface {name} in host {self}.')
+        else:
+            raise HostError(f'Interface {name} is already configured.')
+
+    def gen_netplan_config(self,
+                           version: int = 2,
+                           renderer: str = 'networkd') -> NetplanConfig:
+        config = NetplanConfig(version=version, renderer=renderer)
+        for name, interface in self._configured_interfaces:
+            config.add_config(name, interface)
+
+        return config
+
+    @property
+    def workload_ips(self) -> List[IPv4Address]:
+        return [iface_cfg.ip_address.ip
+                for iface_cfg in self._configured_interfaces.values()]

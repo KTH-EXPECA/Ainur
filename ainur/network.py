@@ -11,7 +11,8 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import Layer3ConnectedWorkloadHost, PhyNetwork
+from .hosts import InterfaceCfg, Layer3ConnectedWorkloadHost, NetplanConfig, \
+    PhyNetwork
 from .physical import PhysicalLayer
 
 
@@ -34,7 +35,7 @@ class NetworkLayer(AbstractContextManager,
 
     def __init__(self,
                  network_cfg: Mapping[str, PhyNetwork],
-                 host_ips: Mapping[str, IPv4Interface],
+                 ip_configs: Mapping[str, InterfaceCfg],
                  layer2: PhysicalLayer,
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
@@ -43,8 +44,8 @@ class NetworkLayer(AbstractContextManager,
         ----------
         network_cfg
             Name to PhyNetwork mapping.
-        host_ips
-            Mapping from host ID to desired IP address.
+        ip_configs
+            Mapping from host ID to desired IPConfig.
         layer2:
             A PhysicalLayer object representing connected devices.
         ansible_context:
@@ -63,12 +64,13 @@ class NetworkLayer(AbstractContextManager,
         logger.info(f'Layer 2 hosts:\n{host_info}')
 
         # check that the given IP addresses all belong to the same network
-        networks = list(map(lambda a: a.network, host_ips.values()))
-        if not functools.reduce(lambda a, b: a if a == b else None, networks):
-            raise Layer3Error('IPs provided do not all belong to same '
-                              f'network.\n Inferred networks: {networks}.')
+        # we don't do this anymore, we have routing.
+        # networks = list(map(lambda a: a.network, host_ips.values()))
+        # if not functools.reduce(lambda a, b: a if a == b else None, networks):
+        #     raise Layer3Error('IPs provided do not all belong to same '
+        #                       f'network.\n Inferred networks: {networks}.')
 
-        logger.info(f'IP address mappings:\n{host_ips}')
+        logger.info(f'Host Netplan configs:\n{ip_configs}')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
