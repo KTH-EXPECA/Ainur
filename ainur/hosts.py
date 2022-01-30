@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import abc
+from collections import defaultdict
 from dataclasses import dataclass, field
-from ipaddress import IPv4Interface
-from typing import Dict, Literal, Optional
+from ipaddress import IPv4Address, IPv4Interface
+from typing import Any, Dict, FrozenSet, Literal, Optional, Set, \
+    Tuple
 
+import yaml
 from dataclasses_json import config, dataclass_json
-
-
 # Switch connection dataclass
+from multipledispatch import dispatch
+
+
+# TODO: this file needs renaming. it's no longer only about hosts.
+
+
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class SwitchConnection:
@@ -166,3 +174,132 @@ class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
     def __str__(self) -> str:
         return f'{self.ansible_host} (management address ' \
                f'{self.management_ip}; workload address: {self.workload_ip})'
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class IPRoute:
+    to: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+    via: IPv4Address = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Address
+        )
+    )
+
+
+@dataclass(frozen=True, eq=True)
+class _BaseNetplanIfaceCfg(abc.ABC):
+    interface: str
+    ip_address: IPv4Interface
+    routes: Tuple[IPRoute] | FrozenSet[IPRoute]
+
+    @abc.abstractmethod
+    def to_netplan_dict(self) -> Dict[str, Any]:
+        """
+        Converts this object to a valid Netplan interface dict.
+
+        Returns
+        -------
+        dict
+
+        """
+
+        return {
+            self.interface: {
+                'addresses': [str(self.ip_address)],
+                'dhcp4'    : False,
+                'routes'   : [r.to_dict() for r in self.routes]
+            }
+        }
+
+
+@dataclass(frozen=True, eq=True)
+class EthNetplanCfg(_BaseNetplanIfaceCfg):
+    def to_netplan_dict(self) -> Dict[str, Any]:
+        return super(EthNetplanCfg, self).to_netplan_dict()
+
+
+@dataclass(frozen=True, eq=True)
+class WiFiNetplanCfg(_BaseNetplanIfaceCfg):
+    ssid: str
+
+    # TODO: implement non-open wifi config?
+
+    def to_netplan_dict(self) -> Dict[str, Any]:
+        cfg = super(WiFiNetplanCfg, self).to_netplan_dict()
+        cfg[self.interface]['access-points'] = {
+            self.ssid: {
+            }
+        }
+        return cfg
+
+
+@dataclass(eq=True)
+class NetplanConfig:
+    """
+    Utility class to define a coherent Netplan config.
+    """
+
+    version: int = 2
+    renderer: str = 'networkd'
+    configs: Dict[str, Set[_BaseNetplanIfaceCfg]] \
+        = field(default_factory=lambda: defaultdict(set),
+                init=False)
+
+    def _add_config(self,
+                    cfg_type: str,
+                    config: _BaseNetplanIfaceCfg) -> None:
+        self.configs[cfg_type].add(config)
+
+    @dispatch(EthNetplanCfg)
+    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
+        return self._add_config('ethernets', config)
+
+    @dispatch(WiFiNetplanCfg)
+    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
+        return self._add_config('wifis', config)
+
+    @dispatch(object)
+    def add_config(self, config: _BaseNetplanIfaceCfg) -> None:
+        raise NotImplementedError(config)
+
+    def to_netplan_dict(self):
+        """
+        Converts this object into a dictionary representing a valid Netplan
+        config.
+
+        Returns
+        -------
+        dict
+
+        """
+        cfg_dicts = defaultdict(dict)
+        for cfg_cat, configs in self.configs.items():
+            for netplan_cfg in configs:
+                cfg_dicts[cfg_cat].update(netplan_cfg.to_netplan_dict())
+
+        network_cfg = {
+            'version' : self.version,
+            'renderer': self.renderer,
+        }
+        network_cfg.update(cfg_dicts)
+
+        return {'network': network_cfg}
+
+    def to_netplan_yaml(self) -> str:
+        """
+        Converts this object into a string representation of a valid Netplan
+        config.
+
+        Returns
+        -------
+        str
+
+        """
+        return yaml.safe_dump(self.to_netplan_dict())
