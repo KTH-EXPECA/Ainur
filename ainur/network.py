@@ -130,7 +130,7 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
         with self._ansible_context(self._inventory) as tmp_dir:
             res = ansible_runner.run(
                 playbook='net_down.yml',
-                json_mode=True,
+                json_mode=False,
                 private_data_dir=str(tmp_dir),
                 quiet=self._quiet,
             )
