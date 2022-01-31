@@ -99,6 +99,6 @@ if __name__ == '__main__':
         with NetworkLayer(
                 layer2=phy_layer,
                 ansible_context=ansible_ctx,
-                ansible_quiet=True
+                ansible_quiet=False
         ) as workload_net:
             input('Running.')

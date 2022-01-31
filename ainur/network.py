@@ -65,19 +65,24 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
                         'netplan_cfg' : host
                             .gen_netplan_config()
                             .to_netplan_yaml(),
-                        'interfaces': host.interface_names
+                        'interfaces'  : host.interface_names
                     }
                     for name, host in layer2.items()
                 }
             }
         }
 
+        logger.debug(
+            'Configuring network layer with the following Ansible inventory:\n'
+            f'{json.dumps(self._inventory, indent=2, ensure_ascii=False)}'
+        )
+
         # prepare a temp ansible environment and run the appropriate playbook
         with self._ansible_context(self._inventory) as tmp_dir:
             logger.info('Bringing up the network.')
             res = ansible_runner.run(
                 playbook='net_up.yml',
-                json_mode=True,
+                json_mode=False,
                 private_data_dir=str(tmp_dir),
                 quiet=self._quiet,
             )
