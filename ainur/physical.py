@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from typing import Dict, Iterator, Mapping
+from typing import Collection, Dict, Iterator, Mapping
 
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import Layer2ConnectedWorkloadHost
+from .hosts import AinurHost, SDRWiFiNetwork, Switch
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager
 
 
-class PhysicalLayer(AbstractContextManager,
-                    Mapping[str, Layer2ConnectedWorkloadHost]):
+class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
     """
     Represents the physical layer connections of workload network
 
@@ -21,8 +20,9 @@ class PhysicalLayer(AbstractContextManager,
     """
 
     def __init__(self,
-                 inventory: Dict,
-                 network_desc: Dict,
+                 hosts: Dict[str, AinurHost],
+                 sdr_nets: Collection[SDRWiFiNetwork],
+                 switch: Switch,
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
@@ -32,21 +32,22 @@ class PhysicalLayer(AbstractContextManager,
         logger.info('Setting up physical layer.')
 
         # Instantiate network's switch
-        self._switch = ManagedSwitch(name=inventory['switch'].name,
-                                     credentials=(inventory['switch'].username,
-                                                  inventory['switch'].password),
-                                     address=inventory['switch'].management_ip,
+        self._switch = ManagedSwitch(name=switch.name,
+                                     credentials=(switch.username,
+                                                  switch.password),
+                                     address=switch.management_ip,
                                      timeout=5,
                                      quiet=True)
 
         # Make workload switch vlans
-        self._switch.make_connections(inventory=inventory,
-                                      conn_specs=network_desc[
-                                          'connection_specs'])
+        self._switch.make_connections(hosts=hosts)
 
         # Instantiate sdr network container
+        radios = []
+        for net in sdr_nets:
+            radios.extend(net.radios)
         self._sdr_manager = SDRManager(
-            sdrs=inventory['radios'],
+            sdrs=radios,
             docker_base_url='unix://var/run/docker.sock',
             container_image_name='sdr_manager:latest',
             sdr_config_addr='/opt/sdr-manager',
@@ -54,27 +55,14 @@ class PhysicalLayer(AbstractContextManager,
         )
 
         # Make workload wireless LANS
-        self._sdr_manager.create_wlans(workload_hosts=inventory['hosts'],
-                                       conn_specs=network_desc[
-                                           'connection_specs'],
-                                       networks=network_desc['subnetworks'])
+        self._sdr_manager.create_wlans(hosts=hosts, sdr_nets=sdr_nets)
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
-        self._inventory = inventory
-        self._network_desc = network_desc
+        # self._inventory = inventory
+        # self._network_desc = network_desc
 
-        self._hosts = {
-            host_name: Layer2ConnectedWorkloadHost(
-                ansible_host=inventory['hosts'][host_name].ansible_host,
-                management_ip=inventory['hosts'][host_name].management_ip,
-                interfaces=inventory['hosts'][host_name].interfaces,
-                phy=list(network_desc['connection_specs'][host_name].values())[
-                    0].phy,
-                workload_interface=
-                list(network_desc['connection_specs'][host_name].keys())[0],
-            ) for host_name in network_desc['connection_specs'].keys()
-        }
+        self._hosts = hosts
 
         logger.info('All connections are ready and double-checked.')
 
@@ -86,7 +74,7 @@ class PhysicalLayer(AbstractContextManager,
         # return an iterator over the host names in the network.
         return iter(self._hosts.keys())
 
-    def __getitem__(self, host_id: str) -> Layer2ConnectedWorkloadHost:
+    def __getitem__(self, host_id: str) -> AinurHost:
         # implements the [] operator to look up Layer2 hosts by their
         # name.
         return self._hosts[host_id]

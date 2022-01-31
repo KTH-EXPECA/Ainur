@@ -7,12 +7,12 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface
 from operator import attrgetter
-from typing import FrozenSet, List, Tuple
+from typing import Dict, FrozenSet, List, Tuple
 
 import pexpect
 from loguru import logger
 
-from .hosts import WiFi, Wire
+from .hosts import AinurHost
 
 
 @dataclass(frozen=True, eq=True)
@@ -22,6 +22,10 @@ class Vlan:
     id_num: int
     switch_name: str
     ports: list[int]
+
+
+class SwitchError(Exception):
+    pass
 
 
 class ManagedSwitch(AbstractContextManager):
@@ -104,41 +108,22 @@ class ManagedSwitch(AbstractContextManager):
         child.send("exit\n")
         child.expect(pexpect.EOF)
 
-    def make_connections(self, inventory, conn_specs):
-
-        workload_hosts = inventory['hosts']
-        radios = inventory['radios']
+    def make_connections(self, hosts: Dict[str, AinurHost]) -> None:
 
         # Make workload switch vlans
-        ports_wirednets = {}
-        for host_name in conn_specs.keys():
-            for if_name in conn_specs[host_name].keys():
-                phy = conn_specs[host_name][if_name].phy
-                interface = workload_hosts[host_name].interfaces[if_name]
-                # TODO: isinstance check
-                if isinstance(phy, WiFi):
-                    # WiFi sdr vlans
-                    if phy.radio != 'native':
-                        host_port = interface.switch_connection.port
-                        ports = [host_port,
-                                 radios[phy.radio].switch_connection.port]
-                        vlan_name = workload_hosts[host_name].ansible_host \
-                                    + '_to_' + phy.radio
-                        self.make_vlan(ports=ports, name=vlan_name)
-                elif isinstance(phy, Wire):
-                    # wired nodes vlans
-                    # connect the ones with the same network name
-                    ports_wirednets[
-                        interface.switch_connection.port] = phy.network
+        vlans_ports = defaultdict(set)
 
-        # Grouping dictionary by values and make lists of ports for each
-        # network name
-        wired_nets = defaultdict(list)
-        for key, value in sorted(ports_wirednets.items()):
-            wired_nets[value].append(key)
+        for host_name, host in hosts.items():
+            for iface, iface_cfg in host.ethernets.items():
+                net_name, ports = iface_cfg.wire_spec.get_switch_vlan_ports()
+                vlans_ports[net_name].update(ports)
 
-        for wired_net_name, ports_list in wired_nets.items():
-            self.make_vlan(ports=ports_list, name=wired_net_name)
+        for wired_net_name, ports in vlans_ports.items():
+            try:
+                self.make_vlan(ports=list(ports), name=wired_net_name)
+            except SwitchError:
+                logger.debug(f'VLAN {wired_net_name} was not created since no '
+                             f'ports were assigned to it.')
 
     def update_vlans(self):
         logger.debug('Updating VLANs.')
@@ -212,6 +197,9 @@ class ManagedSwitch(AbstractContextManager):
         logger.info('Default vlans loaded.')
 
     def make_vlan(self, ports: List[int], name: str) -> Vlan:
+        if len(ports) < 1:
+            raise SwitchError(f'Cannot create VLAN {name}:'
+                              f'no attached ports provided.')
 
         # to get the object with the characteristic (max id)
         if len(self._vlans) != 0:

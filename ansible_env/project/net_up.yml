@@ -4,50 +4,10 @@
   become: yes
   gather_facts: no
   tasks:
-    - name: Write netplan config (ethernet)
-      when: interfaces[workload_interface].netplan_type == 'ethernets'
+    - name: Write netplan config
       ansible.builtin.copy:
-        dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
-        # language=YAML
-        content: |
-          #######################################################
-          # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
-          #######################################################
-          network:
-            version: 2
-            renderer: networkd
-            ethernets:
-              {{ workload_interface }}:
-                addresses:
-                  - {{ workload_ip }}
-                dhcp4: no
-                # no routes, stub network
-                routes: []
-                routing-policy: []
-        mode: 0644
-
-    - name: Write netplan config (wifi)
-      when: interfaces[workload_interface].netplan_type == 'wifis'
-      ansible.builtin.copy:
-        dest: /etc/netplan/99-ansible-workload-network_{{ workload_interface }}.yaml
-        # language=YAML
-        content: |
-          #######################################################
-          # NOTE: DO NOT EDIT. File managed by Ainur + Ansible. #
-          #######################################################
-          network:
-            version: 2
-            renderer: networkd
-            wifis:
-              {{ workload_interface }}:
-                addresses:
-                  - {{ workload_ip }}
-                dhcp4: no
-                # no routes, stub network
-                routes: []
-                routing-policy: []
-                access-points:
-                  {{ wifi_ssid }}: {}
+        dest: "/etc/netplan/99-ansible-workload-network-{{ netplan_interfaces | join('-') }}.yaml"
+        content: "{{ netplan_cfg }}"
         mode: 0644
 
     - name: Generate netplan config
@@ -55,9 +15,4 @@
 
     - name: Apply the netplan config
       command: netplan apply
-
-#    - name: Verify that hosts can ping each other.
-#      when: item != ansible_host
-#      ansible.builtin.command: "ping -c 3 {{ item }}"
-#      loop: "{{ ansible_play_batch }}"
 ...

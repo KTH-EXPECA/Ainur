@@ -4,12 +4,12 @@ import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Any, Dict, FrozenSet, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import yaml
 from dataclasses_json import config, dataclass_json
 # Switch connection dataclass
-from multipledispatch import dispatch
+from frozendict import frozendict
 
 
 # TODO: this file needs renaming. it's no longer only about hosts.
@@ -17,161 +17,93 @@ from multipledispatch import dispatch
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class SwitchConnection:
-    name: str
-    port: int
+class SwitchConnected(abc.ABC):
+    switch_port: int
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class Switch:
     name: str
-    management_ip: str
-    username: str
-    password: str
-
-
-# SDR dataclass
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class SoftwareDefinedRadio:
-    name: str
-    mac: str
     management_ip: IPv4Interface = field(
         metadata=config(
             encoder=str,
             decoder=IPv4Interface
         )
     )
-    switch_connection: SwitchConnection
+    username: str
+    password: str
 
 
-############
-# Physical Layer Network Concept Representation Classes
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class PhyNetwork:
+class SoftwareDefinedRadio(SwitchConnected):
     name: str
+    management_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+    mac: str
 
 
-# WiFi network
+# SDR net classes
+class SDRNetworkConfigError(Exception):
+    pass
+
+
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class WiFiNetwork(PhyNetwork):
+class SDRNetwork(abc.ABC):
+    access_point: SoftwareDefinedRadio
+    stations: Tuple[SoftwareDefinedRadio, ...]
+
+    def __post_init__(self):
+        if self.access_point in self.stations:
+            raise f'Cannot define {self.access_point} both as an Access Point' \
+                  f' and a station!'
+
+    @property
+    def radios(self) -> Tuple[SoftwareDefinedRadio]:
+        return tuple([self.access_point] + list(self.stations))
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class SDRWiFiNetwork(SDRNetwork):
     ssid: str
     channel: int
     beacon_interval: int
     ht_capable: bool
 
 
-# Wired network
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class WiredNetwork(PhyNetwork):
-    pass
-
-
 ############
 # Hosts Physical Layer Representation Classes
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class Phy:
-    network: str  # corresponds to PhyNetwork name
+class WireSpec(SwitchConnected):
+    net_name: str
+
+    def get_switch_vlan_ports(self) -> Tuple[str, Tuple[int, ...]]:
+        return self.net_name, (self.switch_port,)
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class WiFi(Phy):
-    is_ap: bool
-    radio: str  # corresponds to SoftwareDefinedRadio or 'native'
+class SDRWireSpec(WireSpec):
+    radio_port: int
+
+    def get_switch_vlan_ports(self) -> Tuple[str, Tuple[int, ...]]:
+        return f'{self.net_name}_sdr_{self.switch_port}_{self.radio_port}', \
+               (self.switch_port, self.radio_port)
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class Wire(Phy):
-    pass
-
-
-############
-# Workload Network Interface
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class NetplanInterface:  # TODO: rename?
-    # wraps everything we need to know about specific interfaces, like their
-    # MAC address, netplan type, etc.
-    netplan_type: Literal['ethernets', 'wifis']
-    mac: str
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class EthernetInterface(NetplanInterface):
-    switch_connection: SwitchConnection
-    netplan_type: Literal['ethernets'] = field(default='ethernets', init=False)
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class WiFiInterface(NetplanInterface):
-    netplan_type: Literal['wifis'] = field(default='wifis', init=False)
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class ConnectionSpec:
-    ip: IPv4Interface
-    phy: Phy
-
-
-############
-# Workload Network Interface
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class AnsibleHost:
-    ansible_host: str
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class WorkloadHost(AnsibleHost):
-    management_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
-    )
-
-    # mapping of name -> interface
-    interfaces: Dict[str, NetplanInterface]
-
-    def __str__(self) -> str:
-        return f'{self.ansible_host} (management address {self.management_ip})'
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class Layer2ConnectedWorkloadHost(WorkloadHost):
-    phy: Phy
-    workload_interface: str  # Points toward the workload interface to use in L3
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class Layer3ConnectedWorkloadHost(Layer2ConnectedWorkloadHost):
-    workload_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
-    )
-    # TODO: fix?
-    wifi_ssid: Optional[str] = field(default=None)
-
-    def __str__(self) -> str:
-        return f'{self.ansible_host} (management address ' \
-               f'{self.management_ip}; workload address: {self.workload_ip})'
+class SwitchConfig:
+    net_name: str
+    port: int
 
 
 @dataclass_json
@@ -191,10 +123,17 @@ class IPRoute:
     )
 
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class InterfaceCfg(abc.ABC):
-    ip_address: IPv4Interface
-    routes: Tuple[IPRoute] | FrozenSet[IPRoute]
+    ip_address: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+    routes: Tuple[IPRoute, ...]
+    mac: str
 
     @abc.abstractmethod
     def to_netplan_dict(self) -> Dict[str, Any]:
@@ -214,12 +153,16 @@ class InterfaceCfg(abc.ABC):
         }
 
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class EthernetCfg(InterfaceCfg):
+    wire_spec: WireSpec
+
     def to_netplan_dict(self) -> Dict[str, Any]:
         return super(EthernetCfg, self).to_netplan_dict()
 
 
+@dataclass_json
 @dataclass(frozen=True, eq=True)
 class WiFiCfg(InterfaceCfg):
     ssid: str
@@ -243,24 +186,12 @@ class NetplanConfig:
     configs: Dict[str, Dict[str, InterfaceCfg]] \
         = field(default_factory=lambda: defaultdict(dict), init=False)
 
-    def _add_config(self,
-                    cfg_type: str,
-                    iface_name: str,
-                    config: InterfaceCfg) -> NetplanConfig:
+    def add_config(self,
+                   cfg_type: str,
+                   iface_name: str,
+                   config: InterfaceCfg) -> NetplanConfig:
         self.configs[cfg_type][iface_name] = config
         return self
-
-    @dispatch(str, EthernetCfg)
-    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
-        return self._add_config('ethernets', interface, config)
-
-    @dispatch(str, WiFiCfg)
-    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
-        return self._add_config('wifis', interface, config)
-
-    @dispatch(str, object)
-    def add_config(self, interface: str, config: InterfaceCfg) -> NetplanConfig:
-        raise NotImplementedError(config)
 
     def to_netplan_dict(self):
         """
@@ -305,49 +236,47 @@ class HostError(Exception):
     pass
 
 
+@dataclass_json
+@dataclass(frozen=True, eq=True)
 class AinurHost:
-    def __init__(self,
-                 management_ip: IPv4Interface,
-                 wkld_interfaces: Dict[str, NetplanInterface]):
-        self._management_ip = management_ip
-        self._interfaces: Dict[str, NetplanInterface] = dict(wkld_interfaces)
-        self._configured_interfaces: Dict[str, InterfaceCfg] = dict()
+    management_ip: IPv4Interface
+    ethernets: frozendict[str, EthernetCfg]
+    wifis: frozendict[str, WiFiCfg]
 
-    def __str__(self) -> str:
-        return self.ansible_host
+    def __post_init__(self):
+        for iface, config in self.ethernets.items():
+            if iface in self.wifis:
+                raise HostError(f'Duplicated interface {iface} definition in '
+                                f'host {self.management_ip}.')
+
+    @property
+    def interfaces(self) -> Dict[str, InterfaceCfg]:
+        ifaces = {}
+        ifaces.update(self.ethernets)
+        ifaces.update(self.wifis)
+        return ifaces
+
+    @property
+    def interface_names(self) -> Tuple[str, ...]:
+        return tuple(list(self.ethernets.keys()) + list(self.wifis.keys()))
 
     @property
     def ansible_host(self) -> str:
         return str(self._management_ip.ip)
 
-    @property
-    def interfaces(self) -> Dict[str, NetplanInterface]:
-        interfaces = {}
-        interfaces.update(self._configured_interfaces)
-        interfaces.update(self._interfaces)
-        return interfaces
-
-    def configure_interface(self,
-                            name: str,
-                            config: InterfaceCfg) -> None:
-        if name not in self._configured_interfaces:
-            if name in self._interfaces:
-                self._configured_interfaces[name] = config
-            else:
-                raise HostError(f'No such interface {name} in host {self}.')
-        else:
-            raise HostError(f'Interface {name} is already configured.')
-
     def gen_netplan_config(self,
                            version: int = 2,
                            renderer: str = 'networkd') -> NetplanConfig:
         config = NetplanConfig(version=version, renderer=renderer)
-        for name, interface in self._configured_interfaces:
-            config.add_config(name, interface)
+        for name, interface in self.ethernets.items():
+            config.add_config('ethernets', name, interface)
+
+        for name, interface in self.wifis.items():
+            config.add_config('wifis', name, interface)
 
         return config
 
     @property
     def workload_ips(self) -> List[IPv4Address]:
         return [iface_cfg.ip_address.ip
-                for iface_cfg in self._configured_interfaces.values()]
+                for iface_cfg in self.interfaces.values()]

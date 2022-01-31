@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import functools
 import json
 from contextlib import AbstractContextManager
-from ipaddress import IPv4Interface, IPv4Network
 from typing import Any, Iterator, Mapping
 
 import ansible_runner
@@ -11,8 +9,7 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import InterfaceCfg, Layer3ConnectedWorkloadHost, NetplanConfig, \
-    PhyNetwork
+from .hosts import AinurHost
 from .physical import PhysicalLayer
 
 
@@ -22,8 +19,7 @@ class Layer3Error(Exception):
     pass
 
 
-class NetworkLayer(AbstractContextManager,
-                   Mapping[str, Layer3ConnectedWorkloadHost]):
+class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
     """
     Represents a connected workload network.
 
@@ -34,18 +30,12 @@ class NetworkLayer(AbstractContextManager,
     # TODO: fix ugly networks parameter
 
     def __init__(self,
-                 network_cfg: Mapping[str, PhyNetwork],
-                 ip_configs: Mapping[str, InterfaceCfg],
                  layer2: PhysicalLayer,
                  ansible_context: AnsibleContext,
                  ansible_quiet: bool = True):
         """
         Parameters
         ----------
-        network_cfg
-            Name to PhyNetwork mapping.
-        ip_configs
-            Mapping from host ID to desired IPConfig.
         layer2:
             A PhysicalLayer object representing connected devices.
         ansible_context:
@@ -63,39 +53,22 @@ class NetworkLayer(AbstractContextManager,
 
         logger.info(f'Layer 2 hosts:\n{host_info}')
 
-        # check that the given IP addresses all belong to the same network
-        # we don't do this anymore, we have routing.
-        # networks = list(map(lambda a: a.network, host_ips.values()))
-        # if not functools.reduce(lambda a, b: a if a == b else None, networks):
-        #     raise Layer3Error('IPs provided do not all belong to same '
-        #                       f'network.\n Inferred networks: {networks}.')
-
-        logger.info(f'Host Netplan configs:\n{ip_configs}')
-
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
-
-        # build a collection of (future) connected workload hosts
-        conn_hosts = frozendict({
-            name: Layer3ConnectedWorkloadHost(
-                ansible_host=layer2[name].ansible_host,
-                management_ip=layer2[name].management_ip,
-                interfaces=layer2[name].interfaces,
-                workload_interface=layer2[name].workload_interface,
-                workload_ip=ip,
-                phy=layer2[name].phy,
-                # FIXME: ugly getattr workaround. Use polymorphism and
-                #  inheritance for this shit!!
-                wifi_ssid=getattr(network_cfg[layer2[name].phy.network],
-                                  'ssid', None)
-            ) for name, ip in host_ips.items()
-        })
 
         # build an Ansible inventory from the hosts
         self._inventory = {
             'all': {
-                'hosts': {name: host.to_dict() for name, host in
-                          conn_hosts.items()}
+                'hosts': {
+                    name: {
+                        'ansible_host': host.ansible_host,
+                        'netplan_cfg' : host
+                            .gen_netplan_config()
+                            .to_netplan_yaml(),
+                        'interfaces': host.interface_names
+                    }
+                    for name, host in layer2.items()
+                }
             }
         }
 
@@ -114,14 +87,13 @@ class NetworkLayer(AbstractContextManager,
 
             # network is now up and running
 
-        self._network = networks[0]
-        self._hosts = conn_hosts
+        self._hosts = frozendict(layer2)
         self._torn_down = False
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._hosts)
 
-    def __getitem__(self, item: str) -> Layer3ConnectedWorkloadHost:
+    def __getitem__(self, item: str) -> AinurHost:
         return self._hosts[item]
 
     def __len__(self) -> int:
@@ -135,12 +107,8 @@ class NetworkLayer(AbstractContextManager,
         return self._torn_down
 
     @property
-    def hosts(self) -> frozendict[str, Layer3ConnectedWorkloadHost]:
+    def hosts(self) -> frozendict[str, AinurHost]:
         return self._hosts
-
-    @property
-    def address(self) -> IPv4Network:
-        return self._network
 
     def tear_down(self) -> None:
         """
