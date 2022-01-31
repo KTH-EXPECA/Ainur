@@ -6,7 +6,7 @@
   tasks:
     - name: Write netplan config
       ansible.builtin.copy:
-        dest: "/etc/netplan/99-ansible-workload-network-{{ netplan_interfaces | join('-') }}.yaml"
+        dest: "/etc/netplan/99-ansible-workload-network-{{ interfaces | join('-') }}.yaml"
         content: "{{ netplan_cfg }}"
         mode: 0644
 

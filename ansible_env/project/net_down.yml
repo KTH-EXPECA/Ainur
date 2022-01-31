@@ -6,7 +6,7 @@
   tasks:
     - name: Delete the netplan config
       ansible.builtin.file:
-        path: "/etc/netplan/99-ansible-workload-network-{{ netplan_interfaces | join('-') }}.yaml"
+        path: "/etc/netplan/99-ansible-workload-network-{{ interfaces | join('-') }}.yaml"
         state: absent
 
     - name: Generate netplan config
@@ -17,5 +17,5 @@
 
     - name: Flush IP addresses.
       command: ip addr flush {{ item }}
-      loop: "{{ netplan_interfaces }}"
+      loop: "{{ interfaces }}"
 ...
