@@ -267,7 +267,7 @@ class AinurHost:
 
     @property
     def ansible_host(self) -> str:
-        return str(self._management_ip.ip)
+        return str(self.management_ip.ip)
 
     def gen_netplan_config(self,
                            version: int = 2,

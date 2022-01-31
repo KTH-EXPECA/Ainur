@@ -51,7 +51,7 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
                                           indent=2)
                                for n, h in layer2.items()])
 
-        logger.info(f'Layer 2 hosts:\n{host_info}')
+        logger.debug(f'Layer 2 hosts:\n{host_info}')
 
         self._ansible_context = ansible_context
         self._quiet = ansible_quiet
