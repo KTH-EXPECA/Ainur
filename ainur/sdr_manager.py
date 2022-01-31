@@ -87,6 +87,8 @@ class SDRManager(AbstractContextManager):
             'use_jumbo_frames'  : self._use_jumbo_frames,
             'management_network': str(sdr.management_ip.network.network_address)
         }
+        logger.debug('Initializing SDRs...')
+
         self.send_command('init', init_dict)
         logger.info('SDR network manager container is up.')
 
@@ -134,8 +136,8 @@ class SDRManager(AbstractContextManager):
             'content': content,
         }
 
-        msg = str(json.dumps(cmd))
-        self._socket.sendall(bytes(msg + "\n", "utf-8"))
+        logger.debug(f'Sending command to SDR manager:\n{cmd}')
+        self._socket.sendall(f'{json.dumps(cmd)}\n'.encode('utf8'))
 
         # Receive response from the server
         received = str(self._socket.recv(3072), "utf-8")

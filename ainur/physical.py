@@ -30,7 +30,6 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
         ----------
         """
         logger.info('Setting up physical layer.')
-
         # Instantiate network's switch
         self._switch = ManagedSwitch(name=switch.name,
                                      credentials=(switch.username,
@@ -38,33 +37,39 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
                                      address=switch.management_ip,
                                      timeout=5,
                                      quiet=True)
+        try:
+            # Make workload switch vlans
+            self._switch.make_connections(hosts=hosts)
 
-        # Make workload switch vlans
-        self._switch.make_connections(hosts=hosts)
+            # Instantiate sdr network container
+            radios = []
+            for net in sdr_nets:
+                radios.extend(net.radios)
+            self._sdr_manager = SDRManager(
+                sdrs=radios,
+                docker_base_url='unix://var/run/docker.sock',
+                container_image_name='sdr_manager:latest',
+                sdr_config_addr='/opt/sdr-manager',
+                use_jumbo_frames=False,
+            )
+            try:
+                # Make workload wireless LANS
+                self._sdr_manager.create_wlans(hosts=hosts, sdr_nets=sdr_nets)
+            except Exception as e:
+                self._sdr_manager.tear_down()
+                raise
 
-        # Instantiate sdr network container
-        radios = []
-        for net in sdr_nets:
-            radios.extend(net.radios)
-        self._sdr_manager = SDRManager(
-            sdrs=radios,
-            docker_base_url='unix://var/run/docker.sock',
-            container_image_name='sdr_manager:latest',
-            sdr_config_addr='/opt/sdr-manager',
-            use_jumbo_frames=False,
-        )
+            self._ansible_context = ansible_context
+            self._quiet = ansible_quiet
+            # self._inventory = inventory
+            # self._network_desc = network_desc
 
-        # Make workload wireless LANS
-        self._sdr_manager.create_wlans(hosts=hosts, sdr_nets=sdr_nets)
+            self._hosts = hosts
 
-        self._ansible_context = ansible_context
-        self._quiet = ansible_quiet
-        # self._inventory = inventory
-        # self._network_desc = network_desc
-
-        self._hosts = hosts
-
-        logger.info('All connections are ready and double-checked.')
+            logger.info('All connections are ready and double-checked.')
+        except Exception as e:
+            self._switch.tear_down()
+            raise
 
     def __len__(self) -> int:
         # return the number of hosts in the network
