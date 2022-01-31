@@ -15,6 +15,10 @@ from .hosts import AinurHost, SDRWiFiNetwork, SoftwareDefinedRadio
 BEACON_INTERVAL = 100
 
 
+class SDRManagerError(Exception):
+    pass
+
+
 class SDRManager(AbstractContextManager):
     """
     Represents a network of SDRs.
@@ -32,7 +36,7 @@ class SDRManager(AbstractContextManager):
 
         # need to have at least one sdr?
         if len(sdrs) < 1:
-            raise RuntimeError('Must specify at least one SDR for SDRManager.')
+            raise SDRManagerError('No SDRs specified.')
 
         # self._sdrs = sdrs
         self._docker_base_url = docker_base_url

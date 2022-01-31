@@ -8,7 +8,7 @@ from loguru import logger
 from .ansible import AnsibleContext
 from .hosts import AinurHost, SDRWiFiNetwork, Switch
 from .managed_switch import ManagedSwitch
-from .sdr_manager import SDRManager
+from .sdr_manager import SDRManager, SDRManagerError
 
 
 class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
@@ -45,19 +45,27 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
             radios = []
             for net in sdr_nets:
                 radios.extend(net.radios)
-            self._sdr_manager = SDRManager(
-                sdrs=radios,
-                docker_base_url='unix://var/run/docker.sock',
-                container_image_name='sdr_manager:latest',
-                sdr_config_addr='/opt/sdr-manager',
-                use_jumbo_frames=False,
-            )
+
             try:
-                # Make workload wireless LANS
-                self._sdr_manager.create_wlans(hosts=hosts, sdr_nets=sdr_nets)
-            except Exception as e:
-                self._sdr_manager.tear_down()
-                raise
+                self._sdr_manager = SDRManager(
+                    sdrs=radios,
+                    docker_base_url='unix://var/run/docker.sock',
+                    container_image_name='sdr_manager:latest',
+                    sdr_config_addr='/opt/sdr-manager',
+                    use_jumbo_frames=False,
+                )
+
+                try:
+                    # Make workload wireless LANS
+                    self._sdr_manager.create_wlans(hosts=hosts,
+                                                   sdr_nets=sdr_nets)
+                except Exception as e:
+                    self._sdr_manager.tear_down()
+                    raise
+
+            except SDRManagerError:
+                logger.warning('Skipping SDR initialization, no SDR networks '
+                               'specified.')
 
             self._ansible_context = ansible_context
             self._quiet = ansible_quiet
