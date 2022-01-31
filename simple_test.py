@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from pathlib import Path
 
 # from ainur import *
@@ -90,15 +91,15 @@ hosts = {
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('ansible_env'))
 
-    # Start phy layer
-    with PhysicalLayer(hosts,
-                       [],
-                       switch,
-                       ansible_ctx,
-                       ansible_quiet=True) as phy_layer:
-        with NetworkLayer(
-                layer2=phy_layer,
-                ansible_context=ansible_ctx,
-                ansible_quiet=False
-        ) as workload_net:
-            input('Running.')
+    with ExitStack() as stack:
+        phy_layer = stack.enter_context(
+            PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
+        )
+
+        net_layer = stack.enter_context(NetworkLayer(
+            layer2=phy_layer,
+            ansible_context=ansible_ctx,
+            ansible_quiet=False
+        ))
+
+        input('Running')
