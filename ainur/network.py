@@ -9,7 +9,7 @@ from frozendict import frozendict
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import AinurHost
+from .hosts import LocalAinurHost
 from .physical import PhysicalLayer
 
 
@@ -19,7 +19,7 @@ class Layer3Error(Exception):
     pass
 
 
-class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
+class NetworkLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
     """
     Represents a connected workload network.
 
@@ -98,7 +98,7 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
     def __iter__(self) -> Iterator[str]:
         return iter(self._hosts)
 
-    def __getitem__(self, item: str) -> AinurHost:
+    def __getitem__(self, item: str) -> LocalAinurHost:
         return self._hosts[item]
 
     def __len__(self) -> int:
@@ -112,7 +112,7 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
         return self._torn_down
 
     @property
-    def hosts(self) -> frozendict[str, AinurHost]:
+    def hosts(self) -> frozendict[str, LocalAinurHost]:
         return self._hosts
 
     def tear_down(self) -> None:

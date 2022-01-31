@@ -12,7 +12,7 @@ from typing import Dict, FrozenSet, List, Tuple
 import pexpect
 from loguru import logger
 
-from .hosts import AinurHost
+from .hosts import LocalAinurHost
 
 
 @dataclass(frozen=True, eq=True)
@@ -108,7 +108,7 @@ class ManagedSwitch(AbstractContextManager):
         child.send("exit\n")
         child.expect(pexpect.EOF)
 
-    def make_connections(self, hosts: Dict[str, AinurHost]) -> None:
+    def make_connections(self, hosts: Dict[str, LocalAinurHost]) -> None:
 
         # Make workload switch vlans
         vlans_ports = defaultdict(set)

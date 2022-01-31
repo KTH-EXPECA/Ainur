@@ -6,12 +6,12 @@ from typing import Collection, Dict, Iterator, Mapping
 from loguru import logger
 
 from .ansible import AnsibleContext
-from .hosts import AinurHost, SDRWiFiNetwork, Switch
+from .hosts import LocalAinurHost, SDRWiFiNetwork, Switch
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager, SDRManagerError
 
 
-class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
+class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
     """
     Represents the physical layer connections of workload network
 
@@ -20,7 +20,7 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
     """
 
     def __init__(self,
-                 hosts: Dict[str, AinurHost],
+                 hosts: Dict[str, LocalAinurHost],
                  sdr_nets: Collection[SDRWiFiNetwork],
                  switch: Switch,
                  ansible_context: AnsibleContext,
@@ -95,7 +95,7 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
         # return an iterator over the host names in the network.
         return iter(self._hosts.keys())
 
-    def __getitem__(self, host_id: str) -> AinurHost:
+    def __getitem__(self, host_id: str) -> LocalAinurHost:
         # implements the [] operator to look up Layer2 hosts by their
         # name.
         return self._hosts[host_id]

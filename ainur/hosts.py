@@ -4,7 +4,7 @@ import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import yaml
 from dataclasses_json import config, dataclass_json
@@ -238,13 +238,23 @@ class HostError(Exception):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class AinurHost:
+class AinurHost(abc.ABC):
     management_ip: IPv4Interface = field(
         metadata=config(
             encoder=str,
             decoder=IPv4Interface
         )
     )
+
+    @property
+    @abc.abstractmethod
+    def workload_ips(self) -> Tuple[IPv4Interface]:
+        pass
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class LocalAinurHost(AinurHost):
     ethernets: frozendict[str, EthernetCfg]
     wifis: frozendict[str, WiFiCfg]
 
@@ -282,6 +292,36 @@ class AinurHost:
         return config
 
     @property
-    def workload_ips(self) -> List[IPv4Address]:
-        return [iface_cfg.ip_address.ip
-                for iface_cfg in self.interfaces.values()]
+    def workload_ips(self) -> Tuple[IPv4Address]:
+        return tuple([iface_cfg.ip_address.ip
+                      for iface_cfg in self.interfaces.values()])
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class CloudAinurHost(AinurHost):
+    workload_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+
+    public_ip: IPv4Address = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Address
+        )
+    )
+
+    vpc_ip: IPv4Address = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Address
+        )
+    )
+
+    @property
+    def workload_ips(self) -> Tuple[IPv4Interface]:
+        return self.workload_ip,  # NOTE THE COMMA
+

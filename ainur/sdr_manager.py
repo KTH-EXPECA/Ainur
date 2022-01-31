@@ -9,7 +9,7 @@ from typing import Collection, Dict
 import docker
 from loguru import logger
 
-from .hosts import AinurHost, SDRWiFiNetwork, SoftwareDefinedRadio
+from .hosts import LocalAinurHost, SDRWiFiNetwork, SoftwareDefinedRadio
 
 # DOCKER_BASE_URL='unix://var/run/docker.sock'
 BEACON_INTERVAL = 100
@@ -150,7 +150,7 @@ class SDRManager(AbstractContextManager):
             logger.error(result_dict['content']['msg'])
 
     def create_wlans(self,
-                     hosts: Dict[str, AinurHost],
+                     hosts: Dict[str, LocalAinurHost],
                      sdr_nets: Collection[SDRWiFiNetwork]):
         # Setup up the SDR network
         # find wlan_aps and create a wlan network per SDR AP
