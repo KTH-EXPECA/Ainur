@@ -59,13 +59,21 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
                     # Make workload wireless LANS
                     self._sdr_manager.create_wlans(hosts=hosts,
                                                    sdr_nets=sdr_nets)
-                except Exception as e:
+                except Exception:
                     self._sdr_manager.tear_down()
                     raise
 
             except SDRManagerError:
                 logger.warning('Skipping SDR initialization, no SDR networks '
                                'specified.')
+
+                # this is to avoid null checks in tear down.
+                # TODO: maybe fix?
+                class DummySDRManager:
+                    def tear_down(self) -> None:
+                        pass
+
+                self._sdr_manager = DummySDRManager()
 
             self._ansible_context = ansible_context
             self._quiet = ansible_quiet
@@ -75,7 +83,7 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, AinurHost]):
             self._hosts = hosts
 
             logger.info('All connections are ready and double-checked.')
-        except Exception as e:
+        except Exception:
             self._switch.tear_down()
             raise
 

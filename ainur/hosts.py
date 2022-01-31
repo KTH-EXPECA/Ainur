@@ -239,7 +239,12 @@ class HostError(Exception):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class AinurHost:
-    management_ip: IPv4Interface
+    management_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
     ethernets: frozendict[str, EthernetCfg]
     wifis: frozendict[str, WiFiCfg]
 
