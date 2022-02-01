@@ -1,8 +1,11 @@
+import os
 from contextlib import ExitStack
 from pathlib import Path
 
 # from ainur import *
 from ainur import AnsibleContext, NetworkLayer, PhysicalLayer
+from ainur.cloud.aws import CloudLayer
+from ainur.cloud.vpn import VPNCloudMesh
 from ainur.hosts import *
 
 switch = Switch(
@@ -40,7 +43,7 @@ switch = Switch(
 # )
 
 hosts = {
-    'workload-client-00': AinurHost(
+    'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
         ethernets=frozendict({
             'eth0': EthernetCfg(
@@ -55,7 +58,7 @@ hosts = {
         }),
         wifis=frozendict()
     ),
-    'workload-client-01': AinurHost(
+    'workload-client-01': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.1/16'),
         ethernets=frozendict({
             'eth0': EthernetCfg(
@@ -70,7 +73,7 @@ hosts = {
         }),
         wifis=frozendict()
     ),
-    'elrond'            : AinurHost(
+    'elrond'            : LocalAinurHost(
         management_ip=IPv4Interface('192.168.1.2/16'),
         ethernets=frozendict({
             'enp4s0': EthernetCfg(
@@ -87,19 +90,53 @@ hosts = {
     ),
 }
 
+cloud_hosts = [
+    AinurCloudHostConfig(
+        management_ip=IPv4Interface('172.16.0.2/24'),
+        workload_ip=IPv4Interface('172.16.1.2/24')
+    ),
+    AinurCloudHostConfig(
+        management_ip=IPv4Interface('172.16.0.3/24'),
+        workload_ip=IPv4Interface('172.16.1.3/24')
+    ),
+    AinurCloudHostConfig(
+        management_ip=IPv4Interface('172.16.0.4/24'),
+        workload_ip=IPv4Interface('172.16.1.4/24')
+    ),
+]
+
 # noinspection DuplicatedCode
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('ansible_env'))
 
     with ExitStack() as stack:
-        phy_layer = stack.enter_context(
+        phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
         )
 
-        net_layer = stack.enter_context(NetworkLayer(
-            layer2=phy_layer,
-            ansible_context=ansible_ctx,
-            ansible_quiet=False
-        ))
+        net_layer: NetworkLayer = stack.enter_context(
+            NetworkLayer(layer2=phy_layer,
+                         ansible_context=ansible_ctx,
+                         ansible_quiet=False)
+        )
 
-        input('Running')
+        cloud: CloudLayer = stack.enter_context(CloudLayer())
+        cloud.init_instances(len(cloud_hosts))
+
+        vpn_mesh: VPNCloudMesh = stack.enter_context(
+            VPNCloudMesh(
+                gateway_ip=IPv4Address('130.237.53.70'),
+                vpn_psk=os.environ['vpn_psk'],
+                ansible_ctx=AnsibleContext(base_dir=Path('./ansible_env')),
+                ansible_quiet=False
+            )
+        )
+        vpn_mesh.connect_cloud(
+            cloud_layer=cloud,
+            host_configs=cloud_hosts
+        )
+
+        for host_id, host in vpn_mesh.items():
+            print(host_id, host.to_json())
+
+        input('Press any key to tear down.')
