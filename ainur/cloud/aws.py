@@ -13,7 +13,7 @@ import boto3
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance
 
-from ainur import CloudAinurHost
+from ainur import AinurCloudHost
 
 
 @dataclass(frozen=True, eq=True)
@@ -22,18 +22,10 @@ class EC2Host:
     public_ip: IPv4Address
     vpc_ip: IPv4Address
 
-    @property
-    def public_vpn_host_string(self, vpn_port: int = 3210) -> str:
-        return f'{self.public_ip}:{vpn_port}'
-
-    @property
-    def vpc_vpn_host_string(self, vpn_port: int = 3210) -> str:
-        return f'{self.vpc_ip}:{vpn_port}'
-
     def to_ainur_host(self,
                       management_ip: IPv4Interface,
-                      workload_ip: IPv4Interface) -> CloudAinurHost:
-        return CloudAinurHost(
+                      workload_ip: IPv4Interface) -> AinurCloudHost:
+        return AinurCloudHost(
             management_ip=management_ip,
             workload_ip=workload_ip,
             public_ip=self.public_ip,
@@ -45,13 +37,13 @@ class CloudError(Exception):
     pass
 
 
-class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
+class CloudLayer(AbstractContextManager, Mapping[str, EC2Host]):
     """
     Context manager for AWS EC2 instances.
     """
 
     def __init__(self,
-                 region: str,
+                 region: str = 'eu-north-1',
                  key_name: str = 'ExPECA_AWS_Keys',
                  default_sec_groups: Collection[str] =
                  ('sg-0170fa039ff0a56c4',)):
@@ -70,6 +62,10 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
         self._region = region
         self._sec_groups = set(default_sec_groups)
         self._key_name = key_name
+
+    def __str__(self):
+        return f'CloudLayer(region: {self._region}, ' \
+               f'running instances: {len(self._running_instances)})'
 
     def init_instances(self,
                        num_instances: int,

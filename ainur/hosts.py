@@ -299,7 +299,7 @@ class LocalAinurHost(AinurHost):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class CloudAinurHost(AinurHost):
+class AinurCloudHost(AinurHost):
     workload_ip: IPv4Interface = field(
         metadata=config(
             encoder=str,
@@ -325,3 +325,17 @@ class CloudAinurHost(AinurHost):
     def workload_ips(self) -> Tuple[IPv4Interface]:
         return self.workload_ip,  # NOTE THE COMMA
 
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class AinurCloudHostConfig(AinurHost):
+    workload_ip: IPv4Interface = field(
+        metadata=config(
+            encoder=str,
+            decoder=IPv4Interface
+        )
+    )
+
+    @property
+    def workload_ips(self) -> Tuple[IPv4Interface]:
+        return self.workload_ip,  # NOTE THE COMMA

@@ -6,10 +6,12 @@
   tasks:
     - name: Tear down VPNCloud connection
       ansible.builtin.systemd:
-        name: "vpncloud@{{ vpn_net_name }}"
+        name: "vpncloud@{{ item.key }}"
         state: stopped
+      loop: "{{ vpn_configs | dict2items }}"
 
     - name: Delete VPNCloud config file
       ansible.builtin.file:
-        path: "/etc/vpncloud/{{ vpn_net_name }}.net"
+        path: "/etc/vpncloud/{{ item.key }}.net"
         state: absent
+      loop: "{{ vpn_configs | dict2items }}"

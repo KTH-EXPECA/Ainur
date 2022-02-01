@@ -6,19 +6,31 @@
   tasks:
     - name: Write VPNCloud config file
       ansible.builtin.copy:
-        dest: "/etc/vpncloud/{{ vpn_net_name }}.net"
+        dest: "/etc/vpncloud/{{ item.key }}.net"
         # language=YAML
-        content:
-          listen: "{{ vpn_port }}"
-          peers: "{{ vpn_peers }}"
+        content: |
+          device:
+            name: "{{ item.value.dev_name }}"
+          listen: {{ item.value.port }}
           crypto:
-            password: "{{ vpn_psk }}"
-          ip: "{{ vpn_ip }}"
-          ifup: "ip route add {{ vpn_gw_local_net }} via {{ vpn_gw_ip }}"
-          ifdown: "ip route delete {{ vpn_gw_local_net }} via {{ vpn_gw_ip }}"
-        mode: 0644
+            password: "{{ item.value.psk }}"
+          ip: "{{ item.value.ip }}"
+          claims:
+            - "{{ item.value.ip | ansible.netcommon.ipaddr('address') }}/32"
+          peers: {{ item.value.peers }}
+          auto-claim: false
+        mode: '0644'
+      loop: "{{ vpn_configs | dict2items }}"
 
     - name: Bring up VPNCloud connection
       ansible.builtin.systemd:
-        name: "vpncloud@{{ vpn_net_name }}"
+        name: "vpncloud@{{ item.key }}"
         state: restarted
+      loop: "{{ vpn_configs | dict2items }}"
+
+    - name: Set up address and routing on the new interface
+      # language=bash
+      shell: >-
+        ip addr change {{ item.value.ip }} dev {{ item.value.dev_name }} &&
+        ip route add {{ item.value.gw_net }} via {{ item.value.gw_ip }}
+      loop: "{{ vpn_configs | dict2items }}"
