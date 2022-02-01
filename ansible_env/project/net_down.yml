@@ -18,6 +18,7 @@
     - name: Flush IP addresses.
       command: ip addr flush {{ item }}
       loop: "{{ interfaces }}"
+      ignore_errors: yes
 
     - name: Restart Docker to recreate virtual interfaces
       systemd:
