@@ -48,7 +48,12 @@ hosts = {
         ethernets=frozendict({
             'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.2.0/16'),
-                routes=(),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
                 mac='dc:a6:32:b4:d8:b5',
                 wire_spec=WireSpec(
                     net_name='eth_net',
@@ -63,7 +68,12 @@ hosts = {
         ethernets=frozendict({
             'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.2.1/16'),
-                routes=(),
+                routes=(  # VPN route
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
                 mac='dc:a6:32:bf:53:04',
                 wire_spec=WireSpec(
                     net_name='eth_net',
@@ -73,12 +83,33 @@ hosts = {
         }),
         wifis=frozendict()
     ),
-    'elrond'            : LocalAinurHost(
-        management_ip=IPv4Interface('192.168.1.2/16'),
+    # TODO: automatic way of configuring VPN gateway?
+    'olwe'              : LocalAinurHost(
+        management_ip=IPv4Interface('192.168.0.4/16'),
         ethernets=frozendict({
             'enp4s0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.1.0/16'),
                 routes=(),
+                mac='dc:a6:32:bf:54:1b',
+                wire_spec=WireSpec(
+                    net_name='eth_net',
+                    switch_port=36,
+                )
+            )
+        }),
+        wifis=frozendict()
+    ),
+    'elrond'            : LocalAinurHost(
+        management_ip=IPv4Interface('192.168.1.2/16'),
+        ethernets=frozendict({
+            'enp4s0': EthernetCfg(
+                ip_address=IPv4Interface('10.0.1.1/16'),
+                routes=(  # VPN route
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
                 mac='d8:47:32:a3:25:20',
                 wire_spec=WireSpec(
                     net_name='eth_net',
