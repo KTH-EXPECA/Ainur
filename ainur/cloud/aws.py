@@ -46,17 +46,38 @@ class CloudError(Exception):
 
 
 class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
-    def __init__(self,
-                 num_instances: int,
-                 ami_id: str = 'ami-05411ec0f7e9b0109',
-                 instance_type: str = 't3.micro',
-                 key_name: str = 'ExPECA_AWS_Keys',
-                 security_groups: Collection[str] = ('sg-0170fa039ff0a56c4',),
-                 region: str = 'eu-north-1',
-                 startup_timeout_s: int = 60 * 3):
-        """
-        Context manager for AWS EC2 instances.
+    """
+    Context manager for AWS EC2 instances.
+    """
 
+    def __init__(self,
+                 region: str,
+                 key_name: str = 'ExPECA_AWS_Keys',
+                 default_sec_groups: Collection[str] =
+                 ('sg-0170fa039ff0a56c4',)):
+        """
+        Parameters
+        ----------
+        region:
+            AWS region on which to deploy instances.
+        key_name
+            The name of the AWS keys to use.
+        default_sec_groups
+            Default, mandatory security groups to attach instances to.
+        """
+
+        self._running_instances = {}
+        self._region = region
+        self._sec_groups = set(default_sec_groups)
+        self._key_name = key_name
+
+    def init_instances(self,
+                       num_instances: int,
+                       ami_id: str = 'ami-05411ec0f7e9b0109',
+                       instance_type: str = 't3.micro',
+                       additional_sec_groups: Collection[str] = (),
+                       startup_timeout_s: int = 60 * 3):
+        """
         Parameters
         ----------
         num_instances
@@ -65,39 +86,32 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
             The desired AMI for the instances.
         instance_type
             The desired EC2 instance type.
-        key_name
-            The name of the AWS keys to use.
-        security_groups
-            Security group IDs to attach to the instances.
-        region
-            On which region to create the instances.
+        additional_sec_groups
+            Additional security groups to which attach the instances.
         startup_timeout_s
             Timeout for instance boot.
+
+        Returns
+        -------
+        self
+            For chaining and using as a context manager.
         """
 
-        self._num_instances = num_instances
-        self._ami = ami_id
-        self._ec2_type = instance_type
-        self._key_name = key_name
-        self._sec_groups = security_groups
-        self._region = region
-        self._startup_timeout = startup_timeout_s
-        self._running_instances = {}
-
-    def __enter__(self) -> CloudLayer:
         logger.warning(
-            f'Deploying {self._num_instances} AWS compute instances of type '
-            f'{self._ec2_type}...')
+            f'Deploying {num_instances} AWS compute instances of type '
+            f'{instance_type}, on region {self._region}...')
+        sec_groups = list(self._sec_groups.union(additional_sec_groups))
+        logger.debug(f'Instance security groups: {sec_groups}')
 
         ec2 = boto3.resource('ec2', region_name=self._region)
         # noinspection PyTypeChecker
         instances = ec2.create_instances(
-            ImageId=self._ami,
-            MinCount=self._num_instances,
-            MaxCount=self._num_instances,
-            InstanceType=self._ec2_type,
+            ImageId=ami_id,
+            MinCount=num_instances,
+            MaxCount=num_instances,
+            InstanceType=instance_type,
             KeyName=self._key_name,
-            SecurityGroupIds=list(self._sec_groups)
+            SecurityGroupIds=sec_groups
         )
         logger.debug('Instances created.')
 
@@ -112,7 +126,7 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
 
                 # now, attempt to open a socket connection to port 22 to verify
                 # that the instance is ready
-                timeout = time.monotonic() + self._startup_timeout
+                timeout = time.monotonic() + startup_timeout_s
                 while time.monotonic() <= timeout:
                     with socket.socket(socket.AF_INET,
                                        socket.SOCK_STREAM) as sock:
@@ -135,15 +149,20 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
                                    f'instance {instance.instance_id}.')
 
             logger.debug('Waiting for instances to finish booting...')
+            spawned_instances = {}
 
             try:
                 for inst in tpool.map(_wait_for_instance, instances):
-                    self._running_instances[inst.instance_id] = inst
+                    spawned_instances[inst.instance_id] = inst
             except TimeoutError as e:
-                self.tear_down()
+                self._tear_down_instances(spawned_instances)
                 raise CloudError() from e
 
-        logger.info('All Cloud instances are booted and ready.')
+        self._running_instances.update(spawned_instances)
+        logger.info('EC2 instances are booted and ready.')
+        return self
+
+    def __enter__(self) -> CloudLayer:
         return self
 
     def __iter__(self) -> Iterator[str]:
@@ -163,10 +182,8 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
     def __contains__(self, item: Any) -> bool:
         return item in self._running_instances
 
-    def tear_down(self) -> None:
-        # contextmanager shutting down, tear down and terminate all
-        # the instances
-        logger.warning('Shutting down AWS compute instances...')
+    @staticmethod
+    def _tear_down_instances(instances: Mapping[str, Instance]) -> None:
         with ThreadPoolExecutor() as tpool:
             def _shutdown_instance(instance: Instance):
                 logger.debug(f'Terminating instance {instance.instance_id}...')
@@ -175,8 +192,16 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
                 logger.warning(f'Instance {instance.instance_id} terminated.')
 
             # list() forces the .map() statement to be evaluated immediately
-            list(tpool.map(_shutdown_instance,
-                           self._running_instances.values()))
+            list(tpool.map(_shutdown_instance, instances.values()))
+
+    def tear_down_all_instances(self) -> None:
+        # contextmanager shutting down, tear down and terminate all
+        # the instances
+        logger.warning(f'Shutting down all EC2 compute instances on region '
+                       f'{self._region}...')
+        self._tear_down_instances(self._running_instances)
+        self._running_instances.clear()
+        logger.warning(f'All EC2 instances on region {self._region} shut down.')
 
     @overload
     def __exit__(self, exc_type: None, exc_val: None, exc_tb: None) -> None:
@@ -197,4 +222,4 @@ class CloudLayer(AbstractContextManager, Mapping[str, Instance]):
             exc_val: BaseException | None,
             exc_tb: TracebackType | None,
     ) -> None:
-        self.tear_down()
+        self.tear_down_all_instances()
