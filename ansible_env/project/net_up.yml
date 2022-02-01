@@ -15,4 +15,9 @@
 
     - name: Apply the netplan config
       command: netplan apply
+
+    - name: Restart Docker to recreate virtual interfaces
+      systemd:
+        name: docker
+        state: restarted
 ...
