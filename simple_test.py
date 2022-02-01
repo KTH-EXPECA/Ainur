@@ -87,7 +87,7 @@ hosts = {
     'olwe'              : LocalAinurHost(
         management_ip=IPv4Interface('192.168.0.4/16'),
         ethernets=frozendict({
-            'enp4s0': EthernetCfg(
+            'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.1.0/16'),
                 routes=(),
                 mac='dc:a6:32:bf:54:1b',
