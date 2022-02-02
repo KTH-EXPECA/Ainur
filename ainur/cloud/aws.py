@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import socket
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -210,7 +211,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
 
         logger.info('Preparing a security group for SSH access to instances.')
         ssh_sgid = self.create_sec_group(
-            name='ssh',
+            name=f'cloud-ssh-{uuid.uuid4().hex}',
             desc='SSH Access',
             ssh_access=True,
             ephemeral=True,
