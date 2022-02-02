@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import abc
+import json
 from contextlib import AbstractContextManager, ExitStack
 from types import TracebackType
 from typing import Any, Iterator, List, Mapping, Type, TypeVar, overload
 
 import ansible_runner
+from loguru import logger
 
 from ..ansible import AnsibleContext
 from ..hosts import AinurHost
@@ -139,6 +141,8 @@ def verify_wkld_net_connectivity(network: Layer3Network,
 
     """
 
+    logger.info('Testing workload network connectivity.')
+
     inventory = {
         'all': {
             'hosts': {
@@ -161,3 +165,5 @@ def verify_wkld_net_connectivity(network: Layer3Network,
 
         if res == 'failed':
             raise Layer3Error('Failed network connectivity check!')
+
+    logger.info('Connectivity check passed.')
