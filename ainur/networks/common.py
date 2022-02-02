@@ -146,7 +146,7 @@ def verify_wkld_net_connectivity(network: Layer3Network,
     inventory = {
         'all': {
             'hosts': {
-                str(host.management_ip): {
+                str(host.management_ip.ip): {
                     'ansible_host': str(host.management_ip.ip),
                     'ansible_user': host.ansible_user,
                     'workload_ip' : str(host.workload_ips[0])
