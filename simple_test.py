@@ -44,6 +44,7 @@ switch = Switch(
 hosts = {
     'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
+        ansible_user='expeca',
         ethernets=frozendict({
             'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.2.0/16'),
@@ -64,6 +65,7 @@ hosts = {
     ),
     'workload-client-01': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.1/16'),
+        ansible_user='expeca',
         ethernets=frozendict({
             'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.2.1/16'),
@@ -85,6 +87,7 @@ hosts = {
     # TODO: automatic way of configuring VPN gateway?
     'olwe'              : LocalAinurHost(
         management_ip=IPv4Interface('192.168.0.4/16'),
+        ansible_user='expeca',
         ethernets=frozendict({
             'eth0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.1.0/16'),
@@ -100,6 +103,7 @@ hosts = {
     ),
     'elrond'            : LocalAinurHost(
         management_ip=IPv4Interface('192.168.1.2/16'),
+        ansible_user='expeca',
         ethernets=frozendict({
             'enp4s0': EthernetCfg(
                 ip_address=IPv4Interface('10.0.1.1/16'),
@@ -123,15 +127,18 @@ hosts = {
 cloud_hosts = [
     AinurCloudHostConfig(
         management_ip=IPv4Interface('172.16.0.2/24'),
-        workload_ip=IPv4Interface('172.16.1.2/24')
+        workload_ip=IPv4Interface('172.16.1.2/24'),
+        ansible_user='ubuntu',
     ),
     AinurCloudHostConfig(
         management_ip=IPv4Interface('172.16.0.3/24'),
-        workload_ip=IPv4Interface('172.16.1.3/24')
+        workload_ip=IPv4Interface('172.16.1.3/24'),
+        ansible_user='ubuntu',
     ),
     AinurCloudHostConfig(
         management_ip=IPv4Interface('172.16.0.4/24'),
-        workload_ip=IPv4Interface('172.16.1.4/24')
+        workload_ip=IPv4Interface('172.16.1.4/24'),
+        ansible_user='ubuntu',
     ),
 ]
 
@@ -240,7 +247,8 @@ if __name__ == '__main__':
             ExperimentStorage(
                 storage_name='test-storage',
                 storage_host=ManagedHost(
-                    management_ip=IPv4Interface('192.168.1.1/16')
+                    management_ip=IPv4Interface('192.168.1.1/16'),
+                    ansible_user='expeca',
                 ),
                 network=ip_layer,
                 ansible_ctx=ansible_ctx,

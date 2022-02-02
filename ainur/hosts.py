@@ -263,7 +263,6 @@ class AinurHost(ManagedHost, abc.ABC):
 class LocalAinurHost(AinurHost):
     ethernets: frozendict[str, EthernetCfg]
     wifis: frozendict[str, WiFiCfg]
-    ansible_user: str = 'expeca'
 
     def __post_init__(self):
         for iface, config in self.ethernets.items():
@@ -327,7 +326,6 @@ class AinurCloudHost(AinurHost):
             decoder=IPv4Address
         )
     )
-    ansible_user: str = 'ubuntu'
 
     @property
     def workload_ips(self) -> Tuple[IPv4Address]:
@@ -343,7 +341,6 @@ class AinurCloudHostConfig(AinurHost):
             decoder=IPv4Interface
         )
     )
-    ansible_user: str = 'ubuntu'
 
     @property
     def workload_ips(self) -> Tuple[IPv4Address]:
