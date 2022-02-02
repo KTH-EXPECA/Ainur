@@ -52,8 +52,8 @@ class ExperimentStorage(AbstractContextManager):
         inventory = {
             'all': {
                 'hosts': {
-                    str(storage_host.management_ip): {
-                        'ansible_host': str(storage_host.management_ip)
+                    str(storage_host.management_ip.ip): {
+                        'ansible_host': str(storage_host.management_ip.ip)
                     }
                 }
             }
