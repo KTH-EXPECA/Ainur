@@ -83,7 +83,7 @@ class CompositeLayer3Network(NetworkLayer):
             The added network, for chaining constructors
         """
         self._networks.append(net)
-        return self
+        return net
 
     def __enter__(self):
         with self._stack:
