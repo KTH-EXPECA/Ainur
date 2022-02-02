@@ -4,7 +4,12 @@
   become: yes
   gather_facts: no
   tasks:
+    - name: Make sure ping is installed
+      apt:
+        name: 'iputils-ping'
+        update_cache: yes
+        state: present
+
     - name: Ping all hosts in workload network
-      ansible.netcommon.net_ping:
-        dest: "{{ item.value.workload_ip }}"
+      ansible.builtin.shell: "ping -c 1 -W 1 {{ item.value.workload_ip }}"
       loop: "{{ hostvars | dict2items }}"
