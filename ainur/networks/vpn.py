@@ -67,6 +67,7 @@ class VPNCloudMesh(Layer3Network):
         def to_ainur_host(self) -> AinurCloudHost:
             return AinurCloudHost(
                 management_ip=self.ainur_config.management_ip,
+                ansible_user=self.ainur_config.ansible_user,
                 workload_ip=self.ainur_config.workload_ip,
                 vpc_ip=self.ec2host.vpc_ip,
                 public_ip=self.ec2host.public_ip
