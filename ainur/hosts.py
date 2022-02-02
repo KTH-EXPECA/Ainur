@@ -238,7 +238,7 @@ class HostError(Exception):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class AinurHost(abc.ABC):
+class ManagedHost:
     management_ip: IPv4Interface = field(
         metadata=config(
             encoder=str,
@@ -246,6 +246,10 @@ class AinurHost(abc.ABC):
         )
     )
 
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class AinurHost(ManagedHost, abc.ABC):
     @property
     @abc.abstractmethod
     def workload_ips(self) -> Tuple[IPv4Address]:

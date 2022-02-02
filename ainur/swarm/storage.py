@@ -14,10 +14,14 @@ from docker.errors import APIError
 from docker.models.volumes import Volume
 from loguru import logger
 
-from .. import LANLayer
 from ..ansible import AnsibleContext
-from ..hosts import Layer3ConnectedWorkloadHost, WorkloadHost
+from ..hosts import AinurHost, ManagedHost
 from ..misc import docker_client_context
+from ..networks import Layer3Network
+
+
+class ExperimentStorageException(Exception):
+    pass
 
 
 class ExperimentStorage(AbstractContextManager):
@@ -27,8 +31,8 @@ class ExperimentStorage(AbstractContextManager):
 
     def __init__(self,
                  storage_name: str,
-                 storage_host: WorkloadHost,
-                 network: LANLayer,
+                 storage_host: ManagedHost,
+                 network: Layer3Network,
                  ansible_ctx: AnsibleContext,
                  host_path: PathLike = '/opt/expeca/experiments',
                  daemon_port: int = 2375,
@@ -39,7 +43,7 @@ class ExperimentStorage(AbstractContextManager):
 
         logger.info(f'Initializing centralized storage {storage_name}.')
         self._storage_name = storage_name
-        self._vols: List[Tuple[Layer3ConnectedWorkloadHost, Volume]] = list()
+        self._vols: List[Tuple[AinurHost, Volume]] = list()
 
         # start by ensuring paths exists
         host_path = Path(host_path)
@@ -48,8 +52,8 @@ class ExperimentStorage(AbstractContextManager):
         inventory = {
             'all': {
                 'hosts': {
-                    storage_host.ansible_host: {
-                        'ansible_host': storage_host.ansible_host
+                    str(storage_host.management_ip): {
+                        'ansible_host': str(storage_host.management_ip)
                     }
                 }
             }
@@ -61,39 +65,47 @@ class ExperimentStorage(AbstractContextManager):
                 host_pattern='all',
                 module='ansible.builtin.file',
                 module_args=f'path={exp_path} state=directory',
-                json_mode=True,
+                json_mode=False,
                 private_data_dir=str(ansible_path),
                 quiet=ansible_quiet,
                 cmdline='--become'
             )
 
-            # TODO: better error checking
-            assert res.status != 'failed'
+            if res.status == 'failed':
+                raise ExperimentStorageException(
+                    'Could not create necessary paths '
+                    f'on storage host {storage_host}'
+                )
 
         # path exists, now set up smb server
         logger.info(f'Deploying SMB/CIFS server on {storage_host}.')
-        with docker_client_context(
-                base_url=f'{storage_host.management_ip.ip}:{daemon_port}'
-        ) as client:
-            self._container = client.containers.run(
-                image='dperson/samba',  # FIXME: hardcoded things!
-                remove=True,
-                name='smb-server',
-                command='-p -u "expeca;expeca" '
-                        '-s "expeca;/opt/expeca;no;no;no;expeca"',
-                detach=True,
-                ports={
-                    '139': '139',
-                    '445': '445'
-                },
-                volumes={
-                    f'{exp_path}': {
-                        'bind': '/opt/expeca',
-                        'mode': 'rw'
+        try:
+            with docker_client_context(
+                    base_url=f'{storage_host.management_ip.ip}:{daemon_port}'
+            ) as client:
+                self._container = client.containers.run(
+                    image='dperson/samba',  # FIXME: hardcoded things!
+                    remove=True,
+                    name='smb-server',
+                    command='-p -u "expeca;expeca" '
+                            '-s "expeca;/opt/expeca;no;no;no;expeca"',
+                    detach=True,
+                    ports={
+                        '139': '139',
+                        '445': '445'
+                    },
+                    volumes={
+                        f'{exp_path}': {
+                            'bind': '/opt/expeca',
+                            'mode': 'rw'
+                        }
                     }
-                }
-            )
-            # storage server is now running
+                )
+                # storage server is now running
+        except Exception as e:
+            raise ExperimentStorageException(
+                f'Could not deploy SMB/CIFS server on {storage_host}!'
+            ) from e
 
         try:
             # iterate over hosts, create docker volumes pointing to SMB server
@@ -101,8 +113,8 @@ class ExperimentStorage(AbstractContextManager):
                 exceptions = deque()
                 ex_cond = threading.Condition()
 
-                def _add_storage(host: Layer3ConnectedWorkloadHost) \
-                        -> Tuple[Layer3ConnectedWorkloadHost, Volume]:
+                def _add_storage(host: AinurHost) \
+                        -> Tuple[AinurHost, Volume]:
                     logger.info(
                         f'Creating Docker volume for centralized storage '
                         f'{storage_name} on host {host}.')
@@ -140,6 +152,7 @@ class ExperimentStorage(AbstractContextManager):
                     if len(exceptions) > 0:
                         raise exceptions.pop()
         except Exception as e:
+            logger.error('Could not create storage volumes.')
             # in case of any exception, we need to bring down everything
             self.tear_down()
             raise e
@@ -161,8 +174,7 @@ class ExperimentStorage(AbstractContextManager):
             exceptions = deque()
             exc_cond = threading.Condition()
 
-            def _remove_vol(host_vol: Tuple[Layer3ConnectedWorkloadHost,
-                                            Volume]):
+            def _remove_vol(host_vol: Tuple[AinurHost, Volume]):
                 host, vol = host_vol
                 wait = 0.01
                 while True:

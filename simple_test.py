@@ -5,6 +5,7 @@ from pathlib import Path
 from ainur.hosts import *
 from ainur.networks import *
 from ainur.swarm import *
+from ainur.swarm.storage import ExperimentStorage
 
 switch = Switch(
     name='glorfindel',
@@ -156,6 +157,7 @@ if __name__ == '__main__':
     swarm = DockerSwarm()
 
     # TODO: rework Phy to also be "preparable"
+    # TODO: same for experiment storage
 
     with ExitStack() as stack:
         cloud = stack.enter_context(cloud)
@@ -188,5 +190,17 @@ if __name__ == '__main__':
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
                              type='client', location='cloud')
         swarm.pull_image(image='ubuntu', tag='20.04')
+
+        storage: ExperimentStorage = stack.enter_context(
+            ExperimentStorage(
+                storage_name='test-storage',
+                storage_host=ManagedHost(
+                    management_ip=IPv4Interface('192.168.1.1/16')
+                ),
+                network=ip_layer,
+                ansible_ctx=ansible_ctx,
+                ansible_quiet=False
+            )
+        )
 
         input('Press any key to tear down.')
