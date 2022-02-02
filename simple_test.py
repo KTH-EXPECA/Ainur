@@ -158,6 +158,8 @@ if __name__ == '__main__':
     # TODO: rework Phy to also be "preparable"
 
     with ExitStack() as stack:
+        cloud = stack.enter_context(cloud)
+
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
@@ -177,7 +179,6 @@ if __name__ == '__main__':
                             type='client', location='local')
 
         # start cloud instances
-        cloud = stack.enter_context(cloud)
         cloud.init_instances(len(cloud_hosts))
         vpn_mesh.connect_cloud(
             cloud_layer=cloud,
@@ -186,5 +187,6 @@ if __name__ == '__main__':
 
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
                              type='client', location='cloud')
+        swarm.pull_image(image='ubuntu', tag='20.04')
 
         input('Press any key to tear down.')

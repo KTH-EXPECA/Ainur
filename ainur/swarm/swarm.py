@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -222,6 +223,43 @@ class DockerSwarm(AbstractContextManager):
                 self._manager_nodes.add(first_manager_node)
                 continue
         return self
+
+    def pull_image(self, image: str, tag: str = 'latest'):
+        """
+        Pulls a container image on all the Swarm nodes.
+
+        Parameters
+        ----------
+        image
+            Image ID/repository
+        tag
+            Image tag.
+        """
+
+        # TODO: put this pattern in a separate function/class
+        with ThreadPoolExecutor() as tpool:
+            exc_lock = threading.RLock()
+            caught_exceptions = deque()
+
+            def _pull(node_img_tag: Tuple[SwarmNode, str, str]) -> None:
+                node, img, tag = node_img_tag
+                try:
+                    node.pull_image(img, tag)
+                except Exception as e:
+                    with exc_lock:
+                        caught_exceptions.append(e)
+
+            tpool.map(_pull, zip(self._manager_nodes,
+                                 itertools.repeat(image),
+                                 itertools.repeat(tag)))
+            tpool.map(_pull, zip(self._worker_nodes,
+                                 itertools.repeat(image),
+                                 itertools.repeat(tag)))
+
+        if len(caught_exceptions) > 0:
+            raise SwarmException(f'Could not pull image {image}:{tag} on all '
+                                 f'nodes of the Swarm!') \
+                from caught_exceptions.pop()
 
     def deploy_workers(self,
                        hosts: Mapping[AinurHost, Dict[str, Any]],
