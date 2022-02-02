@@ -7,7 +7,8 @@ from ainur.networks import *
 from ainur.swarm import *
 from ainur.swarm.storage import ExperimentStorage
 
-ami_ids = yaml.safe_load('./offload-ami-ids.yaml')
+with open('./offload-ami-ids.yaml', 'r') as fp:
+    ami_ids = yaml.safe_load(fp)
 region = 'eu-north-1'
 
 switch = Switch(
