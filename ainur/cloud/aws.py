@@ -194,11 +194,22 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             For chaining and using as a context manager.
         """
 
-        logger.warning(
+        logger.info(
             f'Deploying {num_instances} AWS compute instances of type '
             f'{instance_type}, on region {self._region}...')
 
-        sec_groups = list(self._sec_groups.union(additional_sec_groups))
+        logger.info('Preparing a security group for SSH access to instances.')
+        ssh_sgid = self.create_sec_group(
+            name='SSH Access',
+            ssh_access=True,
+            ephemeral=True,
+            attach_to_instances=False
+        )
+
+        sec_groups = self._sec_groups.union(additional_sec_groups)
+        sec_groups.add(ssh_sgid)
+        sec_groups = list(sec_groups)
+
         logger.debug(f'Instance security groups: {sec_groups}')
 
         ec2 = boto3.resource('ec2', region_name=self._region)
