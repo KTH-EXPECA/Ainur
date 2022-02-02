@@ -7,11 +7,12 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Interface
 from types import TracebackType
-from typing import Any, Collection, Iterator, Mapping, Type, overload
+from typing import Any, Collection, Dict, Iterator, Mapping, Set, Type, overload
 
 import boto3
 from loguru import logger
-from mypy_boto3_ec2.service_resource import Instance
+from mypy_boto3_ec2.service_resource import Instance, SecurityGroup, Vpc
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef
 
 from ..hosts import AinurCloudHost
 
@@ -42,11 +43,12 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
     Context manager for AWS EC2 instances.
     """
 
+    # old default sec group: sg-0170fa039ff0a56c4
+
     def __init__(self,
                  region: str = 'eu-north-1',
                  key_name: str = 'ExPECA_AWS_Keys',
-                 default_sec_groups: Collection[str] =
-                 ('sg-0170fa039ff0a56c4',)):
+                 default_sec_groups: Collection[str] = ()):
         """
         Parameters
         ----------
@@ -58,14 +60,113 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             Default, mandatory security groups to attach instances to.
         """
 
-        self._running_instances = {}
+        self._running_instances: Dict[str, Instance] = {}
         self._region = region
-        self._sec_groups = set(default_sec_groups)
+        self._sec_groups: Set[str] = set(default_sec_groups)
+        self._ephemeral_sec_groups: Set[SecurityGroup] = set()
         self._key_name = key_name
 
     def __str__(self):
         return f'CloudLayer(region: {self._region}, ' \
                f'running instances: {len(self._running_instances)})'
+
+    def create_sec_group(self,
+                         name: str,
+                         desc: str,
+                         ingress_rules: Collection[IpPermissionTypeDef] = (),
+                         egress_rules: Collection[IpPermissionTypeDef] = (),
+                         ssh_access: bool = True,
+                         ephemeral: bool = True,
+                         attach_to_instances: bool = True) -> str:
+
+        logger.info(f'Creating security group {name} ({desc}) in region '
+                    f'{self._region}.')
+        logger.debug(f'Ingress rules:\n{ingress_rules}')
+        logger.debug(f'Egress rules:\n{egress_rules}')
+
+        ec2 = boto3.resource('ec2', region_name=self._region)
+        vpc: Vpc = list(ec2.vpcs.all())[0]
+
+        ingress_rules = list(ingress_rules)
+        egress_rules = list(egress_rules)
+
+        # allow traffic to flow freely outwards
+        egress_rules.append(
+            IpPermissionTypeDef(IpProtocol='-1')
+        )
+
+        try:
+            sec_group = ec2.create_security_group(
+                Description=desc,
+                GroupName=name,
+                VpcId=vpc.vpc_id
+            )
+
+            # allow traffic to flow freely within sec group
+            sec_group.authorize_ingress(
+                SourceSecurityGroupName=sec_group.group_id
+            )
+
+            if ssh_access:
+                # allow ssh access
+                sec_group.authorize_ingress(
+                    CidrIp='0.0.0.0/0',
+                    FromPort=22,
+                    ToPort=22,
+                    IpProtocol='tcp',
+                )
+
+            # other ingress and egress rules
+            if len(ingress_rules) > 0:
+                sec_group.authorize_ingress(IpPermissions=ingress_rules)
+            sec_group.authorize_egress(IpPermissions=egress_rules)
+
+            if ephemeral:
+                self._ephemeral_sec_groups.add(sec_group)
+
+            logger.info(f'Create security group {name} '
+                        f'with id {sec_group.group_id} '
+                        f'in region {self._region}')
+
+            if attach_to_instances:
+                logger.info(f'Attaching security group {name} to running '
+                            f'instances.')
+                # immediately attach the security group to all running instances
+                for iid, instance in self._running_instances.items():
+                    logger.debug(f'Attaching security group {name} to '
+                                 f'instance {iid}...')
+                    instance.reload()
+                    security_groups = set([g['GroupId']
+                                           for g in instance.security_groups])
+                    security_groups.add(sec_group.group_id)
+
+                    instance.modify_attribute(
+                        Attribute='groupSet',
+                        Groups=list(security_groups)
+                    )
+
+                    logger.debug(f'Updated security groups for instance {iid}:'
+                                 f'{security_groups}')
+
+            return sec_group.group_id
+        except Exception as e:
+            logger.error(f'Could not create/configure security group {name}.')
+            raise CloudError(
+                f'Failed to create security group {name} ({desc}) in '
+                f'region {self._region}.'
+            ) from e
+
+    def clear_ephemeral_sec_groups(self) -> None:
+        logger.warning('Deleting ephemeral security groups '
+                       f'in region {self._region}...')
+        for sec_group in self._ephemeral_sec_groups:
+            logger.debug(f'Deleting security group {sec_group.group_name} '
+                         f'({sec_group.description}, region {self._region})')
+            sec_group.delete()
+
+        logger.warning('Deleted all ephemeral security groups '
+                       f'in region {self._region}.')
+        self._ephemeral_sec_groups.clear()
 
     def init_instances(self,
                        num_instances: int,
@@ -96,6 +197,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         logger.warning(
             f'Deploying {num_instances} AWS compute instances of type '
             f'{instance_type}, on region {self._region}...')
+
         sec_groups = list(self._sec_groups.union(additional_sec_groups))
         logger.debug(f'Instance security groups: {sec_groups}')
 
@@ -219,3 +321,4 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             exc_tb: TracebackType | None,
     ) -> None:
         self.tear_down_all_instances()
+        self.clear_ephemeral_sec_groups()

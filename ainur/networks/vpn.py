@@ -7,6 +7,7 @@ from typing import Any, Collection, Dict, Iterator, Set, Tuple
 import ansible_runner
 import yaml
 from loguru import logger
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
 
 from .common import Layer3Network
 from ..ansible import AnsibleContext
@@ -200,6 +201,59 @@ class VPNCloudMesh(Layer3Network):
                 self._check_ip_assignments(peer1.ainur_config,
                                            host.ainur_config)
                 peer1.add_peer(host.ec2host.public_ip)
+
+        # attach security groups
+        cloud_layer.create_sec_group(
+            name='expecavpn',
+            desc='Ephemeral SecGroup for VPN and SSH access.',
+            attach_to_instances=True,
+            ephemeral=True,
+            ssh_access=True,
+            ingress_rules=[
+                # rules allowing inbound traffic from mgmt vpn
+                IpPermissionTypeDef(
+                    IpRanges=[
+                        IpRangeTypeDef(
+                            CidrIp='0.0.0.0/0', Description='Everywhere'
+                        ),
+                    ],
+                    FromPort=self._gateway.mgmt_cfg.port,
+                    ToPort=self._gateway.mgmt_cfg.port,
+                    IpProtocol='tcp'
+                ),
+                IpPermissionTypeDef(
+                    IpRanges=[
+                        IpRangeTypeDef(
+                            CidrIp='0.0.0.0/0', Description='Everywhere'
+                        ),
+                    ],
+                    FromPort=self._gateway.mgmt_cfg.port,
+                    ToPort=self._gateway.mgmt_cfg.port,
+                    IpProtocol='udp'
+                ),
+                # rules allowing inbound traffic from wkld vpn
+                IpPermissionTypeDef(
+                    IpRanges=[
+                        IpRangeTypeDef(
+                            CidrIp='0.0.0.0/0', Description='Everywhere'
+                        ),
+                    ],
+                    FromPort=self._gateway.wkld_cfg.port,
+                    ToPort=self._gateway.wkld_cfg.port,
+                    IpProtocol='tcp'
+                ),
+                IpPermissionTypeDef(
+                    IpRanges=[
+                        IpRangeTypeDef(
+                            CidrIp='0.0.0.0/0', Description='Everywhere'
+                        ),
+                    ],
+                    FromPort=self._gateway.wkld_cfg.port,
+                    ToPort=self._gateway.wkld_cfg.port,
+                    IpProtocol='udp'
+                ),
+            ]
+        )
 
         # prepare the ansible inventory to configure the cloud instances
         # noinspection DuplicatedCode
