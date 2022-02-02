@@ -7,6 +7,9 @@ from ainur.networks import *
 from ainur.swarm import *
 from ainur.swarm.storage import ExperimentStorage
 
+ami_ids = yaml.safe_load('./offload-ami-ids.yaml')
+region = 'eu-north-1'
+
 switch = Switch(
     name='glorfindel',
     management_ip=IPv4Interface('192.168.0.2/16'),
@@ -191,7 +194,9 @@ if __name__ == '__main__':
         WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 
     # prepare everything
-    cloud = CloudInstances()
+    cloud = CloudInstances(
+        region=region
+    )
     ip_layer = CompositeLayer3Network()
 
     lan_layer = ip_layer.add_network(
@@ -232,7 +237,7 @@ if __name__ == '__main__':
                             type='client', location='local')
 
         # start cloud instances
-        cloud.init_instances(len(cloud_hosts))
+        cloud.init_instances(len(cloud_hosts), ami_id=ami_ids[region])
         vpn_mesh.connect_cloud(
             cloud_layer=cloud,
             host_configs=cloud_hosts
