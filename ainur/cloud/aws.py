@@ -6,16 +6,14 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv4Interface
+from ipaddress import IPv4Address
 from types import TracebackType
 from typing import Any, Collection, Dict, Iterator, Mapping, Set, Type, overload
 
 import boto3
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance, SecurityGroup, Vpc
-from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, WaiterConfigTypeDef
-
-from ..hosts import AinurCloudHost
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef
 
 
 @dataclass(frozen=True, eq=True)
@@ -23,16 +21,6 @@ class EC2Host:
     instance_id: str
     public_ip: IPv4Address
     vpc_ip: IPv4Address
-
-    def to_ainur_host(self,
-                      management_ip: IPv4Interface,
-                      workload_ip: IPv4Interface) -> AinurCloudHost:
-        return AinurCloudHost(
-            management_ip=management_ip,
-            workload_ip=workload_ip,
-            public_ip=self.public_ip,
-            vpc_ip=self.vpc_ip
-        )
 
 
 class CloudError(Exception):
