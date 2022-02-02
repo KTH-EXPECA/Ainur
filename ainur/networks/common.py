@@ -5,6 +5,9 @@ from contextlib import AbstractContextManager, ExitStack
 from types import TracebackType
 from typing import Any, Iterator, List, Mapping, Type, TypeVar, overload
 
+import ansible_runner
+
+from ..ansible import AnsibleContext
 from ..hosts import AinurHost
 
 
@@ -122,28 +125,39 @@ class CompositeLayer3Network(Layer3Network):
         except KeyError:
             return False
 
-# def verify_wkld_net_connectivity(network: Layer3Network,
-#                                  ansible_ctx: AnsibleContext,
-#                                  ansible_quiet: bool = True) -> None:
-#     """
-#     Uses ansible.netcommon.net_ping to check that all hosts can reach other
-#     on the workload network.
-#
-#     Parameters
-#     ----------
-#     network
-#
-#     """
-#
-#     inventory = {
-#         'all': {
-#             'hosts': {
-#                 str(host.management_ip): {
-#                     'ansible_host': str(host.management_ip),
-#                     'workload_ip': str(host.workload_ips[0])
-#                 } for host_id, host in network.items()
-#             }
-#         }
-#     }
-#
-#     with ansible_ctx(inventory)
+
+def verify_wkld_net_connectivity(network: Layer3Network,
+                                 ansible_ctx: AnsibleContext,
+                                 ansible_quiet: bool = True) -> None:
+    """
+    Uses ansible.netcommon.net_ping to check that all hosts can reach other
+    on the workload network.
+
+    Parameters
+    ----------
+    network
+
+    """
+
+    inventory = {
+        'all': {
+            'hosts': {
+                str(host.management_ip): {
+                    'ansible_host': str(host.management_ip),
+                    'ansible_user': host.ansible_user,
+                    'workload_ip' : str(host.workload_ips[0])
+                } for host_id, host in network.items()
+            }
+        }
+    }
+
+    with ansible_ctx(inventory) as tmp_dir:
+        res = ansible_runner.run(
+            playbook='workload_ping.yml',
+            json_mode=False,
+            private_data_dir=str(tmp_dir),
+            quiet=ansible_quiet
+        )
+
+        if res == 'failed':
+            raise Layer3Error('Failed network connectivity check!')

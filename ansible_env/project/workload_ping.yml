@@ -1,0 +1,10 @@
+---
+- name: Verify workload network connectivity
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Ping all hosts in workload network
+      ansible.netcommon.net_ping:
+        dest: "{{ item.value.workload_ip }}"
+      loop: "{{ hostvars | dict2items }}"
