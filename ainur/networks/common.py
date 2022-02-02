@@ -147,7 +147,7 @@ def verify_wkld_net_connectivity(network: Layer3Network,
         'all': {
             'hosts': {
                 str(host.management_ip): {
-                    'ansible_host': str(host.management_ip),
+                    'ansible_host': str(host.management_ip.ip),
                     'ansible_user': host.ansible_user,
                     'workload_ip' : str(host.workload_ips[0])
                 } for host_id, host in network.items()
@@ -163,7 +163,7 @@ def verify_wkld_net_connectivity(network: Layer3Network,
             quiet=ansible_quiet
         )
 
-        if res == 'failed':
+        if res.status == 'failed':
             raise Layer3Error('Failed network connectivity check!')
 
     logger.info('Connectivity check passed.')
