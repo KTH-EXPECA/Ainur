@@ -91,7 +91,7 @@ class ManagerNode(SwarmNode):
             client.swarm.init(
                 listen_addr=str(host.management_ip.ip),
                 advertise_addr=str(host.management_ip.ip),
-                data_path_addr=str(host.workload_ip.ip)
+                data_path_addr=str(host.workload_ips[0].ip)
             )
 
             # save the first manager
@@ -147,7 +147,7 @@ class ManagerNode(SwarmNode):
                         join_token=token,
                         listen_addr=str(host.management_ip.ip),
                         advertise_addr=str(host.management_ip.ip),
-                        data_path_addr=str(host.workload_ip.ip)
+                        data_path_addr=str(host.workload_ips[0].ip)
                 ):
                     raise SwarmException(f'{host} could not join swarm.')
 
