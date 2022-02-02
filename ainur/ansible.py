@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Mapping
+from typing import Any, Dict, Generator, Mapping
 
 import yaml
 from loguru import logger
@@ -103,8 +103,11 @@ class AnsibleContext:
             try:
                 with extravars_file.open('r') as fp:
                     orig_extravars = yaml.safe_load(fp)
-                if orig_extravars is None or len(orig_extravars) == 0:
+                if orig_extravars is None:
                     orig_extravars = {}
+                elif not isinstance(orig_extravars, Dict):
+                    raise RuntimeError('Ansible extravars file should be an '
+                                       'YAML file containing a mapping!')
             except FileNotFoundError:
                 orig_extravars = {}
 
