@@ -7,7 +7,7 @@ import ansible_runner
 from frozendict import frozendict
 from loguru import logger
 
-from .common import Layer3Error, NetworkLayer
+from .common import Layer3Error, Layer3Network
 from ..ansible import AnsibleContext
 from ..hosts import LocalAinurHost
 from ..physical import PhysicalLayer
@@ -16,7 +16,7 @@ from ..physical import PhysicalLayer
 # TODO: needs testing
 
 
-class LANLayer(NetworkLayer):
+class LANLayer(Layer3Network):
     """
     Represents a connected workload network.
 

@@ -8,7 +8,7 @@ import ansible_runner
 import yaml
 from loguru import logger
 
-from .common import NetworkLayer
+from .common import Layer3Network
 from ..ansible import AnsibleContext
 from ..cloud.aws import CloudInstances, EC2Host
 from ..hosts import AinurCloudHost, AinurCloudHostConfig
@@ -18,7 +18,7 @@ class VPNConfigError(Exception):
     pass
 
 
-class VPNCloudMesh(NetworkLayer):
+class VPNCloudMesh(Layer3Network):
     @dataclass(frozen=True, eq=True)
     class MeshConfig:
         ip: IPv4Interface

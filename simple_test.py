@@ -4,6 +4,7 @@ from pathlib import Path
 # from ainur import *
 from ainur.hosts import *
 from ainur.networks import *
+from ainur.swarm import *
 
 switch = Switch(
     name='glorfindel',
@@ -152,6 +153,7 @@ if __name__ == '__main__':
             ansible_quiet=False
         )
     )
+    swarm = DockerSwarm()
 
     # TODO: rework Phy to also be "preparable"
 
@@ -174,7 +176,15 @@ if __name__ == '__main__':
             host_configs=cloud_hosts
         )
 
-        for host_id, host in vpn_mesh.items():
-            print(host_id, host.to_json())
+        # TODO: rework Swarm config to something less manual. Maybe fold in
+        #  configs into general host specification somehow??
+        swarm: DockerSwarm = stack.enter_context(swarm)
+        swarm.deploy_managers(hosts={hosts['elrond']: {'type': 'cloudlet'}},
+                              location='local') \
+            .deploy_workers(hosts={hosts['workload-client-00']: {},
+                                   hosts['workload-client-01']: {}},
+                            type='client', location='local') \
+            .deploy_workers(hosts={host: {} for host in cloud_hosts},
+                            type='client', location='cloud')
 
         input('Press any key to tear down.')

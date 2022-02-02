@@ -58,6 +58,7 @@ class AnsibleContext:
 
         logger.debug(f'Initialized Ansible context at {self._base_dir}')
 
+    # noinspection PyDefaultArgument
     @contextmanager
     def __call__(self,
                  inventory: Mapping,

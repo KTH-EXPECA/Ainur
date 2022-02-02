@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 import threading
-import warnings
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from typing import Any, Collection, Dict, FrozenSet, Optional
+from typing import Any, Collection, Dict, FrozenSet, Mapping, \
+    Optional, \
+    Set, Tuple
 
 from docker.models.services import Service
-from frozendict import frozendict
 from loguru import logger
 from python_on_whales import DockerClient as WhaleClient, DockerException
 from pytimeparse import timeparse
 
-from .errors import SwarmException, SwarmWarning
+from .errors import SwarmException
 from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
+from ..hosts import AinurHost
 from ..misc import RepeatingTimer, seconds2hms
-from ainur.networks.local import LANLayer
 
 
 # TODO: daemon port should be handled in hosts?
@@ -139,66 +139,108 @@ class DockerSwarm(AbstractContextManager):
 
     _daemon_port = 2375
 
-    def __init__(self,
-                 network: LANLayer,
-                 managers: Dict[str, Dict[str, Any]],
-                 workers: Dict[str, Dict[str, Any]]):
+    def __init__(self):
+        self._manager_nodes: Set[ManagerNode] = set()
+        self._worker_nodes: Set[WorkerNode] = set()
+
+    def deploy_managers(self,
+                        hosts: Mapping[AinurHost, Dict[str, Any]],
+                        **default_labels: Any,
+                        ) -> DockerSwarm:
         """
+        Configures Manager nodes on the Swarm.
+
         Parameters
         ----------
-        network
-            Workload network to build this Swarm on top off.
-        managers
-            Dictionary of hostnames to node labels for manager nodes. Needs
-            to contain at least one key-value pair.
-        workers
-            Dictionary of hostnames to node labels for manager nodes.
+        hosts
+            A mapping from AinurHosts to dictionaries of labels.
+        default_labels
+            All other keyword arguments are treated as default values for
+            labels.
 
-        Raises
-        ------
-        SwarmException
-            If the manager dictionary contains no elements.
+        Returns
+        -------
+        self
+            For chaining.
         """
 
-        logger.info('Setting up Docker Swarm.')
-
-        # sanity checks
-
-        if len(managers) < 1:
-            raise SwarmException('At least one manager node is needed to '
-                                 'bring up Docker Swarm!')
-
-        for host in managers:
+        hosts = dict(hosts)
+        while len(hosts) > 1:
             try:
-                workers.pop(host)
-                warnings.warn(f'Ambiguous Swarm definition: host {host} '
-                              f'specified both as a manager and a worker. '
-                              f'Dropping worker definition for sanity.',
-                              SwarmWarning)
+                mgr_node = self._manager_nodes.pop()
+                self._manager_nodes.add(mgr_node)
+                with ThreadPoolExecutor() as tpool:
+                    # use thread pool instead of process pool, as we only really
+                    # need I/O concurrency (Docker client comms) and threads are
+                    # much more lightweight than processes
+                    exc_lock = threading.RLock()
+                    caught_exceptions = deque()
+
+                    def _add_manager(h_l: Tuple[AinurHost, Dict]) -> None:
+                        host, host_labels = h_l
+                        labels = dict(default_labels)
+                        labels.update(host_labels)
+                        try:
+                            node = mgr_node.attach_manager(
+                                host=host,
+                                labels=labels,
+                                daemon_port=self._daemon_port
+                            )
+                            self._manager_nodes.add(node)
+                        except Exception as e:
+                            with exc_lock:
+                                caught_exceptions.append(e)
+
+                    # NOTE: ThreadPoolExecutor.map does not block, as opposed to
+                    # ProcessPool.map; it immediately returns an iterator.
+                    # Here we force it to block by immediately exiting the with
+                    # block, which causes the pool to wait for all threads and
+                    # then shut down.
+                    tpool.map(_add_manager, hosts.items())
+
+                if len(caught_exceptions) > 0:
+                    raise SwarmException(f'Could not attach all nodes in '
+                                         f'{hosts.keys()} to Swarm.') \
+                        from caught_exceptions.pop()
+
+                hosts.clear()
+                return self
             except KeyError:
-                pass
+                # if no existing managers, first create the swarm
+                host, host_labels = hosts.popitem()
+                labels = dict(default_labels)
+                labels.update(host_labels)
+                first_manager_node = ManagerNode.init_swarm(
+                    host=host,
+                    labels=labels,
+                    daemon_port=self._daemon_port
+                )
+                self._manager_nodes.add(first_manager_node)
+                continue
 
-        logger.info(f'Docker Swarm managers: {list(managers.keys())}')
-        logger.info(f'Docker Swarm workers: {list(workers.keys())}')
+    def deploy_workers(self,
+                       hosts: Mapping[AinurHost, Dict[str, Any]],
+                       **default_labels: Any, ) -> DockerSwarm:
+        """
+        Configures Worker nodes on the Swarm.
 
-        # build the swarm, managers first
-        manager_nodes = dict()
-        worker_nodes = dict()
+        Parameters
+        ----------
+        hosts
+            A mapping from AinurHosts to dictionaries of labels.
+        default_labels
+            All other keyword arguments are treated as default values for
+            labels.
+
+        Returns
+        -------
+        self
+            For chaining.
+        """
+
         try:
-            try:
-                host_id, labels = managers.popitem()
-            except KeyError as e:
-                raise SwarmException('At least one manager is required for '
-                                     'Docker Swarm initialization!') from e
-            first_manager_node = ManagerNode.init_swarm(
-                name=host_id,
-                host=network[host_id],
-                labels=labels,
-                daemon_port=self._daemon_port
-            )
-            manager_nodes[host_id] = first_manager_node
-
-            # rest of nodes are added in parallel
+            mgr_node = self._manager_nodes.pop()
+            self._manager_nodes.add(mgr_node)
             with ThreadPoolExecutor() as tpool:
                 # use thread pool instead of process pool, as we only really
                 # need I/O concurrency (Docker client comms) and threads are
@@ -206,24 +248,17 @@ class DockerSwarm(AbstractContextManager):
                 exc_lock = threading.RLock()
                 caught_exceptions = deque()
 
-                def _add_node(args: Dict) -> None:
+                def _add_worker(h_l: Tuple[AinurHost, Dict]) -> None:
+                    host, host_labels = h_l
+                    labels = dict(default_labels)
+                    labels.update(host_labels)
                     try:
-                        if args['manager']:
-                            node = first_manager_node.attach_manager(
-                                name=args['id'],
-                                host=args['host'],
-                                labels=args['labels'],
-                                daemon_port=self._daemon_port
-                            )
-                            manager_nodes[args['id']] = node
-                        else:
-                            node = first_manager_node.attach_worker(
-                                name=args['id'],
-                                host=args['host'],
-                                labels=args['labels'],
-                                daemon_port=self._daemon_port
-                            )
-                            worker_nodes[args['id']] = node
+                        node = mgr_node.attach_worker(
+                            host=host,
+                            labels=labels,
+                            daemon_port=self._daemon_port
+                        )
+                        self._worker_nodes.add(node)
                     except Exception as e:
                         with exc_lock:
                             caught_exceptions.append(e)
@@ -233,50 +268,18 @@ class DockerSwarm(AbstractContextManager):
                 # Here we force it to block by immediately exiting the with
                 # block, which causes the pool to wait for all threads and
                 # then shut down.
-                tpool.map(_add_node,
-                          [
-                              {
-                                  'manager': True,
-                                  'id'     : host_id,
-                                  'host'   : network[host_id],
-                                  'labels' : labels,
-                              }
-                              for host_id, labels in managers.items()
-                          ] + [
-                              {
-                                  'manager': False,
-                                  'id'     : host_id,
-                                  'host'   : network[host_id],
-                                  'labels' : labels,
-                              }
-                              for host_id, labels in workers.items()
-                          ])
+                tpool.map(_add_worker, hosts.items())
 
             if len(caught_exceptions) > 0:
-                raise SwarmException('Could not attach all nodes to Swarm.') \
+                raise SwarmException(f'Could not attach all nodes in '
+                                     f'{hosts.keys()} to Swarm.') \
                     from caught_exceptions.pop()
 
-        except Exception as e:
-            logger.error('Caught exception when constructing Docker '
-                         'Swarm, gracefully tearing down.')
-            logger.exception('Exception', e)
-            # in case of ANYTHING going wrong, we need to tear down the swarm
-            # on nodes on which it has already been initialized
-
-            for nodes in (worker_nodes, manager_nodes):
-                for node_id, node in nodes.items():
-                    node.leave_swarm(force=True)
-
-            raise
-
-        self._managers = frozendict(manager_nodes)
-        self._workers = frozendict(worker_nodes)
-        self._torn_down = False
-        self._n_nodes = len(self._managers) + len(self._workers)
-
-    def _check(self) -> None:
-        if self._torn_down:
-            raise SwarmException('Swarm has been torn down.')
+            return self
+        except KeyError:
+            # if no existing managers, we have a problem
+            raise SwarmException('No managers available in the Swarm, cannot '
+                                 'deploy worker nodes!')
 
     @property
     def num_nodes(self) -> int:
@@ -286,10 +289,20 @@ class DockerSwarm(AbstractContextManager):
         int
             The number of nodes in this Swarm.
         """
-        return self._n_nodes
+        return len(self._manager_nodes) + len(self._worker_nodes)
 
     def __len__(self) -> int:
         return self.num_nodes
+
+    @staticmethod
+    def _tear_down(nodes: Collection[SwarmNode]):
+        with ThreadPoolExecutor() as tpool:
+            def leave_swarm(node: SwarmNode) -> None:
+                node.leave_swarm(force=True)
+
+                # NOTE: see comment about .map blocking further up.
+
+            tpool.map(leave_swarm, nodes)
 
     def tear_down(self) -> None:
         """
@@ -298,25 +311,14 @@ class DockerSwarm(AbstractContextManager):
         used any more.
         """
 
-        if self._torn_down:
-            logger.warning('Trying to tear down already torn-down Swarm; '
-                           'doing nothing.')
-            return
-
         logger.warning('Tearing down Swarm!')
-        with ThreadPoolExecutor() as tpool:
-            def leave_swarm(node: SwarmNode) -> None:
-                node.leave_swarm(force=True)
-
-            # NOTE: see comment about .map blocking further up.
-            tpool.map(leave_swarm,
-                      list(self._managers.values()) +
-                      list(self._workers.values()))
-
+        self._tear_down(self._worker_nodes)
+        self._worker_nodes.clear()
+        self._tear_down(self._manager_nodes)
+        self._manager_nodes.clear()
         logger.warning('Swarm has been torn down.')
 
     def __enter__(self) -> DockerSwarm:
-        self._check()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
@@ -325,36 +327,24 @@ class DockerSwarm(AbstractContextManager):
         return super(DockerSwarm, self).__exit__(exc_type, exc_val, exc_tb)
 
     @property
-    def managers(self) -> frozendict[str, ManagerNode]:
+    def managers(self) -> FrozenSet[ManagerNode]:
         """
         Returns
         -------
         FrozenSet
             A view into the Manager nodes of this Swarm.
-
-        Raises
-        ------
-        SwarmException
-            If Swarm has been torn down.
         """
-        self._check()
-        return frozendict(self._managers)
+        return frozenset(self._manager_nodes)
 
     @property
-    def workers(self) -> frozendict[str, WorkerNode]:
+    def workers(self) -> FrozenSet[WorkerNode]:
         """
         Returns
         -------
         FrozenSet
             A view into the Worker nodes of this Swarm.
-
-        Raises
-        ------
-        SwarmException
-            If Swarm has been torn down.
         """
-        self._check()
-        return frozendict(self._workers)
+        return frozenset(self._worker_nodes)
 
     def deploy_workload(self,
                         specification: WorkloadSpecification,
@@ -387,6 +377,12 @@ class DockerSwarm(AbstractContextManager):
         WorkloadResult
             An Enum indicating the exit status of the workload.
         """
+
+        # sanity check
+        if self.num_nodes == 0:
+            raise SwarmException('Cannot deploy a workload to a Docker Swarm '
+                                 'that has not been deployed.')
+
         logger.info(f'Deploying workload {specification.name}:\n'
                     f'{specification}')
 
@@ -414,7 +410,7 @@ class DockerSwarm(AbstractContextManager):
             # since docker-py is too low-level.
 
             # grab an arbitrary manager and point a client to it
-            mgr_id, mgr_node = next(iter(self._managers.items()))
+            mgr_node = next(iter(self._manager_nodes))
             host_addr = f'{mgr_node.host.management_ip.ip}:' \
                         f'{mgr_node.daemon_port}'
 

@@ -12,7 +12,7 @@ class Layer3Error(Exception):
     pass
 
 
-class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
+class Layer3Network(AbstractContextManager, Mapping[str, AinurHost]):
 
     @abc.abstractmethod
     def __iter__(self) -> Iterator[str]:
@@ -31,7 +31,7 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
         pass
 
     @abc.abstractmethod
-    def __enter__(self) -> NetworkLayer:
+    def __enter__(self) -> Layer3Network:
         pass
 
     @overload
@@ -54,22 +54,22 @@ class NetworkLayer(AbstractContextManager, Mapping[str, AinurHost]):
             exc_tb: TracebackType | None,
     ) -> None:
         self.tear_down()
-        return super(NetworkLayer, self).__exit__(exc_type, exc_val, exc_tb)
+        return super(Layer3Network, self).__exit__(exc_type, exc_val, exc_tb)
 
     @abc.abstractmethod
     def tear_down(self) -> None:
         pass
 
 
-_NL = TypeVar('_NL', bound=NetworkLayer)
+_NL = TypeVar('_NL', bound=Layer3Network)
 """Typevar to indicate that add_network() returns same type as argument"""
 
 
-class CompositeLayer3Network(NetworkLayer):
+class CompositeLayer3Network(Layer3Network):
     def __init__(self):
         super(CompositeLayer3Network, self).__init__()
         self._stack = ExitStack()
-        self._networks: List[NetworkLayer] = []
+        self._networks: List[Layer3Network] = []
 
     def add_network(self, net: _NL) -> _NL:
         """

@@ -3,34 +3,34 @@ from __future__ import annotations
 import abc
 import warnings
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Dict, Generator, Literal, Optional
 
+from dataclasses_json import dataclass_json
 from docker import DockerClient
+from frozendict import frozendict
 from loguru import logger
 
 from .errors import SwarmException, SwarmWarning
-from ..hosts import Layer3ConnectedWorkloadHost
+from ..hosts import AinurHost
 from ..misc import docker_client_context
 
 
 # Low-level API, do not expose
-@dataclass
+@dataclass_json
+@dataclass(frozen=True, eq=True)
 class _NodeSpec:
-    Name: str
+    # Name: str
     Role: Literal['manager', 'worker']
-    Labels: Dict[str, str] = field(default_factory={})
+    Labels: frozendict[str, str] = field(default_factory=frozendict)
     Availability: str = field(default='active')
-
-    def to_dict(self) -> Dict:
-        return asdict(self)
 
 
 @dataclass(frozen=True, eq=True)
 class SwarmNode(abc.ABC):
     node_id: str
     swarm_id: str
-    host: Layer3ConnectedWorkloadHost
+    host: AinurHost
     daemon_port: int
     is_manager: bool = field(default=False, init=False)
 
@@ -42,7 +42,7 @@ class SwarmNode(abc.ABC):
 @dataclass(frozen=True, eq=True)
 class WorkerNode(SwarmNode):
     is_manager = False
-    manager_host: Layer3ConnectedWorkloadHost
+    manager_host: AinurHost
 
     def leave_swarm(self, force: bool = False) -> None:
         logger.info(f'Worker {self.host} is leaving the Swarm.')
@@ -62,8 +62,7 @@ class ManagerNode(SwarmNode):
 
     @classmethod
     def init_swarm(cls,
-                   name: str,
-                   host: Layer3ConnectedWorkloadHost,
+                   host: AinurHost,
                    labels: Optional[Dict[str, str]] = None,
                    daemon_port: int = 2375) -> ManagerNode:
         """
@@ -71,7 +70,6 @@ class ManagerNode(SwarmNode):
 
         Parameters
         ----------
-        name
         host
         labels
         daemon_port
@@ -116,9 +114,8 @@ class ManagerNode(SwarmNode):
 
             # set node spec
             node_spec = _NodeSpec(
-                Name=name,
                 Role='manager',
-                Labels=labels if labels is not None else {}
+                Labels=frozendict(labels) if labels is not None else {}
             )
 
             swarm_node = client.nodes.get(node_id)
@@ -135,7 +132,7 @@ class ManagerNode(SwarmNode):
         )
 
     def _attach_host(self,
-                     host: Layer3ConnectedWorkloadHost,
+                     host: AinurHost,
                      token: str,
                      node_spec: _NodeSpec,
                      daemon_port: int = 2375) -> str:
@@ -166,19 +163,17 @@ class ManagerNode(SwarmNode):
                 logger.info(f'Set node spec for {host}.')
 
             return node_id
-        except:
+        except Exception:
             logger.critical(f'Failed to attach node {host} to the Swarm!')
             raise
 
     def attach_manager(self,
-                       name: str,
-                       host: Layer3ConnectedWorkloadHost,
+                       host: AinurHost,
                        labels: Optional[Dict[str, str]] = None,
                        daemon_port: int = 2375) -> ManagerNode:
         node_spec = _NodeSpec(
-            Name=name,
             Role='manager',
-            Labels=labels if labels is not None else {}
+            Labels=frozendict(labels) if labels is not None else {}
         )
         node_id = self._attach_host(host, self.manager_token,
                                     node_spec, daemon_port)
@@ -193,14 +188,12 @@ class ManagerNode(SwarmNode):
         )
 
     def attach_worker(self,
-                      name: str,
-                      host: Layer3ConnectedWorkloadHost,
+                      host: AinurHost,
                       labels: Optional[Dict[str, str]] = None,
                       daemon_port: int = 2375) -> WorkerNode:
         node_spec = _NodeSpec(
-            Name=name,
             Role='worker',
-            Labels=labels if labels is not None else {}
+            Labels=frozendict(labels) if labels is not None else {}
         )
         node_id = self._attach_host(host, self.worker_token,
                                     node_spec, daemon_port)
