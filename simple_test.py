@@ -135,9 +135,53 @@ cloud_hosts = [
     ),
 ]
 
+# language=yaml
+workload_def = '''
+---
+name: WorkloadExample
+author: "Manuel Olguín Muñoz"
+email: "molguin@kth.se"
+version: "1.0a"
+url: "expeca.proj.kth.se"
+max_duration: "1m"
+compose:
+  version: "3.9"
+  services:
+    server:
+      image: expeca/primeworkload:server
+      hostname: "server.{{.Task.Slot}}"
+      environment:
+        PORT: 5000
+      deploy:
+        replicas: 5
+        placement:
+          max_replicas_per_node: 5
+          constraints:
+          - "node.labels.type==cloudlet"
+  
+    client:
+      image: expeca/primeworkload:client
+      environment:
+        SERVER_ADDR: "server.{{.Task.Slot}}"
+        SERVER_PORT: 5000
+      deploy:
+        replicas: 5
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.type==client"
+        restart_policy:
+          condition: on-failure
+      depends_on:
+      - server
+...
+'''
+
 # noinspection DuplicatedCode
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('ansible_env'))
+    workload: WorkloadSpecification = \
+        WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 
     # prepare everything
     cloud = CloudInstances()
@@ -189,7 +233,8 @@ if __name__ == '__main__':
 
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
                              type='client', location='cloud')
-        swarm.pull_image(image='ubuntu', tag='20.04')
+        swarm.pull_image(image='expeca/primeworkload', tag='server')
+        swarm.pull_image(image='expeca/primeworkload', tag='client')
 
         storage: ExperimentStorage = stack.enter_context(
             ExperimentStorage(
@@ -203,4 +248,8 @@ if __name__ == '__main__':
             )
         )
 
-        input('Press any key to tear down.')
+        swarm.deploy_workload(
+            specification=workload,
+            attach_volume=storage.docker_vol_name,
+            max_failed_health_checks=-1
+        )
