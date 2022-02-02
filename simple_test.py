@@ -158,10 +158,6 @@ if __name__ == '__main__':
     # TODO: rework Phy to also be "preparable"
 
     with ExitStack() as stack:
-        # start cloud instances
-        cloud = stack.enter_context(cloud)
-        cloud.init_instances(len(cloud_hosts))
-
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
@@ -169,12 +165,7 @@ if __name__ == '__main__':
 
         # init layer 3 connectivity
         ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
-
         lan_layer.add_hosts(phy_layer)
-        vpn_mesh.connect_cloud(
-            cloud_layer=cloud,
-            host_configs=cloud_hosts
-        )
 
         # TODO: rework Swarm config to something less manual. Maybe fold in
         #  configs into general host specification somehow??
@@ -183,8 +174,17 @@ if __name__ == '__main__':
                               location='local') \
             .deploy_workers(hosts={hosts['workload-client-00']: {},
                                    hosts['workload-client-01']: {}},
-                            type='client', location='local') \
-            .deploy_workers(hosts={host: {} for host in cloud_hosts},
-                            type='client', location='cloud')
+                            type='client', location='local')
+
+        # start cloud instances
+        cloud = stack.enter_context(cloud)
+        cloud.init_instances(len(cloud_hosts))
+        vpn_mesh.connect_cloud(
+            cloud_layer=cloud,
+            host_configs=cloud_hosts
+        )
+
+        swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
+                             type='client', location='cloud')
 
         input('Press any key to tear down.')

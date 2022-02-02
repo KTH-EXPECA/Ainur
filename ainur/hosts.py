@@ -248,7 +248,7 @@ class AinurHost(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def workload_ips(self) -> Tuple[IPv4Interface]:
+    def workload_ips(self) -> Tuple[IPv4Address]:
         pass
 
 
@@ -322,8 +322,8 @@ class AinurCloudHost(AinurHost):
     )
 
     @property
-    def workload_ips(self) -> Tuple[IPv4Interface]:
-        return self.workload_ip,  # NOTE THE COMMA
+    def workload_ips(self) -> Tuple[IPv4Address]:
+        return self.workload_ip.ip,  # NOTE THE COMMA
 
 
 @dataclass_json
@@ -337,5 +337,5 @@ class AinurCloudHostConfig(AinurHost):
     )
 
     @property
-    def workload_ips(self) -> Tuple[IPv4Interface]:
-        return self.workload_ip,  # NOTE THE COMMA
+    def workload_ips(self) -> Tuple[IPv4Address]:
+        return self.workload_ip.ip,  # NOTE THE COMMA
