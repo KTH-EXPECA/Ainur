@@ -12,7 +12,7 @@ from typing import Any, Collection, Dict, Iterator, Mapping, Set, Type, overload
 import boto3
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance, SecurityGroup, Vpc
-from mypy_boto3_ec2.type_defs import IpPermissionTypeDef
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, WaiterConfigTypeDef
 
 from ..hosts import AinurCloudHost
 
@@ -85,6 +85,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         logger.debug(f'Egress rules:\n{egress_rules}')
 
         ec2 = boto3.resource('ec2', region_name=self._region)
+        ec2client = boto3.client('ec2', region_name=self._region)
         vpc: Vpc = list(ec2.vpcs.all())[0]
 
         ingress_rules = list(ingress_rules)
@@ -100,6 +101,15 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
                 Description=desc,
                 GroupName=name,
                 VpcId=vpc.vpc_id
+            )
+
+            logger.info(f'Waiting until security group {name} is ready to be '
+                        f'used...')
+            ec2client.get_waiter('security_group_exists').wait(
+                GroupIds=[sec_group.group_id],
+                WaiterConfig=WaiterConfigTypeDef(
+                    Delay=1, MaxAttempts=10
+                )
             )
 
             # allow traffic to flow freely within sec group
