@@ -61,11 +61,13 @@ class LANLayer(Layer3Network):
         logger.debug(f'Layer 2 hosts:\n{host_info}')
 
         # build an Ansible inventory from the hosts
+        # TODO: make a function to automate this pls
         inventory = {
             'all': {
                 'hosts': {
                     name: {
                         'ansible_host': host.ansible_host,
+                        'ansible_user': host.ansible_user,
                         'netplan_cfg' : host
                             .gen_netplan_config()
                             .to_netplan_yaml(),
@@ -124,6 +126,7 @@ class LANLayer(Layer3Network):
                 'hosts': {
                     name: {
                         'ansible_host': host.ansible_host,
+                        'ansible_user': host.ansible_user,
                         'netplan_cfg' : host
                             .gen_netplan_config()
                             .to_netplan_yaml(),

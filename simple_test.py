@@ -194,7 +194,7 @@ if __name__ == '__main__':
         VPNCloudMesh(
             gateway_ip=IPv4Address('130.237.53.70'),
             vpn_psk=os.environ['vpn_psk'],
-            ansible_ctx=AnsibleContext(base_dir=Path('./ansible_env')),
+            ansible_ctx=ansible_ctx,
             ansible_quiet=False
         )
     )
@@ -208,7 +208,7 @@ if __name__ == '__main__':
 
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
-            PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
+            PhysicalLayer(hosts, [], switch)
         )
 
         # init layer 3 connectivity

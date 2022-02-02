@@ -75,6 +75,7 @@ class VPNCloudMesh(Layer3Network):
         def dump_ansible_inventory(self) -> Dict[str, Any]:
             return {
                 'ansible_host': str(self.ec2host.public_ip),
+                'ansible_user': self.ainur_config.ansible_user,
                 'vpn_configs' : {
                     'management': {
                         'dev_name': 'vpn_mgmt',
@@ -269,12 +270,7 @@ class VPNCloudMesh(Layer3Network):
         logger.debug(f'Using inventory:\n{yaml.safe_dump(inventory)}')
 
         # deploy
-        with self._ansible_ctx(inventory=inventory,
-                               # TODO: hardcoded extravars are not nice...
-                               extravars={
-                                   'ansible_user': 'ubuntu',
-                                   'remote_user' : 'ubuntu',
-                               }) as tmp_dir:
+        with self._ansible_ctx(inventory=inventory) as tmp_dir:
             res = ansible_runner.run(
                 playbook='vpncloud_up.yml',
                 json_mode=False,
@@ -321,12 +317,7 @@ class VPNCloudMesh(Layer3Network):
         }
         logger.debug(f'Using inventory:\n{yaml.safe_dump(inventory)}')
         logger.warning('Tearing down VPN connections...')
-        with self._ansible_ctx(inventory=inventory,
-                               # TODO: hardcoded extravars are not nice...
-                               extravars={
-                                   'ansible_user': 'ubuntu',
-                                   'remote_user' : 'ubuntu',
-                               }) as tmp_dir:
+        with self._ansible_ctx(inventory=inventory) as tmp_dir:
             ansible_runner.run(
                 playbook='vpncloud_down.yml',
                 json_mode=False,

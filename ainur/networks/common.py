@@ -121,3 +121,29 @@ class CompositeLayer3Network(Layer3Network):
             return True
         except KeyError:
             return False
+
+# def verify_wkld_net_connectivity(network: Layer3Network,
+#                                  ansible_ctx: AnsibleContext,
+#                                  ansible_quiet: bool = True) -> None:
+#     """
+#     Uses ansible.netcommon.net_ping to check that all hosts can reach other
+#     on the workload network.
+#
+#     Parameters
+#     ----------
+#     network
+#
+#     """
+#
+#     inventory = {
+#         'all': {
+#             'hosts': {
+#                 str(host.management_ip): {
+#                     'ansible_host': str(host.management_ip),
+#                     'workload_ip': str(host.workload_ips[0])
+#                 } for host_id, host in network.items()
+#             }
+#         }
+#     }
+#
+#     with ansible_ctx(inventory)

@@ -53,7 +53,8 @@ class ExperimentStorage(AbstractContextManager):
             'all': {
                 'hosts': {
                     str(storage_host.management_ip.ip): {
-                        'ansible_host': str(storage_host.management_ip.ip)
+                        'ansible_host': str(storage_host.management_ip.ip),
+                        'ansible_user': storage_host.ansible_user,
                     }
                 }
             }

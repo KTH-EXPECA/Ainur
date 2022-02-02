@@ -5,7 +5,6 @@ from typing import Collection, Dict, Iterator, Mapping
 
 from loguru import logger
 
-from .ansible import AnsibleContext
 from .hosts import LocalAinurHost, SDRWiFiNetwork, Switch
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager, SDRManagerError
@@ -22,9 +21,7 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
     def __init__(self,
                  hosts: Dict[str, LocalAinurHost],
                  sdr_nets: Collection[SDRWiFiNetwork],
-                 switch: Switch,
-                 ansible_context: AnsibleContext,
-                 ansible_quiet: bool = True):
+                 switch: Switch):
         """
         Parameters
         ----------
@@ -74,12 +71,6 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
                         pass
 
                 self._sdr_manager = DummySDRManager()
-
-            self._ansible_context = ansible_context
-            self._quiet = ansible_quiet
-            # self._inventory = inventory
-            # self._network_desc = network_desc
-
             self._hosts = hosts
 
             logger.info('All connections are ready and double-checked.')
