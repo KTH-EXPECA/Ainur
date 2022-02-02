@@ -201,7 +201,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         logger.info('Preparing a security group for SSH access to instances.')
         ssh_sgid = self.create_sec_group(
             name='ssh',
-            desc='SSH Access'
+            desc='SSH Access',
             ssh_access=True,
             ephemeral=True,
             attach_to_instances=False
