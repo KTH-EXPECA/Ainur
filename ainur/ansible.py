@@ -103,6 +103,8 @@ class AnsibleContext:
             try:
                 with extravars_file.open('r') as fp:
                     orig_extravars = yaml.safe_load(fp)
+                if orig_extravars is None or len(orig_extravars) == 0:
+                    orig_extravars = {}
             except FileNotFoundError:
                 orig_extravars = {}
 
