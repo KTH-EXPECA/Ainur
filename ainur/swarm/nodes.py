@@ -39,10 +39,13 @@ class SwarmNode(abc.ABC):
         pass
 
     def pull_image(self, image: str, tag: Optional[str] = None) -> None:
+        tag = tag if tag is not None else 'latest'
+        logger.info(f'Pulling image {image}:{tag} on node {self.node_id}')
         with docker_client_context(
                 base_url=f'{self.host.management_ip.ip}:{self.daemon_port}'
         ) as client:
             client.images.pull(image, tag=tag)
+        logger.info(f'Pulled image {image}:{tag} on node {self.node_id}')
 
 
 @dataclass(frozen=True, eq=True)
