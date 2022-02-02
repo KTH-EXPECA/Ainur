@@ -165,10 +165,14 @@ class DockerSwarm(AbstractContextManager):
         """
 
         hosts = dict(hosts)
-        while len(hosts) > 1:
+        while len(hosts) > 0:
             try:
                 mgr_node = self._manager_nodes.pop()
                 self._manager_nodes.add(mgr_node)
+
+                logger.info(f'Deploying hosts {hosts.keys()} as Swarm '
+                            f'managers.')
+
                 with ThreadPoolExecutor() as tpool:
                     # use thread pool instead of process pool, as we only really
                     # need I/O concurrency (Docker client comms) and threads are
@@ -217,6 +221,7 @@ class DockerSwarm(AbstractContextManager):
                 )
                 self._manager_nodes.add(first_manager_node)
                 continue
+        return self
 
     def deploy_workers(self,
                        hosts: Mapping[AinurHost, Dict[str, Any]],

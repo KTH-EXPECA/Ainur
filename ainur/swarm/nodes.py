@@ -137,6 +137,7 @@ class ManagerNode(SwarmNode):
                      node_spec: _NodeSpec,
                      daemon_port: int = 2375) -> str:
         logger.info(f'Attaching host {host} to swarm managed by {self.host}.')
+        logger.debug(f'Applying node spec:\n{node_spec.to_json(indent=4)}')
         try:
             with docker_client_context(
                     base_url=f'{host.management_ip.ip}:{daemon_port}'
