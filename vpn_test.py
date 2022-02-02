@@ -3,11 +3,11 @@ from ipaddress import IPv4Address, IPv4Interface
 from pathlib import Path
 
 from ainur import AinurCloudHostConfig, AnsibleContext
-from ainur.cloud.aws import CloudLayer
-from ainur.cloud.vpn import VPNCloudMesh
+from ainur.cloud.aws import CloudInstances
+from ainur.networks.vpn import VPNCloudMesh
 
 if __name__ == '__main__':
-    with CloudLayer() as cloud:
+    with CloudInstances() as cloud:
         with VPNCloudMesh(
                 gateway_ip=IPv4Address('130.237.53.70'),
                 vpn_psk=os.getenv('vpn_psk'),

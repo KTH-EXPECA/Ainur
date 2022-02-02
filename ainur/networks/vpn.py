@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network
-from types import TracebackType
-from typing import Any, Collection, Dict, Iterator, Mapping, Set, Tuple, Type, \
-    overload
+from typing import Any, Collection, Dict, Iterator, Set, Tuple
 
 import ansible_runner
 import yaml
 from loguru import logger
 
-from .aws import CloudLayer, EC2Host
+from .common import NetworkLayer
 from ..ansible import AnsibleContext
+from ..cloud.aws import CloudInstances, EC2Host
 from ..hosts import AinurCloudHost, AinurCloudHostConfig
 
 
@@ -20,7 +18,7 @@ class VPNConfigError(Exception):
     pass
 
 
-class VPNCloudMesh(AbstractContextManager, Mapping[str, AinurCloudHost]):
+class VPNCloudMesh(NetworkLayer):
     @dataclass(frozen=True, eq=True)
     class MeshConfig:
         ip: IPv4Interface
@@ -83,7 +81,7 @@ class VPNCloudMesh(AbstractContextManager, Mapping[str, AinurCloudHost]):
                         'peers'   : list(self.mgmt_peers),
                         'psk'     : self.gateway.mgmt_cfg.psk,
                         'ip'      : str(self.ainur_config.management_ip),
-                        'gw_ip' : str(self.gateway.mgmt_cfg.ip.ip),
+                        'gw_ip'   : str(self.gateway.mgmt_cfg.ip.ip),
                         'gw_net'  : str(self.gateway.mgmt_cfg.local_net)
                     },
                     'workload'  : {
@@ -92,7 +90,7 @@ class VPNCloudMesh(AbstractContextManager, Mapping[str, AinurCloudHost]):
                         'peers'   : list(self.wkld_peers),
                         'psk'     : self.gateway.wkld_cfg.psk,
                         'ip'      : str(self.ainur_config.workload_ip),
-                        'gw_ip' : str(self.gateway.wkld_cfg.ip.ip),
+                        'gw_ip'   : str(self.gateway.wkld_cfg.ip.ip),
                         'gw_net'  : str(self.gateway.wkld_cfg.local_net)
                     }
                 },
@@ -154,7 +152,7 @@ class VPNCloudMesh(AbstractContextManager, Mapping[str, AinurCloudHost]):
         self._ansible_quiet = ansible_quiet
 
     def connect_cloud(self,
-                      cloud_layer: CloudLayer,
+                      cloud_layer: CloudInstances,
                       host_configs: Collection[AinurCloudHostConfig]):
         """
 
@@ -289,27 +287,6 @@ class VPNCloudMesh(AbstractContextManager, Mapping[str, AinurCloudHost]):
 
     def __enter__(self) -> VPNCloudMesh:
         return self
-
-    @overload
-    def __exit__(self, exc_type: None, exc_val: None, exc_tb: None) -> None:
-        ...
-
-    @overload
-    def __exit__(
-            self,
-            exc_type: Type[BaseException],
-            exc_val: BaseException,
-            exc_tb: TracebackType,
-    ) -> None:
-        ...
-
-    def __exit__(
-            self,
-            exc_type: Type[BaseException] | None,
-            exc_val: BaseException | None,
-            exc_tb: TracebackType | None,
-    ) -> None:
-        self.tear_down()
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._connected_hosts)

@@ -14,7 +14,7 @@ from docker.errors import APIError
 from docker.models.volumes import Volume
 from loguru import logger
 
-from .. import NetworkLayer
+from .. import LANLayer
 from ..ansible import AnsibleContext
 from ..hosts import Layer3ConnectedWorkloadHost, WorkloadHost
 from ..misc import docker_client_context
@@ -28,7 +28,7 @@ class ExperimentStorage(AbstractContextManager):
     def __init__(self,
                  storage_name: str,
                  storage_host: WorkloadHost,
-                 network: NetworkLayer,
+                 network: LANLayer,
                  ansible_ctx: AnsibleContext,
                  host_path: PathLike = '/opt/expeca/experiments',
                  daemon_port: int = 2375,

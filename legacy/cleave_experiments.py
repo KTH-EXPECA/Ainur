@@ -543,7 +543,7 @@ if __name__ == '__main__':
             conn_spec = conn_specs[host_name][host.workload_interface]
             host_ips[host_name] = conn_spec.ip
 
-        with NetworkLayer(
+        with LANLayer(
                 network_cfg=workload_network_desc['subnetworks'],
                 host_ips=host_ips,
                 layer2=phy_layer,

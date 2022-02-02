@@ -187,7 +187,7 @@ if __name__ == '__main__':
             host_ips[host_name] = conn_spec.ip
 
         workload_net = stack.enter_context(
-            NetworkLayer(
+            LANLayer(
                 network_cfg=workload_network_desc['subnetworks'],
                 host_ips=host_ips,
                 layer2=phy_layer,

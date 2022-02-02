@@ -130,7 +130,7 @@ if __name__ == '__main__':
     managers = net_swarm['swarm']['managers']
     workers = net_swarm['swarm']['workers']
 
-    with NetworkLayer(
+    with LANLayer(
             cidr=net_swarm['network']['cidr'],
             hosts=hosts,
             ansible_context=ansible_ctx,

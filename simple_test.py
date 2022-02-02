@@ -1,12 +1,9 @@
 import os
-from contextlib import ExitStack
 from pathlib import Path
 
 # from ainur import *
-from ainur import AnsibleContext, NetworkLayer, PhysicalLayer
-from ainur.cloud.aws import CloudLayer
-from ainur.cloud.vpn import VPNCloudMesh
 from ainur.hosts import *
+from ainur.networks import *
 
 switch = Switch(
     name='glorfindel',
@@ -140,28 +137,38 @@ cloud_hosts = [
 if __name__ == '__main__':
     ansible_ctx = AnsibleContext(base_dir=Path('ansible_env'))
 
+    # prepare everything
+    cloud = CloudInstances()
+    ip_layer = CompositeLayer3Network()
+
+    lan_layer = ip_layer.add_network(
+        LANLayer(ansible_context=ansible_ctx, ansible_quiet=False)
+    )
+    vpn_mesh = ip_layer.add_network(
+        VPNCloudMesh(
+            gateway_ip=IPv4Address('130.237.53.70'),
+            vpn_psk=os.environ['vpn_psk'],
+            ansible_ctx=AnsibleContext(base_dir=Path('./ansible_env')),
+            ansible_quiet=False
+        )
+    )
+
+    # TODO: rework Phy to also be "preparable"
+
     with ExitStack() as stack:
+        # start cloud instances
+        cloud = stack.enter_context(cloud)
+        cloud.init_instances(len(cloud_hosts))
+
+        # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts, [], switch, ansible_ctx, ansible_quiet=True)
         )
 
-        net_layer: NetworkLayer = stack.enter_context(
-            NetworkLayer(layer2=phy_layer,
-                         ansible_context=ansible_ctx,
-                         ansible_quiet=False)
-        )
+        # init layer 3 connectivity
+        ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
 
-        cloud: CloudLayer = stack.enter_context(CloudLayer())
-        cloud.init_instances(len(cloud_hosts))
-
-        vpn_mesh: VPNCloudMesh = stack.enter_context(
-            VPNCloudMesh(
-                gateway_ip=IPv4Address('130.237.53.70'),
-                vpn_psk=os.environ['vpn_psk'],
-                ansible_ctx=AnsibleContext(base_dir=Path('./ansible_env')),
-                ansible_quiet=False
-            )
-        )
+        lan_layer.add_hosts(phy_layer)
         vpn_mesh.connect_cloud(
             cloud_layer=cloud,
             host_configs=cloud_hosts

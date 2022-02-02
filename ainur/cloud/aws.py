@@ -13,7 +13,7 @@ import boto3
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance
 
-from ainur import AinurCloudHost
+from ..hosts import AinurCloudHost
 
 
 @dataclass(frozen=True, eq=True)
@@ -37,7 +37,7 @@ class CloudError(Exception):
     pass
 
 
-class CloudLayer(AbstractContextManager, Mapping[str, EC2Host]):
+class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
     """
     Context manager for AWS EC2 instances.
     """
@@ -158,7 +158,7 @@ class CloudLayer(AbstractContextManager, Mapping[str, EC2Host]):
         logger.info('EC2 instances are booted and ready.')
         return self
 
-    def __enter__(self) -> CloudLayer:
+    def __enter__(self) -> CloudInstances:
         return self
 
     def __iter__(self) -> Iterator[str]:

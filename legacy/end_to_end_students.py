@@ -510,7 +510,7 @@ if __name__ == '__main__':
             conn_spec = conn_specs[host_name][host.workload_interface]
             host_ips[host_name] = conn_spec.ip
 
-        with NetworkLayer(
+        with LANLayer(
                 host_ips=host_ips,
                 layer2=phy_layer,
                 ansible_context=ansible_ctx,

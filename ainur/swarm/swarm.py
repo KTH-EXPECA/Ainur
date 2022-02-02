@@ -17,7 +17,7 @@ from .errors import SwarmException, SwarmWarning
 from .nodes import ManagerNode, SwarmNode, WorkerNode
 from .workload import WorkloadResult, WorkloadSpecification
 from ..misc import RepeatingTimer, seconds2hms
-from ..network import NetworkLayer
+from ainur.networks.local import LANLayer
 
 
 # TODO: daemon port should be handled in hosts?
@@ -129,7 +129,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
 
 class DockerSwarm(AbstractContextManager):
     """
-    Implements an simple interface to a Docker swarm, built on top of hosts
+    Implements a simple interface to a Docker swarm, built on top of hosts
     from a workload network. Can be used as a context manager, in which case the
     created instance is bound to the 'as' variable.
 
@@ -140,7 +140,7 @@ class DockerSwarm(AbstractContextManager):
     _daemon_port = 2375
 
     def __init__(self,
-                 network: NetworkLayer,
+                 network: LANLayer,
                  managers: Dict[str, Dict[str, Any]],
                  workers: Dict[str, Dict[str, Any]]):
         """
