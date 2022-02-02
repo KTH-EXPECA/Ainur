@@ -151,10 +151,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
                                            for g in instance.security_groups])
                     security_groups.add(sec_group.group_id)
 
-                    instance.modify_attribute(
-                        Attribute='groupSet',
-                        Groups=list(security_groups)
-                    )
+                    instance.modify_attribute(Groups=list(security_groups))
 
                     logger.debug(f'Updated security groups for instance {iid}:'
                                  f'{security_groups}')
