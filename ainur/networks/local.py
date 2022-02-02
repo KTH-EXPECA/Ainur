@@ -91,7 +91,7 @@ class LANLayer(NetworkLayer):
                 quiet=self._ansible_quiet,
             )
 
-        if res.status != 'failed':
+        if res.status == 'failed':
             logger.warning('Could not connect hosts on Layer3, aborting!')
             self._tear_down(layer2)
             raise Layer3Error('Could not establish Layer 3 connectivity.')
@@ -143,7 +143,7 @@ class LANLayer(NetworkLayer):
             )
 
         # TODO: better error checking
-        if res.status != 'failed':
+        if res.status == 'failed':
             raise Layer3Error('Encountered an error while tearing down Layer '
                               '3 connectivity.')
         # network is down
