@@ -9,8 +9,8 @@ from ainur.swarm.storage import ExperimentStorage
 
 with open('./offload-ami-ids.yaml', 'r') as fp:
     ami_ids = yaml.safe_load(fp)
-# region = 'eu-north-1'
-region = 'us-east-1'
+region = 'eu-north-1'
+# region = 'us-east-1'
 
 switch = Switch(
     name='glorfindel',
@@ -19,39 +19,43 @@ switch = Switch(
     password='expeca',
 )
 
-# sdr_network = SDRWiFiNetwork(
-#     ssid='expeca_wlan_1',
-#     channel=11,
-#     beacon_interval=100,
-#     ht_capable=True,
-#     access_point=SoftwareDefinedRadio(
-#         name='RFSOM-00002',
-#         management_ip=IPv4Interface('192.168.4.2/16'),
-#         mac='02:05:f7:80:0b:19',
-#         switch_port=42,
-#     ),
-#     stations=(
-#         SoftwareDefinedRadio(
-#             name='RFSOM-00001',
-#             management_ip=IPv4Interface('192.168.4.1/16'),
-#             mac='02:05:f7:80:0b:72',
-#             switch_port=41,
-#         ),
-#         SoftwareDefinedRadio(
-#             name='RFSOM-00003',
-#             management_ip=IPv4Interface('192.168.4.3/16'),
-#             mac='02:05:f7:80:02:c8',
-#             switch_port=43
-#         ),
-#     )
-# )
+sdr_aps = [
+    APSoftwareDefinedRadio(
+        name='RFSOM-00002',
+        management_ip=IPv4Interface('192.168.4.2/16'),
+        mac='02:05:f7:80:0b:19',
+        switch_port=42,
+        ssid='expeca_wlan_1',
+        net_name='eth_net',
+        channel=11,
+        beacon_interval=100,
+        ht_capable=True
+    )
+]
 
 hosts = {
     'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
         ansible_user='expeca',
-        ethernets=frozendict({
-            'eth0': EthernetCfg(
+        # ethernets=frozendict({
+        #     'eth0': EthernetCfg(
+        #         ip_address=IPv4Interface('10.0.2.0/16'),
+        #         routes=(
+        #             IPRoute(
+        #                 to=IPv4Interface('172.16.1.0/24'),
+        #                 via=IPv4Address('10.0.1.0')
+        #             ),
+        #         ),
+        #         mac='dc:a6:32:b4:d8:b5',
+        #         wire_spec=WireSpec(
+        #             net_name='eth_net',
+        #             switch_port=25
+        #         )
+        #     ),
+        # }),
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
                 ip_address=IPv4Interface('10.0.2.0/16'),
                 routes=(
                     IPRoute(
@@ -59,35 +63,44 @@ hosts = {
                         via=IPv4Address('10.0.1.0')
                     ),
                 ),
-                mac='dc:a6:32:b4:d8:b5',
-                wire_spec=WireSpec(
-                    net_name='eth_net',
-                    switch_port=25
-                )
-            ),
-        }),
-        wifis=frozendict()
+                mac='7c:10:c9:1c:3f:f0',
+                ssid='expeca_wlan_1'
+            )
+        )
     ),
     'workload-client-01': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.1/16'),
         ansible_user='expeca',
-        ethernets=frozendict({
-            'eth0': EthernetCfg(
+        # ethernets=frozendict({
+        #     'eth0': EthernetCfg(
+        #         ip_address=IPv4Interface('10.0.2.1/16'),
+        #         routes=(  # VPN route
+        #             IPRoute(
+        #                 to=IPv4Interface('172.16.1.0/24'),
+        #                 via=IPv4Address('10.0.1.0')
+        #             ),
+        #         ),
+        #         mac='dc:a6:32:bf:53:04',
+        #         wire_spec=WireSpec(
+        #             net_name='eth_net',
+        #             switch_port=26
+        #         )
+        #     ),
+        # }),
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
                 ip_address=IPv4Interface('10.0.2.1/16'),
-                routes=(  # VPN route
+                routes=(
                     IPRoute(
                         to=IPv4Interface('172.16.1.0/24'),
                         via=IPv4Address('10.0.1.0')
                     ),
                 ),
-                mac='dc:a6:32:bf:53:04',
-                wire_spec=WireSpec(
-                    net_name='eth_net',
-                    switch_port=26
-                )
-            ),
-        }),
-        wifis=frozendict()
+                mac='7c:10:c9:1c:3f:ea',
+                ssid='expeca_wlan_1'
+            )
+        )
     ),
     # TODO: automatic way of configuring VPN gateway?
     'olwe'              : LocalAinurHost(
@@ -222,7 +235,10 @@ if __name__ == '__main__':
 
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
-            PhysicalLayer(hosts, [], switch)
+            PhysicalLayer(hosts=hosts,
+                          radio_aps=sdr_aps,
+                          radio_stas=[],
+                          switch=switch)
         )
 
         # init layer 3 connectivity

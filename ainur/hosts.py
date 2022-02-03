@@ -46,36 +46,22 @@ class SoftwareDefinedRadio(SwitchConnected):
         )
     )
     mac: str
-
-
-# SDR net classes
-class SDRNetworkConfigError(Exception):
-    pass
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class SDRNetwork(abc.ABC):
-    access_point: SoftwareDefinedRadio
-    stations: Tuple[SoftwareDefinedRadio, ...]
-
-    def __post_init__(self):
-        if self.access_point in self.stations:
-            raise f'Cannot define {self.access_point} both as an Access Point' \
-                  f' and a station!'
-
-    @property
-    def radios(self) -> Tuple[SoftwareDefinedRadio]:
-        return tuple([self.access_point] + list(self.stations))
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class SDRWiFiNetwork(SDRNetwork):
     ssid: str
+    net_name: str
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class APSoftwareDefinedRadio(SoftwareDefinedRadio):
     channel: int
     beacon_interval: int
     ht_capable: bool
+
+
+@dataclass_json
+@dataclass(frozen=True, eq=True)
+class StationSoftwareDefinedRadio(SoftwareDefinedRadio):
+    pass
 
 
 ############
@@ -87,16 +73,6 @@ class WireSpec(SwitchConnected):
 
     def get_switch_vlan_ports(self) -> Tuple[str, Tuple[int, ...]]:
         return self.net_name, (self.switch_port,)
-
-
-@dataclass_json
-@dataclass(frozen=True, eq=True)
-class SDRWireSpec(WireSpec):
-    radio_port: int
-
-    def get_switch_vlan_ports(self) -> Tuple[str, Tuple[int, ...]]:
-        return f'{self.net_name}_sdr_{self.switch_port}_{self.radio_port}', \
-               (self.switch_port, self.radio_port)
 
 
 @dataclass_json

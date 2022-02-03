@@ -9,7 +9,9 @@ from typing import Collection, Dict
 import docker
 from loguru import logger
 
-from .hosts import LocalAinurHost, SDRWiFiNetwork, SoftwareDefinedRadio
+from .hosts import APSoftwareDefinedRadio, LocalAinurHost, \
+    SoftwareDefinedRadio, \
+    StationSoftwareDefinedRadio
 
 # DOCKER_BASE_URL='unix://var/run/docker.sock'
 BEACON_INTERVAL = 100
@@ -97,39 +99,45 @@ class SDRManager(AbstractContextManager):
         logger.info('SDR network manager container is up.')
 
     def start_network(self,
-                      sdr_wifi: SDRWiFiNetwork,
+                      sdr_ap: APSoftwareDefinedRadio,
+                      sdr_stas: Collection[StationSoftwareDefinedRadio],
                       foreign_sta_macs: Collection[str]):
 
         logger.info(
-            f'Starting SDR network with ssid: {sdr_wifi.ssid} on access '
-            f'point {sdr_wifi.access_point}.')
+            f'Starting SDR network with ssid: {sdr_ap.ssid} on access '
+            f'point {sdr_ap.name}.')
         # make start network command dict
-        sta_sdr_names_dict = {}
-        for idx, sta_wifi in enumerate(sdr_wifi.stations):
-            sta_sdr_names_dict['name_' + str(idx + 1)] = sta_wifi.name
-        if len(sdr_wifi.stations) == 0:
+
+        if len(sdr_stas) > 0:
+            sta_sdr_names_dict = {
+                'name_' + str(idx + 1): station.name
+                for idx, station in enumerate(sdr_stas)
+            }
+        else:
             sta_sdr_names_dict = ''
 
-        foreign_sta_macs_dict = {}
-        for idx, mac in enumerate(foreign_sta_macs):
-            foreign_sta_macs_dict['mac_' + str(idx + 1)] = mac
-        if len(foreign_sta_macs) == 0:
+        if len(foreign_sta_macs) > 0:
+            foreign_sta_macs_dict = {
+                'mac_' + str(idx + 1): mac
+                for idx, mac in enumerate(foreign_sta_macs)
+            }
+        else:
             foreign_sta_macs_dict = ''
 
         start_sdrs_cmd = {
             'general'         : {
-                'ssid'           : sdr_wifi.ssid,
-                'channel'        : str(sdr_wifi.channel),
-                'beacon_interval': sdr_wifi.beacon_interval,
-                'ht_capable'     : sdr_wifi.ht_capable,
-                'ap_sdr_name'    : sdr_wifi.access_point.name,
+                'ssid'           : sdr_ap.ssid,
+                'channel'        : str(sdr_ap.channel),
+                'beacon_interval': sdr_ap.beacon_interval,
+                'ht_capable'     : sdr_ap.ht_capable,
+                'ap_sdr_name'    : sdr_ap.name,
             },
             'sta_sdr_names'   : sta_sdr_names_dict,
             'foreign_sta_macs': foreign_sta_macs_dict,
         }
 
         self.send_command('start', start_sdrs_cmd)
-        logger.info(f'SDR network with ssid: {sdr_wifi.ssid} is up.')
+        logger.info(f'SDR network with ssid: {sdr_ap.ssid} is up.')
 
     def send_command(self,
                      command_type: str,
@@ -151,20 +159,33 @@ class SDRManager(AbstractContextManager):
 
     def create_wlans(self,
                      hosts: Dict[str, LocalAinurHost],
-                     sdr_nets: Collection[SDRWiFiNetwork]):
+                     sdr_aps: Collection[APSoftwareDefinedRadio],
+                     sdr_stas: Collection[StationSoftwareDefinedRadio]):
         # Setup up the SDR network
         # find wlan_aps and create a wlan network per SDR AP
         # find sdr station wifis and foreign_sta_macs
 
-        for sdr_net in sdr_nets:
+        for ap_radio in sdr_aps:
+            logger.info(f'Initializing SDR WiFi '
+                        f'network on radio {ap_radio.name}.')
+            logger.debug(f'Radio config: {ap_radio.to_json(indent=4)}')
+
+            # find SDRs STAs connected to the AP ssid
+            ap_stations = [
+                sta_radio for sta_radio in sdr_stas
+                if sta_radio.ssid == ap_radio.ssid
+            ]
+
+            # find native STAs connected to the AP ssid
             native_station_macs = []
             for host_name, host in hosts.items():
                 for iface, config in host.wifis.items():
-                    if config.ssid == sdr_net.ssid:
+                    if config.ssid == ap_radio.ssid:
                         native_station_macs.append(config.mac)
 
             self.start_network(
-                sdr_wifi=sdr_net,
+                sdr_ap=ap_radio,
+                sdr_stas=ap_stations,
                 foreign_sta_macs=native_station_macs
             )
 

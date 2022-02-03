@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from typing import Collection, Dict, Iterator, Mapping
+from typing import Collection, Dict, Iterator, List, Mapping
 
 from loguru import logger
 
-from .hosts import LocalAinurHost, SDRWiFiNetwork, Switch
+from .hosts import APSoftwareDefinedRadio, LocalAinurHost, \
+    SoftwareDefinedRadio, StationSoftwareDefinedRadio, Switch
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager, SDRManagerError
+
+
+class PhyConfigError(Exception):
+    pass
 
 
 class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
@@ -20,12 +25,27 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
 
     def __init__(self,
                  hosts: Dict[str, LocalAinurHost],
-                 sdr_nets: Collection[SDRWiFiNetwork],
+                 radio_aps: Collection[APSoftwareDefinedRadio],
+                 radio_stas: Collection[StationSoftwareDefinedRadio],
                  switch: Switch):
         """
         Parameters
         ----------
         """
+
+        # check that radio names are unique in aps and stas
+        radio_names = set([r.name for r in radio_aps]) \
+            .union([r.name for r in radio_aps])
+
+        # TODO: need better way of checking radio uniqueness
+
+        if len(radio_aps) + len(radio_stas) > len(radio_names):
+            raise PhyConfigError('Repeated radio ids in AP and STA '
+                                 'definitions!')
+
+        radios: List[SoftwareDefinedRadio] = list(radio_aps)
+        radios.extend(radio_stas)
+
         logger.info('Setting up physical layer.')
         # Instantiate network's switch
         self._switch = ManagedSwitch(name=switch.name,
@@ -36,13 +56,12 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
                                      quiet=True)
         try:
             # Make workload switch vlans
-            self._switch.make_connections(hosts=hosts)
+            self._switch.make_connections(
+                hosts=hosts,
+                radios=radios
+            )
 
             # Instantiate sdr network container
-            radios = []
-            for net in sdr_nets:
-                radios.extend(net.radios)
-
             try:
                 self._sdr_manager = SDRManager(
                     sdrs=radios,
@@ -55,7 +74,8 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
                 try:
                     # Make workload wireless LANS
                     self._sdr_manager.create_wlans(hosts=hosts,
-                                                   sdr_nets=sdr_nets)
+                                                   sdr_aps=radio_aps,
+                                                   sdr_stas=radio_stas)
                 except Exception:
                     self._sdr_manager.tear_down()
                     raise

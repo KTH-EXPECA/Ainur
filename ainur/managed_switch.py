@@ -7,12 +7,12 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from ipaddress import IPv4Interface
 from operator import attrgetter
-from typing import Dict, FrozenSet, List, Tuple
+from typing import Collection, Dict, FrozenSet, List, Tuple
 
 import pexpect
 from loguru import logger
 
-from .hosts import LocalAinurHost
+from .hosts import LocalAinurHost, SoftwareDefinedRadio
 
 
 @dataclass(frozen=True, eq=True)
@@ -108,7 +108,9 @@ class ManagedSwitch(AbstractContextManager):
         child.send("exit\n")
         child.expect(pexpect.EOF)
 
-    def make_connections(self, hosts: Dict[str, LocalAinurHost]) -> None:
+    def make_connections(self,
+                         hosts: Dict[str, LocalAinurHost],
+                         radios: Collection[SoftwareDefinedRadio]) -> None:
 
         # Make workload switch vlans
         vlans_ports = defaultdict(set)
@@ -117,6 +119,9 @@ class ManagedSwitch(AbstractContextManager):
             for iface, iface_cfg in host.ethernets.items():
                 net_name, ports = iface_cfg.wire_spec.get_switch_vlan_ports()
                 vlans_ports[net_name].update(ports)
+
+        for radio in radios:
+            vlans_ports[radio.net_name].add(radio.switch_port)
 
         for wired_net_name, ports in vlans_ports.items():
             try:
