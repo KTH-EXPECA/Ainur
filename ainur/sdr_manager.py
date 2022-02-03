@@ -152,10 +152,16 @@ class SDRManager(AbstractContextManager):
         self._socket.sendall(f'{json.dumps(cmd)}\n'.encode('utf8'))
 
         # Receive response from the server
-        received = str(self._socket.recv(3072), "utf-8")
+        try:
+            received = str(self._socket.recv(3072), "utf-8")
+        except socket.error:
+            logger.error('Encountered an error while contacting SDR manager.')
+            raise
+
         result_dict = json.loads(received)
         if result_dict['outcome'] == 'failed':
             logger.error(result_dict['content']['msg'])
+            raise SDRManagerError(result_dict['content']['msg'])
 
     def create_wlans(self,
                      hosts: Dict[str, LocalAinurHost],
