@@ -142,7 +142,7 @@ class EC2Host:
     instance_id: str
     public_ip: IPv4Address
     vpc_ip: IPv4Address
-    key_file: str
+    key_file: str  # TODO: might be redundant
 
 
 class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
@@ -172,6 +172,10 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         self._ephemeral_sec_groups: Set[SecurityGroup] = set()
 
         self._key = _AWSNullKeyPair()
+
+    @property
+    def keyfile(self) -> str:
+        return self._key.key_file_path
 
     def __str__(self):
         return f'CloudLayer(region: {self._region}, ' \

@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, Mapping
+from typing import Any, Dict, Generator, Mapping, Optional
 
 import yaml
 from loguru import logger
@@ -58,11 +58,11 @@ class AnsibleContext:
 
         logger.debug(f'Initialized Ansible context at {self._base_dir}')
 
-    # noinspection PyDefaultArgument
     @contextmanager
     def __call__(self,
                  inventory: Mapping,
-                 extravars: Mapping[str, Any] = {}) \
+                 ssh_key: Optional[os.PathLike | str] = None,
+                 **extravars: Any) \
             -> Generator[Path, None, None]:
         """
         Creates a temporary environment to use in combination with
@@ -80,6 +80,8 @@ class AnsibleContext:
         ----------
         inventory
             The inventory to use in this context.
+        ssh_key
+            Specify the SSH key file to use for this context.
         extravars
             Extravar overrides.
 
@@ -114,6 +116,13 @@ class AnsibleContext:
             orig_extravars.update(extravars)
             with extravars_file.open('w') as fp:
                 yaml.safe_dump(orig_extravars, stream=fp)
+
+            # if using a custom ssh key, copy it to the env dir
+            if ssh_key is not None:
+                ssh_key = Path(ssh_key).resolve()
+                ssh_key_path = tmp_dir / 'env' / 'ssh_key'
+                shutil.copy(ssh_key, ssh_key_path)
+                os.chmod(ssh_key_path, 0o600)
 
             # make a temporary inventory dir and dump the dict
             inv_dir = tmp_dir / 'inventory'

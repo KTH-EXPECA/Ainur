@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network
-from typing import Any, Collection, Dict, Iterator, Set, Tuple
+from typing import Any, Collection, DefaultDict, Dict, Iterator, Set, \
+    Tuple
 
 import ansible_runner
 import yaml
@@ -154,7 +156,14 @@ class VPNCloudMesh(Layer3Network):
                 local_net=wkld_local_net
             )
         )
-        self._connected_hosts: Dict[str, _VPNCloudHostCfg] = dict()
+
+        # dictionary of {keys: {hosts: hostcfgs}}
+        self._conn_hosts: DefaultDict[str, Dict[str, _VPNCloudHostCfg]] = \
+            defaultdict(dict)
+
+        # keep track of individual instance ids to prevent clashes
+        self._host_ids = set()
+
         self._ansible_ctx = ansible_ctx
         self._ansible_quiet = ansible_quiet
 
@@ -185,28 +194,33 @@ class VPNCloudMesh(Layer3Network):
         logger.info(f'Connecting {cloud_layer} to VPN mesh.')
 
         # pair cloud instances with configs
-        cloud_hosts: Dict[str, _VPNCloudHostCfg] = {
-            iid: _VPNCloudHostCfg(
-                ec2host=ec2host,
-                ainur_config=config,
-                gateway=self._gateway
-            ) for (iid, ec2host), config in
-            zip(cloud_layer.items(), host_configs)
-        }
+        cloud_hosts = {}
+        for (iid1, ec2host1), config1 in zip(cloud_layer.items(), host_configs):
+            if iid1 in self._host_ids:
+                raise VPNConfigError('Attempting to configure VPN mesh on '
+                                     'already-configured instance.')
 
-        for id1, peer1 in cloud_hosts.items():
+            peer1 = _VPNCloudHostCfg(
+                ec2host=ec2host1,
+                ainur_config=config1,
+                gateway=self._gateway
+            )
+
             # regional peers
-            for id2, peer2 in cloud_hosts.items():
-                if id1 != id2:  # peers dont connect to themselves
-                    self._check_ip_assignments(peer1.ainur_config,
-                                               peer2.ainur_config)
-                    peer1.add_peer(peer2.ec2host.vpc_ip)
+            for (iid2, ec2host2), config2 in zip(cloud_layer.items(),
+                                                 host_configs):
+                if iid1 != iid2:  # peers dont connect to themselves
+                    self._check_ip_assignments(peer1.ainur_config, config2)
+                    peer1.add_peer(ec2host2.vpc_ip)
 
             # non-regional peers
-            for host in self._connected_hosts.values():
-                self._check_ip_assignments(peer1.ainur_config,
-                                           host.ainur_config)
-                peer1.add_peer(host.ec2host.public_ip)
+            for other_host_group in self._conn_hosts.values():
+                for host in other_host_group.values():
+                    self._check_ip_assignments(peer1.ainur_config,
+                                               host.ainur_config)
+                    peer1.add_peer(host.ec2host.public_ip)
+
+            cloud_hosts[iid1] = peer1
 
         # attach security groups
         cloud_layer.create_sec_group(
@@ -261,6 +275,7 @@ class VPNCloudMesh(Layer3Network):
         )
 
         # prepare the ansible inventory to configure the cloud instances
+        keyfile = cloud_layer.keyfile
         # noinspection DuplicatedCode
         inventory = {
             'all': {
@@ -272,9 +287,13 @@ class VPNCloudMesh(Layer3Network):
         }
 
         logger.debug(f'Using inventory:\n{yaml.safe_dump(inventory)}')
+        logger.debug(f'Using private key {keyfile}.')
 
         # deploy
-        with self._ansible_ctx(inventory=inventory) as tmp_dir:
+        with self._ansible_ctx(
+                inventory=inventory,
+                ssh_key=keyfile
+        ) as tmp_dir:
             res = ansible_runner.run(
                 playbook='vpncloud_up.yml',
                 json_mode=False,
@@ -285,15 +304,15 @@ class VPNCloudMesh(Layer3Network):
         if res.status == 'failed':
             logger.warning(f'Failed to bring up VPN mesh on {cloud_layer}!')
             logger.warning('Attempting to clean up.')
-            self._tear_down_vpn(cloud_hosts)
+            self._tear_down_vpn(keyfile, cloud_hosts)
             raise VPNConfigError(f'Failed to bring up '
                                  f'VPN mesh on {cloud_layer}!')
 
         logger.warning(f'VPN mesh on {cloud_layer} deployed.')
 
-        # update the local host list
-        self._connected_hosts.update(cloud_hosts)
-
+        # update the host list
+        self._conn_hosts[keyfile].update(cloud_hosts)
+        self._host_ids.update(cloud_hosts.keys())
         return self
 
     @staticmethod
@@ -308,8 +327,9 @@ class VPNCloudMesh(Layer3Network):
 
         # TODO: check networks?
 
-    def _tear_down_vpn(self, hosts: Dict[str, _VPNCloudHostCfg]) \
-            -> None:
+    def _tear_down_vpn(self,
+                       keyfile: str,
+                       hosts: Dict[str, _VPNCloudHostCfg]) -> None:
         # noinspection DuplicatedCode
         inventory = {
             'all': {
@@ -320,8 +340,10 @@ class VPNCloudMesh(Layer3Network):
             }
         }
         logger.debug(f'Using inventory:\n{yaml.safe_dump(inventory)}')
+        logger.debug(f'Keyfile: {keyfile}')
         logger.warning('Tearing down VPN connections...')
-        with self._ansible_ctx(inventory=inventory) as tmp_dir:
+        with self._ansible_ctx(inventory=inventory,
+                               ssh_key=keyfile) as tmp_dir:
             ansible_runner.run(
                 playbook='vpncloud_down.yml',
                 json_mode=False,
@@ -330,22 +352,30 @@ class VPNCloudMesh(Layer3Network):
             )
 
     def tear_down(self) -> None:
-        self._tear_down_vpn(self._connected_hosts)
-        self._connected_hosts.clear()
+        for keyfile, hostgroup in self._conn_hosts:
+            self._tear_down_vpn(keyfile, hostgroup)
+        self._conn_hosts.clear()
+        self._host_ids.clear()
         logger.warning('VPN mesh layer torn down.')
 
     def __enter__(self) -> VPNCloudMesh:
         return self
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._connected_hosts)
+        return iter(self._host_ids)
 
     def __getitem__(self, item: str) -> AinurCloudHost:
-        host = self._connected_hosts[item]
-        return host.to_ainur_host()
+        if item in self._host_ids:
+            for _, hostgroup in self._conn_hosts.items():
+                try:
+                    return hostgroup[item].to_ainur_host()
+                except KeyError:
+                    continue
+
+        raise KeyError(item)
 
     def __len__(self) -> int:
-        return len(self._connected_hosts)
+        return len(self._host_ids)
 
     def __contains__(self, item: Any) -> bool:
-        return item in self._connected_hosts
+        return item in self._host_ids
