@@ -76,9 +76,10 @@ class _VPNCloudHostCfg:
 
     def dump_ansible_inventory(self) -> Dict[str, Any]:
         return {
-            'ansible_host': str(self.ec2host.public_ip),
-            'ansible_user': self.ainur_config.ansible_user,
-            'vpn_configs' : {
+            'ansible_host'                : str(self.ec2host.public_ip),
+            'ansible_user'                : self.ainur_config.ansible_user,
+            'ansible_ssh_private_key_file': self.ec2host.key_file,
+            'vpn_configs'                 : {
                 'management': {
                     'dev_name': 'vpn_mgmt',
                     'port'    : self.gateway.mgmt_cfg.port,

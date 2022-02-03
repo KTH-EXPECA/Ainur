@@ -1,19 +1,140 @@
 from __future__ import annotations
 
+import abc
+import os
+import shutil
 import socket
+import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from ipaddress import IPv4Address
+from pathlib import Path
 from types import TracebackType
-from typing import Any, Collection, Dict, Iterator, Mapping, Set, Type, overload
+from typing import Any, Collection, Dict, Iterator, Mapping, \
+    Optional, Set, \
+    Type, overload
 
 import boto3
+from botocore.exceptions import ClientError
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance, SecurityGroup, Vpc
-from mypy_boto3_ec2.type_defs import IpPermissionTypeDef
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
+
+
+class CloudError(Exception):
+    pass
+
+
+class RevokedKeyError(Exception):
+    pass
+
+
+class AWSKeyPairBase(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def private_key(self) -> str:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def key_file_path(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def revoke(self) -> AWSKeyPairBase:
+        pass
+
+
+class _AWSNullKeyPair(AWSKeyPairBase):
+    @property
+    def name(self) -> str:
+        raise RevokedKeyError()
+
+    @property
+    def private_key(self) -> str:
+        raise RevokedKeyError()
+
+    @property
+    def key_file_path(self) -> str:
+        raise RevokedKeyError()
+
+    def revoke(self) -> AWSKeyPairBase:
+        return self
+
+
+class _AWSKeyPair(AWSKeyPairBase):
+    def __init__(self, region: str, name: Optional[str] = None):
+        # request new keypair from AWS
+        ec2 = boto3.resource('ec2', region_name=region)
+        key_name = name if name is not None else f'key-{uuid.uuid4().hex}'
+
+        logger.info(f'Creating ephemeral key pair {key_name} for instance '
+                    f'access on region {region}.')
+
+        self._key = ec2.create_key_pair(KeyName=key_name)
+        self._region = region
+
+        self._key_dir = Path(tempfile.mkdtemp(prefix='ainur_')).resolve()
+        self._key_file = (self._key_dir / f'{uuid.uuid4().hex}').resolve()
+
+        # store key to file
+        with self._key_file.open('w') as fp:
+            fp.write(self._key.key_material)
+
+        os.chmod(self._key_file, 0o600)
+
+        logger.debug(f'Key {key_name} has been created and stored on-disk '
+                     f'at {self._key_file}.')
+
+        self._revoked = False
+
+    def _check(self) -> None:
+        if self._revoked:
+            raise RevokedKeyError()
+
+    @property
+    def name(self) -> str:
+        self._check()
+        return self._key.key_name
+
+    @property
+    def private_key(self) -> str:
+        self._check()
+        return self._key.key_material
+
+    @property
+    def key_file_path(self) -> str:
+        self._check()
+        return str(self._key_file)
+
+    def revoke(self) -> AWSKeyPairBase:
+        if self._revoked:
+            return _AWSNullKeyPair()
+
+        logger.warning(f'Revoking AWS key {self.name}...')
+        shutil.rmtree(self._key_dir)
+
+        # delete the key from ec2
+        try:
+            ec2 = boto3.resource('ec2', region_name=self._region)
+            key = ec2.KeyPair(self._key.name)
+            key.load()
+            logger.debug(f'Deleting ephemeral key {key.key_name} on AWS...')
+            key.delete()
+        except ClientError:
+            pass
+
+        self._revoked = True
+        logger.debug('Key revoked.')
+        return _AWSNullKeyPair()
 
 
 @dataclass(frozen=True, eq=True)
@@ -21,10 +142,7 @@ class EC2Host:
     instance_id: str
     public_ip: IPv4Address
     vpc_ip: IPv4Address
-
-
-class CloudError(Exception):
-    pass
+    key_file: str
 
 
 class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
@@ -36,24 +154,24 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
 
     def __init__(self,
                  region: str = 'eu-north-1',
-                 key_name: str = 'ExPECA_AWS_Keys',
                  default_sec_groups: Collection[str] = ()):
         """
         Parameters
         ----------
         region:
             AWS region on which to deploy instances.
-        key_name
-            The name of the AWS keys to use.
         default_sec_groups
             Default, mandatory security groups to attach instances to.
         """
 
         self._running_instances: Dict[str, Instance] = {}
         self._region = region
-        self._sec_groups: Set[str] = set(default_sec_groups)
+
+        self._ssh_sec_groups: Set[str] = set()
+        self._default_sec_groups: Set[str] = set(default_sec_groups)
         self._ephemeral_sec_groups: Set[SecurityGroup] = set()
-        self._key_name = key_name
+
+        self._key = _AWSNullKeyPair()
 
     def __str__(self):
         return f'CloudLayer(region: {self._region}, ' \
@@ -64,7 +182,6 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
                          desc: str,
                          ingress_rules: Collection[IpPermissionTypeDef] = (),
                          egress_rules: Collection[IpPermissionTypeDef] = (),
-                         ssh_access: bool = True,
                          ephemeral: bool = True,
                          attach_to_instances: bool = True) -> str:
 
@@ -91,29 +208,11 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
                 GroupName=name,
                 VpcId=vpc.vpc_id
             )
-            #
-            # logger.info(f'Waiting until security group {name} is ready to be '
-            #             f'used...')
-            # ec2client.get_waiter('security_group_exists').wait(
-            #     GroupIds=[sec_group.group_id],
-            #     WaiterConfig=WaiterConfigTypeDef(
-            #         Delay=1, MaxAttempts=10
-            #     )
-            # )
 
             # allow traffic to flow freely within sec group
             sec_group.authorize_ingress(
                 SourceSecurityGroupName=sec_group.group_name
             )
-
-            if ssh_access:
-                # allow ssh access
-                sec_group.authorize_ingress(
-                    CidrIp='0.0.0.0/0',
-                    FromPort=22,
-                    ToPort=22,
-                    IpProtocol='tcp',
-                )
 
             # other ingress and egress rules
             if len(ingress_rules) > 0:
@@ -123,7 +222,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             if ephemeral:
                 self._ephemeral_sec_groups.add(sec_group)
 
-            logger.info(f'Create security group {name} '
+            logger.info(f'Created security group {name} '
                         f'with id {sec_group.group_id} '
                         f'in region {self._region}')
 
@@ -158,6 +257,12 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         for sec_group in self._ephemeral_sec_groups:
             logger.debug(f'Deleting security group {sec_group.group_name} '
                          f'({sec_group.description}, region {self._region})')
+
+            try:
+                self._ssh_sec_groups.remove(sec_group.group_id)
+            except KeyError:
+                pass
+
             sec_group.delete()
 
         logger.warning('Deleted all ephemeral security groups '
@@ -194,17 +299,13 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             f'Deploying {num_instances} AWS compute instances of type '
             f'{instance_type}, on region {self._region}...')
 
-        logger.info('Preparing a security group for SSH access to instances.')
-        ssh_sgid = self.create_sec_group(
-            name=f'cloud-ssh-{uuid.uuid4().hex}',
-            desc='SSH Access',
-            ssh_access=True,
-            ephemeral=True,
-            attach_to_instances=False
-        )
+        if len(self._ssh_sec_groups):
+            raise CloudError('No default SSH access security groups '
+                             'available, aborting cloud instance spawning!')
 
-        sec_groups = self._sec_groups.union(additional_sec_groups)
-        sec_groups.add(ssh_sgid)
+        sec_groups = self._ssh_sec_groups \
+            .union(self._default_sec_groups) \
+            .union(additional_sec_groups)
         sec_groups = list(sec_groups)
 
         logger.debug(f'Instance security groups: {sec_groups}')
@@ -216,7 +317,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             MinCount=num_instances,
             MaxCount=num_instances,
             InstanceType=instance_type,
-            KeyName=self._key_name,
+            KeyName=self._key.name,
             SecurityGroupIds=sec_groups
         )
         logger.debug('Instances created.')
@@ -269,6 +370,37 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         return self
 
     def __enter__(self) -> CloudInstances:
+        try:
+            # verify that we have a key...
+            ec2 = boto3.resource('ec2', region_name=self._region)
+            key = ec2.KeyPair(self._key.name)
+            key.load()
+            logger.debug(f'Using key pair: {key.key_name}')
+        except (RevokedKeyError, ClientError):
+            # we don't have a key... create an ephemeral one
+            self._key = _AWSKeyPair(region=self._region)
+
+        # verify that we have at least one ssh access security group
+        # create one if we don't
+        if len(self._ssh_sec_groups) == 0:
+            logger.info('Creating ephemeral security group for SSH access to '
+                        f'instances on region {self._region}.')
+            ssh_sgid = self.create_sec_group(
+                name=f'ainur-ssh-{uuid.uuid4().hex}',
+                desc='SSH Access',
+                ephemeral=True,
+                attach_to_instances=False,
+                ingress_rules=[
+                    IpPermissionTypeDef(
+                        FromPort=22,
+                        ToPort=22,
+                        IpProtocol='tcp',
+                        IpRanges=[IpRangeTypeDef(CidrIp='0.0.0.0/0')]
+                    )
+                ]
+            )
+            self._ssh_sec_groups.add(ssh_sgid)
+
         return self
 
     def __iter__(self) -> Iterator[str]:
@@ -279,7 +411,8 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
         return EC2Host(
             instance_id=inst.instance_id,
             public_ip=IPv4Address(inst.public_ip_address),
-            vpc_ip=IPv4Address(inst.private_ip_address)
+            vpc_ip=IPv4Address(inst.private_ip_address),
+            key_file=self._key.key_file_path
         )
 
     def __len__(self) -> int:
@@ -330,3 +463,4 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
     ) -> None:
         self.tear_down_all_instances()
         self.clear_ephemeral_sec_groups()
+        self._key = self._key.revoke()

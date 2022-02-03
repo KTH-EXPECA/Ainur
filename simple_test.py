@@ -9,7 +9,8 @@ from ainur.swarm.storage import ExperimentStorage
 
 with open('./offload-ami-ids.yaml', 'r') as fp:
     ami_ids = yaml.safe_load(fp)
-region = 'eu-north-1'
+# region = 'eu-north-1'
+region = 'us-east-1'
 
 switch = Switch(
     name='glorfindel',
