@@ -52,8 +52,7 @@ class PhysicalLayer(AbstractContextManager, Mapping[str, LocalAinurHost]):
                                      credentials=(switch.username,
                                                   switch.password),
                                      address=switch.management_ip,
-                                     timeout=5,
-                                     quiet=True)
+                                     timeout=5)
         try:
             # Make workload switch vlans
             self._switch.make_connections(

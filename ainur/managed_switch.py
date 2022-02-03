@@ -41,8 +41,7 @@ class ManagedSwitch(AbstractContextManager):
                  name: str,
                  credentials: Tuple[str, str],
                  address: IPv4Interface,
-                 timeout: int,
-                 quiet: bool = True):
+                 timeout: int):
 
         # we do login - logout for every command since there is a timeout for
         # each login session on the cisco switch
@@ -299,7 +298,7 @@ class ManagedSwitch(AbstractContextManager):
         child.expect_exact(self._name + "#")
 
         self._vlans.remove(vlan)
-        logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
+        logger.warning(f'Workload switch VLAN ({id_num=}) has been removed.')
 
     def tear_down(self) -> None:
         """
