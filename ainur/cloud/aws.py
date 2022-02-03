@@ -299,7 +299,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             f'Deploying {num_instances} AWS compute instances of type '
             f'{instance_type}, on region {self._region}...')
 
-        if len(self._ssh_sec_groups):
+        if len(self._ssh_sec_groups) < 1:
             raise CloudError('No default SSH access security groups '
                              'available, aborting cloud instance spawning!')
 
