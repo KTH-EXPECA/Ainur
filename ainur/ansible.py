@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, Mapping, Optional
+from typing import Any, Dict, Generator, Mapping, Optional, Union
 
 import yaml
 from loguru import logger
@@ -61,7 +61,7 @@ class AnsibleContext:
     @contextmanager
     def __call__(self,
                  inventory: Mapping,
-                 ssh_key: Optional[str | Path] = None,
+                 ssh_key: Optional[Union[os.PathLike, str]] = None,
                  **extravars: Any) \
             -> Generator[Path, None, None]:
         """
