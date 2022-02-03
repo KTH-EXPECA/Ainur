@@ -213,6 +213,9 @@ class ManagedSwitch(AbstractContextManager):
         else:
             vlanid = 2
 
+        logger.debug(f'Creating new VLAN {name} ({vlanid=}) '
+                     f'spanning ports {ports}.')
+
         child = self.login()
 
         # go to config mode
