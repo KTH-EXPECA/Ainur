@@ -19,86 +19,89 @@ class VPNConfigError(Exception):
     pass
 
 
-class VPNCloudMesh(Layer3Network):
-    @dataclass(frozen=True, eq=True)
-    class MeshConfig:
-        ip: IPv4Interface
-        psk: str
-        port: int
-        local_net: IPv4Network
+@dataclass(frozen=True, eq=True)
+class _MeshConfig:
+    ip: IPv4Interface
+    psk: str
+    port: int
+    local_net: IPv4Network
 
-    @dataclass(frozen=True, eq=True)
-    class Gateway:
-        public_ip: IPv4Address
-        mgmt_cfg: VPNCloudMesh.MeshConfig
-        wkld_cfg: VPNCloudMesh.MeshConfig
 
-        @property
-        def mgmt_peer_addr(self) -> str:
-            return f'{self.public_ip}:{self.mgmt_cfg.port}'
+@dataclass(frozen=True, eq=True)
+class _Gateway:
+    public_ip: IPv4Address
+    mgmt_cfg: _MeshConfig
+    wkld_cfg: _MeshConfig
 
-        @property
-        def wkld_peer_addr(self) -> str:
-            return f'{self.public_ip}:{self.wkld_cfg.port}'
+    @property
+    def mgmt_peer_addr(self) -> str:
+        return f'{self.public_ip}:{self.mgmt_cfg.port}'
 
-        def gen_peer_configs(self, peer: IPv4Address) -> Tuple[str, str]:
-            return (
-                f'{peer}:{self.mgmt_cfg.port}',
-                f'{peer}:{self.wkld_cfg.port}'
-            )
+    @property
+    def wkld_peer_addr(self) -> str:
+        return f'{self.public_ip}:{self.wkld_cfg.port}'
 
-    @dataclass
-    class VPNCloudHostCfg:
-        ec2host: EC2Host
-        ainur_config: AinurCloudHostConfig
-        gateway: VPNCloudMesh.Gateway
-        mgmt_peers: Set[str] = field(init=False, default_factory=set)
-        wkld_peers: Set[str] = field(init=False, default_factory=set)
+    def gen_peer_configs(self, peer: IPv4Address) -> Tuple[str, str]:
+        return (
+            f'{peer}:{self.mgmt_cfg.port}',
+            f'{peer}:{self.wkld_cfg.port}'
+        )
 
-        def __post_init__(self):
-            self.mgmt_peers.add(self.gateway.mgmt_peer_addr)
-            self.wkld_peers.add(self.gateway.wkld_peer_addr)
 
-        def add_peer(self, peer: IPv4Address) -> None:
-            mgmt_peer, wkld_peer = self.gateway.gen_peer_configs(peer)
-            self.mgmt_peers.add(mgmt_peer)
-            self.wkld_peers.add(wkld_peer)
+@dataclass
+class _VPNCloudHostCfg:
+    ec2host: EC2Host
+    ainur_config: AinurCloudHostConfig
+    gateway: _Gateway
+    mgmt_peers: Set[str] = field(init=False, default_factory=set)
+    wkld_peers: Set[str] = field(init=False, default_factory=set)
 
-        def to_ainur_host(self) -> AinurCloudHost:
-            return AinurCloudHost(
-                management_ip=self.ainur_config.management_ip,
-                ansible_user=self.ainur_config.ansible_user,
-                workload_ip=self.ainur_config.workload_ip,
-                vpc_ip=self.ec2host.vpc_ip,
-                public_ip=self.ec2host.public_ip
-            )
+    def __post_init__(self):
+        self.mgmt_peers.add(self.gateway.mgmt_peer_addr)
+        self.wkld_peers.add(self.gateway.wkld_peer_addr)
 
-        def dump_ansible_inventory(self) -> Dict[str, Any]:
-            return {
-                'ansible_host': str(self.ec2host.public_ip),
-                'ansible_user': self.ainur_config.ansible_user,
-                'vpn_configs' : {
-                    'management': {
-                        'dev_name': 'vpn_mgmt',
-                        'port'    : self.gateway.mgmt_cfg.port,
-                        'peers'   : list(self.mgmt_peers),
-                        'psk'     : self.gateway.mgmt_cfg.psk,
-                        'ip'      : str(self.ainur_config.management_ip),
-                        'gw_ip'   : str(self.gateway.mgmt_cfg.ip.ip),
-                        'gw_net'  : str(self.gateway.mgmt_cfg.local_net)
-                    },
-                    'workload'  : {
-                        'dev_name': 'vpn_wkld',
-                        'port'    : self.gateway.wkld_cfg.port,
-                        'peers'   : list(self.wkld_peers),
-                        'psk'     : self.gateway.wkld_cfg.psk,
-                        'ip'      : str(self.ainur_config.workload_ip),
-                        'gw_ip'   : str(self.gateway.wkld_cfg.ip.ip),
-                        'gw_net'  : str(self.gateway.wkld_cfg.local_net)
-                    }
+    def add_peer(self, peer: IPv4Address) -> None:
+        mgmt_peer, wkld_peer = self.gateway.gen_peer_configs(peer)
+        self.mgmt_peers.add(mgmt_peer)
+        self.wkld_peers.add(wkld_peer)
+
+    def to_ainur_host(self) -> AinurCloudHost:
+        return AinurCloudHost(
+            management_ip=self.ainur_config.management_ip,
+            ansible_user=self.ainur_config.ansible_user,
+            workload_ip=self.ainur_config.workload_ip,
+            vpc_ip=self.ec2host.vpc_ip,
+            public_ip=self.ec2host.public_ip
+        )
+
+    def dump_ansible_inventory(self) -> Dict[str, Any]:
+        return {
+            'ansible_host': str(self.ec2host.public_ip),
+            'ansible_user': self.ainur_config.ansible_user,
+            'vpn_configs' : {
+                'management': {
+                    'dev_name': 'vpn_mgmt',
+                    'port'    : self.gateway.mgmt_cfg.port,
+                    'peers'   : list(self.mgmt_peers),
+                    'psk'     : self.gateway.mgmt_cfg.psk,
+                    'ip'      : str(self.ainur_config.management_ip),
+                    'gw_ip'   : str(self.gateway.mgmt_cfg.ip.ip),
+                    'gw_net'  : str(self.gateway.mgmt_cfg.local_net)
                 },
-            }
+                'workload'  : {
+                    'dev_name': 'vpn_wkld',
+                    'port'    : self.gateway.wkld_cfg.port,
+                    'peers'   : list(self.wkld_peers),
+                    'psk'     : self.gateway.wkld_cfg.psk,
+                    'ip'      : str(self.ainur_config.workload_ip),
+                    'gw_ip'   : str(self.gateway.wkld_cfg.ip.ip),
+                    'gw_net'  : str(self.gateway.wkld_cfg.local_net)
+                }
+            },
+        }
 
+
+class VPNCloudMesh(Layer3Network):
     def __init__(self,
                  gateway_ip: IPv4Address,
                  vpn_psk: str,
@@ -135,22 +138,22 @@ class VPNCloudMesh(Layer3Network):
             Quiet ansible output.
         """
 
-        self._gateway = VPNCloudMesh.Gateway(
+        self._gateway = _Gateway(
             public_ip=gateway_ip,
-            mgmt_cfg=VPNCloudMesh.MeshConfig(
+            mgmt_cfg=_MeshConfig(
                 ip=gw_mgmt_ip,
                 psk=vpn_psk,
                 port=mgmt_port,
                 local_net=mgmt_local_net
             ),
-            wkld_cfg=VPNCloudMesh.MeshConfig(
+            wkld_cfg=_MeshConfig(
                 ip=gw_wkld_ip,
                 psk=vpn_psk,
                 port=wkld_port,
                 local_net=wkld_local_net
             )
         )
-        self._connected_hosts: Dict[str, VPNCloudMesh.VPNCloudHostCfg] = dict()
+        self._connected_hosts: Dict[str, _VPNCloudHostCfg] = dict()
         self._ansible_ctx = ansible_ctx
         self._ansible_quiet = ansible_quiet
 
@@ -181,8 +184,8 @@ class VPNCloudMesh(Layer3Network):
         logger.info(f'Connecting {cloud_layer} to VPN mesh.')
 
         # pair cloud instances with configs
-        cloud_hosts: Dict[str, VPNCloudMesh.VPNCloudHostCfg] = {
-            iid: VPNCloudMesh.VPNCloudHostCfg(
+        cloud_hosts: Dict[str, _VPNCloudHostCfg] = {
+            iid: _VPNCloudHostCfg(
                 ec2host=ec2host,
                 ainur_config=config,
                 gateway=self._gateway
@@ -210,7 +213,6 @@ class VPNCloudMesh(Layer3Network):
             desc='Ephemeral SecGroup for VPN and SSH access.',
             attach_to_instances=True,
             ephemeral=True,
-            ssh_access=True,
             ingress_rules=[
                 # rules allowing inbound traffic from mgmt vpn
                 IpPermissionTypeDef(
@@ -305,7 +307,7 @@ class VPNCloudMesh(Layer3Network):
 
         # TODO: check networks?
 
-    def _tear_down_vpn(self, hosts: Dict[str, VPNCloudMesh.VPNCloudHostCfg]) \
+    def _tear_down_vpn(self, hosts: Dict[str, _VPNCloudHostCfg]) \
             -> None:
         # noinspection DuplicatedCode
         inventory = {
