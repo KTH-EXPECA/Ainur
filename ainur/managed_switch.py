@@ -273,12 +273,14 @@ class ManagedSwitch(AbstractContextManager):
 
         self.logout(child)
 
-        logger.warning('Workload switch vlan with id: %d is removed.' % id_num)
+        logger.warning(f'Workload switch VLAN ({id_num=}) has been removed.')
 
     def remove_vlan(self, id_num: int):
         vlan = [vl for vl in self._vlans if vl.id_num == id_num]
         if len(vlan) == 0:
-            logger.error('There is no vlan with id: %d to be removed.' % id_num)
+            logger.warning(
+                f'Tried to remove non-existing VLAN ({id_num=}).'
+            )
             return
         vlan = vlan[0]
 
