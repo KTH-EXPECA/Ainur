@@ -15,14 +15,11 @@ from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance, SecurityGroup
 from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
 
-from .utils import RevokedKeyError, AWSKeyPair, AWSNullKeyPair, \
-    create_security_group, \
-    spawn_instances, \
+from .security_groups import create_security_group
+from .errors import CloudError, RevokedKeyError
+from .instances import spawn_instances, \
     tear_down_instances
-
-
-class CloudError(Exception):
-    pass
+from .keys import AWSKeyPair, AWSNullKeyPair
 
 
 @dataclass(frozen=True, eq=True)
