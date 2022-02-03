@@ -1,15 +1,10 @@
 from __future__ import annotations
 
 import abc
-import json
 from contextlib import AbstractContextManager, ExitStack
 from types import TracebackType
 from typing import Any, Iterator, List, Mapping, Type, TypeVar, overload
 
-import ansible_runner
-from loguru import logger
-
-from ..ansible import AnsibleContext
 from ..hosts import AinurHost
 
 
@@ -128,42 +123,6 @@ class CompositeLayer3Network(Layer3Network):
             return False
 
 
-def verify_wkld_net_connectivity(network: Layer3Network,
-                                 ansible_ctx: AnsibleContext,
-                                 ansible_quiet: bool = True) -> None:
-    """
-    Uses ansible.netcommon.net_ping to check that all hosts can reach other
-    on the workload network.
-
-    Parameters
-    ----------
-    network
-
-    """
-
-    logger.info('Testing workload network connectivity.')
-
-    inventory = {
-        'all': {
-            'hosts': {
-                str(host.management_ip.ip): {
-                    'ansible_host': str(host.management_ip.ip),
-                    'ansible_user': host.ansible_user,
-                    'workload_ip' : str(host.workload_ips[0])
-                } for host_id, host in network.items()
-            }
-        }
-    }
-
-    with ansible_ctx(inventory) as tmp_dir:
-        res = ansible_runner.run(
-            playbook='workload_ping.yml',
-            json_mode=False,
-            private_data_dir=str(tmp_dir),
-            quiet=ansible_quiet
-        )
-
-        if res.status == 'failed':
-            raise Layer3Error('Failed network connectivity check!')
-
-    logger.info('Connectivity check passed.')
+def verify_wkld_net_connectivity(network: Layer3Network) -> None:
+    # TODO: implement this using Docker and just pinging all workload addresses.
+    pass

@@ -245,8 +245,7 @@ if __name__ == '__main__':
             host_configs=cloud_hosts
         )
 
-        verify_wkld_net_connectivity(ip_layer, ansible_ctx,
-                                     ansible_quiet=False)
+        verify_wkld_net_connectivity(ip_layer)
 
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
                              type='client', location='cloud')
