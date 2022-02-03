@@ -352,7 +352,7 @@ class VPNCloudMesh(Layer3Network):
             )
 
     def tear_down(self) -> None:
-        for keyfile, hostgroup in self._conn_hosts:
+        for keyfile, hostgroup in self._conn_hosts.items():
             self._tear_down_vpn(keyfile, hostgroup)
         self._conn_hosts.clear()
         self._host_ids.clear()
