@@ -61,7 +61,7 @@ class AnsibleContext:
     @contextmanager
     def __call__(self,
                  inventory: Mapping,
-                 ssh_key: Optional[os.PathLike | str] = None,
+                 ssh_key: Optional[str | Path] = None,
                  **extravars: Any) \
             -> Generator[Path, None, None]:
         """
