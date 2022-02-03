@@ -15,11 +15,11 @@ from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance, SecurityGroup
 from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
 
-from .security_groups import create_security_group
 from .errors import CloudError, RevokedKeyError
 from .instances import spawn_instances, \
     tear_down_instances
 from .keys import AWSKeyPair, AWSNullKeyPair
+from .security_groups import create_security_group
 
 
 @dataclass(frozen=True, eq=True)
@@ -100,7 +100,7 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
 
                     instance.modify_attribute(Groups=list(security_groups))
 
-                    logger.debug(f'Updated security groups for instance {iid}:'
+                    logger.debug(f'Updated security groups for instance {iid}: '
                                  f'{security_groups}')
             except Exception as e:
                 logger.error(f'Could not attach security group {name} to '
@@ -160,16 +160,10 @@ class CloudInstances(AbstractContextManager, Mapping[str, EC2Host]):
             raise CloudError('No default SSH access security groups '
                              'available, aborting cloud instance spawning!')
 
-        logger.info(
-            f'Deploying {num_instances} AWS compute instances of type '
-            f'{instance_type}, on region {self._region}...')
-
         sec_groups = self._ssh_sec_groups \
             .union(self._default_sec_groups) \
             .union(additional_sec_groups)
         sec_groups = list(sec_groups)
-
-        logger.debug(f'Instance security groups: {sec_groups}')
 
         instances = spawn_instances(
             num_instances=num_instances,
