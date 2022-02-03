@@ -24,6 +24,11 @@ class AWSKeyPairBase(AbstractContextManager):
 
     @property
     @abc.abstractmethod
+    def id(self) -> str:
+        pass
+
+    @property
+    @abc.abstractmethod
     def private_key(self) -> str:
         pass
 
@@ -47,6 +52,10 @@ class AWSKeyPairBase(AbstractContextManager):
 class AWSNullKeyPair(AWSKeyPairBase):
     @property
     def name(self) -> str:
+        raise RevokedKeyError()
+
+    @property
+    def id(self) -> str:
         raise RevokedKeyError()
 
     @property
@@ -95,6 +104,11 @@ class AWSKeyPair(AWSKeyPairBase):
     def name(self) -> str:
         self._check()
         return self._key.key_name
+
+    @property
+    def id(self) -> str:
+        self._check()
+        return self._key.key_pair_id
 
     @property
     def private_key(self) -> str:
