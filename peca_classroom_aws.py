@@ -9,6 +9,7 @@ import click
 import yaml
 from botocore.exceptions import ClientError
 from loguru import logger
+from mypy_boto3_ec2.service_resource import Instance
 
 from ainur.ansible import AnsibleContext
 from ainur.cloud import AWSKeyPair, create_security_group, spawn_instances, \
@@ -99,7 +100,7 @@ def launch_instances(num_instances: int,
 @cli.command()
 @click.argument('config-file',
                 type=click.Path(file_okay=True, dir_okay=False, exists=True))
-def tear_down_instances(config_file: str) -> None:
+def clean_up(config_file: str) -> None:
     with open(config_file, 'r') as fp:
         config = yaml.safe_load(fp)
 
@@ -110,26 +111,23 @@ def tear_down_instances(config_file: str) -> None:
 
     ec2 = boto3.resource('ec2', region_name=region)
 
+    # delete instances first, then sg
+    def _load_instance(iid: str) -> Instance:
+        inst = ec2.Instance(iid)
+        inst.load()
+        return inst
+
+    tear_down_instances(map(_load_instance, instances))
+
     # delete security group
     logger.info(f'Deleting security group {sg_id}.')
     try:
         sg = ec2.SecurityGroup(sg_id)
         sg.load()
         sg.delete()
-    except ClientError:
-        logger.error(f'Could not delete security group {sg_id}; does it exist?')
-
-    # delete instances
-    logger.info(f'Terminating instances: {list(instances)}')
-    for iid in instances:
-        logger.info(f'Terminating instance {iid}.')
-        try:
-            inst = ec2.Instance(iid)
-            inst.load()
-            inst.terminate()
-            logger.debug(f'Terminated instance {iid}.')
-        except ClientError:
-            logger.error(f'Could not delete instance {iid}; does it exist?')
+    except ClientError as e:
+        logger.exception(e)
+        logger.error(e)
 
     # TODO: delete file?
 
