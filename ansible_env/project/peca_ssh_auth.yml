@@ -1,0 +1,21 @@
+---
+- name: Configure SSH auth for PECA classroom
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Add password to the default ubuntu user
+      ansible.builtin.user:
+        name: ubuntu
+        password: "{{ 'pecaclassroom' | password_hash('sha512', '54l7y') }}"
+
+    - name: Allow password authentication for SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication yes"
+
+    - name: Restart the SSH daemon
+      systemd:
+        name: sshd
+        state: restarted
