@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Collection, List
+from typing import Collection, Iterable, List
 
 import boto3
 from loguru import logger
@@ -109,14 +109,14 @@ def spawn_instances(num_instances: int,
     return spawned_instances
 
 
-def tear_down_instances(instances: Collection[Instance]) -> List[str]:
+def tear_down_instances(instances: Iterable[Instance]) -> List[str]:
     with ThreadPoolExecutor() as tpool:
-        def _shutdown_instance(instance: Instance) -> str:
-            iid = instance.instance_id
-            logger.debug(f'Terminating instance {instance.instance_id}...')
-            instance.terminate()
-            instance.wait_until_terminated()
-            logger.warning(f'Instance {instance.instance_id} terminated.')
+        def _shutdown_instance(inst: Instance) -> str:
+            iid = inst.instance_id
+            logger.debug(f'Terminating instance {inst.instance_id}...')
+            inst.terminate()
+            inst.wait_until_terminated()
+            logger.warning(f'Instance {inst.instance_id} terminated.')
             return iid
 
         # list() forces the .map() statement to be evaluated immediately
