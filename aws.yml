@@ -1,0 +1,6 @@
+instances:
+- i-0ba2693e82626649b
+- i-0c3a37bedbf1420f2
+- i-063dd7808375bd00c
+region: eu-north-1
+security-group: sg-0900d0421ec61765d
