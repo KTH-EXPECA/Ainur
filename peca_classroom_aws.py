@@ -1,5 +1,5 @@
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import ExitStack
 from dataclasses import dataclass
 from io import StringIO
@@ -48,6 +48,7 @@ _ami_ids = {
 class SpawnedInstance:
     id: str
     public_ip: str
+    # vpn_ip: str
 
 
 @dataclass_json
@@ -55,7 +56,19 @@ class SpawnedInstance:
 class SpawnRecord:
     region: str
     security_group: str
+    vpn_ip: str
     instances: Tuple[SpawnedInstance, ...]
+
+
+def delete_sg(sg_id: str, region: str) -> None:
+    ec2 = boto3.resource('ec2', region_name=region)
+    logger.info(f'Deleting security group {sg_id}.')
+    try:
+        sg = ec2.SecurityGroup(sg_id)
+        sg.load()
+        sg.delete()
+    except ClientError as e:
+        logger.error(e)
 
 
 @click.group()
@@ -79,102 +92,109 @@ def spawn_meshes(num_instances: int,
     keys_per_reg: Dict[str, AWSKeyPair] = {}
     instances_per_reg: Dict[str, Collection[Instance]] = {}
     sec_groups_per_reg: Dict[str, str] = {}
-
     peers: Dict[str, Set[str]] = defaultdict(set)
 
-    with ExitStack() as stack:
-        for region in regions:
-            ami_id = _ami_ids[region]
-            key = AWSKeyPair(region=region)
-            keys_per_reg[region] = key
-            stack.enter_context(key)
+    try:
+        with ExitStack() as stack:
+            for region in regions:
+                ami_id = _ami_ids[region]
+                key = AWSKeyPair(region=region)
+                keys_per_reg[region] = key
+                stack.enter_context(key)
 
-            ssh_sg = create_security_group(
-                name=f'peca-ssh-access-{uuid.uuid4().hex}',
-                desc='Ephemeral SSH access for PECA classroom.',
-                region=region,
-                ingress_rules=[ssh_ingress_rule]
-            )
-            sec_groups_per_reg[region] = ssh_sg.group_id
+                ssh_sg = create_security_group(
+                    name=f'peca-ssh-access-{uuid.uuid4().hex}',
+                    desc='Ephemeral SSH access for PECA classroom.',
+                    region=region,
+                    ingress_rules=[ssh_ingress_rule]
+                )
+                sec_groups_per_reg[region] = ssh_sg.group_id
 
-            instances = spawn_instances(
-                num_instances=num_instances,
-                region=region,
-                ami_id=ami_id,
-                instance_type=instance_type,
-                startup_timeout_s=timeout,
-                key_name=key.name,
-                security_group_ids=[ssh_sg.group_id]
-            )
-            logger.info('Spawned instances.')
+                instances = spawn_instances(
+                    num_instances=num_instances,
+                    region=region,
+                    ami_id=ami_id,
+                    instance_type=instance_type,
+                    startup_timeout_s=timeout,
+                    key_name=key.name,
+                    security_group_ids=[ssh_sg.group_id]
+                )
+                logger.info('Spawned instances.')
 
-            for other_r, other_insts in instances_per_reg.items():
-                for peer1, peer2 in zip(instances, other_insts):
-                    logger.debug(f'{peer1.instance_id}: '
-                                 f'{peer1.public_ip_address}')
-                    peers[peer1.public_ip_address].add(peer2.public_ip_address)
-                    peers[peer2.public_ip_address].add(peer1.public_ip_address)
+                for other_r, other_insts in instances_per_reg.items():
+                    for peer1, peer2 in zip(instances, other_insts):
+                        logger.debug(f'{peer1.instance_id}: '
+                                     f'{peer1.public_ip_address}')
+                        peers[peer1.public_ip_address].add(
+                            peer2.public_ip_address)
+                        peers[peer2.public_ip_address].add(
+                            peer1.public_ip_address)
 
-            instances_per_reg[region] = instances
+                instances_per_reg[region] = instances
 
-        # spawned all instances
-        vpn_net = IPv4Network('10.0.0.0/24')
+            # spawned all instances
+            # configure ssh and vpn
+            records = deque()
+            vpn_net = IPv4Network('10.0.0.0/24')
+            for region, vpn_ip in zip(regions, vpn_net.hosts()):
+                logger.info(f'Configuring instances on region {region}.')
+                logger.debug(f'Region {region} VPN IP address: {vpn_ip}')
 
-        # configure ssh and vpn
-        for region, vpn_ip in zip(regions, vpn_net.hosts()):
-            logger.info(f'Configuring instances on region {region}.')
-            logger.debug(f'Region {region} VPN IP address: {vpn_ip}')
+                instances = instances_per_reg[region]
+                inv_hosts = {
+                    inst.instance_id: {
+                        'ansible_user': 'ubuntu',
+                        'ansible_host': inst.public_ip_address,
+                        'vpn_port'    : _vpn_port,
+                        'vpn_ip'      : str(vpn_ip),
+                        'vpn_peers'   : list(peers[inst.public_ip_address])
+                    } for inst in instances
+                }
 
-            instances = instances_per_reg[region]
-            inv_hosts = {
-                inst.instance_id: {
-                    'ansible_user': 'ubuntu',
-                    'ansible_host': inst.public_ip_address,
-                    'vpn_port'    : _vpn_port,
-                    'vpn_ip'      : str(vpn_ip),
-                    'vpn_peers'   : list(peers[inst.public_ip_address])
-                } for inst in instances
-            }
+                # enable password auth
+                inventory = {'all': {'hosts': inv_hosts}}
+                ansible_ctx = AnsibleContext(Path('./ansible_env'))
+                with ansible_ctx(
+                        inventory=inventory,
+                        ssh_key=keys_per_reg[region].key_file_path
+                ) as tmp_dir:
 
-            # enable password auth
-            inventory = {'all': {'hosts': inv_hosts}}
-            ansible_ctx = AnsibleContext(Path('./ansible_env'))
-            with ansible_ctx(
-                    inventory=inventory,
-                    ssh_key=keys_per_reg[region].key_file_path
-            ) as tmp_dir:
+                    for playbook in ('peca_ssh_auth.yml', 'peca_vpn.yml'):
+                        res = ansible_runner.run(
+                            playbook=playbook,
+                            json_mode=False,
+                            private_data_dir=str(tmp_dir),
+                            quiet=False
+                        )
 
-                for playbook in ('peca_ssh_auth.yml', 'peca_vpn.yml'):
-                    res = ansible_runner.run(
-                        playbook=playbook,
-                        json_mode=False,
-                        private_data_dir=str(tmp_dir),
-                        quiet=False
-                    )
+                    if res.status == 'failed':
+                        logger.error(f'Failed to configure instances.')
+                        for region, reg_instances in instances_per_reg.items():
+                            tear_down_instances(reg_instances)
+                        raise RuntimeError()
 
-                if res.status == 'failed':
-                    logger.error(f'Failed to configure instances.')
-                    for region, reg_instances in instances_per_reg.items():
-                        tear_down_instances(reg_instances)
-                    raise RuntimeError()
+                records.append(
+                    SpawnRecord(
+                        region=region,
+                        vpn_ip=str(vpn_ip),
+                        security_group=sec_groups_per_reg[region],
+                        instances=tuple([SpawnedInstance(
+                            id=i.id,
+                            public_ip=i.public_ip_address,
+                        )
+                            for i in instances_per_reg[region]])
+                    ).to_dict()
+                )
+    except Exception as e:
+        logger.warning('Exception, cleaning up.')
+        for region, instances in instances_per_reg:
+            tear_down_instances(instances)
+            delete_sg(sec_groups_per_reg[region], region)
+            raise e
 
-    records = [
-        SpawnRecord(
-            region=region,
-            security_group=sec_groups_per_reg[region],
-            instances=tuple([SpawnedInstance(id=i.id,
-                                             public_ip=i.public_ip_address)
-                             for i in instances_per_reg[region]])
-        ).to_dict() for region in regions
-    ]
-
-    yaml_record = yaml.safe_dump(records)
+    yaml_record = yaml.safe_dump(list(records))
     logger.info(f'Record:\n{yaml_record}')
     config_file.write(yaml_record)
-
-    # input('Pause')
-    # tear_down_instances(instances)
-    # ssh_sg.delete()
 
 
 @cli.command()
@@ -197,14 +217,7 @@ def clean_up(config_file: StringIO) -> None:
         tear_down_instances(map(_load_instance, record.instances))
 
         # delete security group
-        logger.info(f'Deleting security group {record.security_group}.')
-        try:
-            sg = ec2.SecurityGroup(record.security_group)
-            sg.load()
-            sg.delete()
-        except ClientError as e:
-            logger.exception(e)
-            logger.error(e)
+        delete_sg(record.security_group, record.region)
 
     # TODO: delete file?
 
