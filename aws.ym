@@ -1,0 +1,12 @@
+- instances:
+  - id: i-00a397ed713b59d42
+    public_dns: ec2-13-53-150-236.eu-north-1.compute.amazonaws.com
+    public_ip: 13.53.150.236
+  - id: i-01d5392bf6082bf33
+    public_dns: ec2-13-48-24-118.eu-north-1.compute.amazonaws.com
+    public_ip: 13.48.24.118
+  - id: i-043b82ad1c13db4a0
+    public_dns: ec2-13-48-178-145.eu-north-1.compute.amazonaws.com
+    public_ip: 13.48.178.145
+  region: eu-north-1
+  security_group: sg-061bdfaecd579c142
