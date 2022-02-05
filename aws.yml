@@ -1,6 +1,6 @@
 instances:
-- i-0ba2693e82626649b
-- i-0c3a37bedbf1420f2
-- i-063dd7808375bd00c
+- i-0e9afea2fee3362a3
+- i-015ece51a44817b4b
+- i-053349a611807de91
 region: eu-north-1
-security-group: sg-0900d0421ec61765d
+security_group: sg-0d4f07e255af58abd
