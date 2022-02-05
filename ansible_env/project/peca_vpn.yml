@@ -1,0 +1,24 @@
+---
+- name: Configure VPNCloud
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Write VPNCloud config file
+      ansible.builtin.copy:
+        dest: "/etc/vpncloud/peca.net"
+        # language=YAML
+        content: |
+          listen: {{ vpn_port }}
+          crypto:
+            password: "pecaclassroom"
+          ip: {{ vpn_ip }}
+          peers: {{ vpn_peers }}
+          auto-claim: true
+        mode: '0644'
+        backup: no
+
+    - name: Bring up VPNCloud connection
+      ansible.builtin.systemd:
+        name: "vpncloud@peca"
+        state: restarted
