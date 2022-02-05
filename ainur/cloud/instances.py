@@ -12,13 +12,62 @@ from mypy_boto3_ec2.service_resource import Instance
 from .errors import CloudError
 
 
+def _wait_instances_up(instances: Collection[Instance],
+                       startup_timeout_s: int,
+                       poll_port: int = 22):
+    # wait until instances are running and are accessible on port 22
+    with ThreadPoolExecutor() as tpool:
+        def _wait_for_instance(inst: Instance):
+            # first wait until instance is "running"
+            # (does not mean the OS is fully initialized though)
+            inst.wait_until_running()
+            inst.reload()
+            logger.debug(f'Instance {inst.instance_id} is running.')
+
+            # now, attempt to open a socket connection to port to verify
+            # that the instance is ready
+            timeout = time.monotonic() + startup_timeout_s
+            while time.monotonic() <= timeout:
+                with socket.socket(socket.AF_INET,
+                                   socket.SOCK_STREAM) as sock:
+                    try:
+                        sock.connect((inst.public_ip_address, poll_port))
+                        # connected, return
+                        logger.info(f'Instance {inst.instance_id} is '
+                                    f'ready.')
+                        return inst
+                    except (TimeoutError, ConnectionRefusedError):
+                        continue
+
+            # could not connect
+            # force the instance to terminate and raise an exception
+            logger.warning(f'Time-out for instance {inst.instance_id}.')
+            logger.warning(f'Aborting. Terminating instance '
+                           f'{inst.instance_id}.')
+            inst.terminate()  # this is asynchronous
+
+            raise TimeoutError(f'Timed-out waiting for '
+                               f'instance {inst.instance_id}.')
+
+        logger.debug('Waiting for instances to finish booting...')
+        spawned_instances = []
+        try:
+            for instance in tpool.map(_wait_for_instance, instances):
+                spawned_instances.append(instance)
+        except TimeoutError as e:
+            tear_down_instances(spawned_instances)
+            raise CloudError() from e
+    return spawned_instances
+
+
 def spawn_instances(num_instances: int,
                     key_name: str,
                     ami_id: str,
                     instance_type: str,
                     region: str,
                     security_group_ids: Collection[str] = (),
-                    startup_timeout_s: int = 60 * 3) -> List[Instance]:
+                    startup_timeout_s: int = 60 * 3,
+                    poll_port: int = 22) -> List[Instance]:
     """
     Parameters
     ----------
@@ -36,6 +85,8 @@ def spawn_instances(num_instances: int,
         Security groups to assign to the instances.
     startup_timeout_s
         Timeout for instance boot.
+    poll_port
+        Port to poll to detect instance up state.
 
     Returns
     -------
@@ -62,48 +113,9 @@ def spawn_instances(num_instances: int,
     )
     logger.debug('Instances created.')
 
-    # wait until instances are running and are accessible on port 22
-    with ThreadPoolExecutor() as tpool:
-        def _wait_for_instance(inst: Instance):
-            # first wait until instance is "running"
-            # (does not mean the OS is fully initialized though)
-            inst.wait_until_running()
-            inst.reload()
-            logger.debug(f'Instance {inst.instance_id} is running.')
-
-            # now, attempt to open a socket connection to port 22 to verify
-            # that the instance is ready
-            timeout = time.monotonic() + startup_timeout_s
-            while time.monotonic() <= timeout:
-                with socket.socket(socket.AF_INET,
-                                   socket.SOCK_STREAM) as sock:
-                    try:
-                        sock.connect((inst.public_ip_address, 22))
-                        # connected, return
-                        logger.info(f'Instance {inst.instance_id} is '
-                                    f'ready.')
-                        return inst
-                    except (TimeoutError, ConnectionRefusedError):
-                        continue
-
-            # could not connect
-            # force the instance to terminate and raise an exception
-            logger.warning(f'Time-out for instance {inst.instance_id}.')
-            logger.warning(f'Aborting. Terminating instance '
-                           f'{inst.instance_id}.')
-            inst.terminate()  # this is asynchronous
-
-            raise TimeoutError(f'Timed-out waiting for '
-                               f'instance {inst.instance_id}.')
-
-        logger.debug('Waiting for instances to finish booting...')
-        spawned_instances = []
-        try:
-            for instance in tpool.map(_wait_for_instance, instances):
-                spawned_instances.append(instance)
-        except TimeoutError as e:
-            tear_down_instances(spawned_instances)
-            raise CloudError() from e
+    spawned_instances = _wait_instances_up(instances,
+                                           startup_timeout_s=startup_timeout_s,
+                                           poll_port=poll_port)
 
     logger.info('EC2 instances are booted and ready.')
     return spawned_instances
