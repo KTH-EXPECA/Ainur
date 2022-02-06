@@ -187,10 +187,11 @@ def spawn_meshes(num_instances: int,
                 )
     except Exception as e:
         logger.warning('Exception, cleaning up.')
+        logger.exception(e)
         for region, instances in instances_per_reg:
             tear_down_instances(instances)
             delete_sg(sec_groups_per_reg[region], region)
-            raise e
+        exit(1)
 
     yaml_record = yaml.safe_dump(list(records))
     logger.info(f'Record:\n{yaml_record}')
