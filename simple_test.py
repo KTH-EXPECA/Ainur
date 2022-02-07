@@ -7,11 +7,14 @@ from ainur.networks import *
 from ainur.swarm import *
 from ainur.swarm.storage import ExperimentStorage
 
+# used to indentify the correct virtual machine image to use for each AWS region
 with open('./offload-ami-ids.yaml', 'r') as fp:
     ami_ids = yaml.safe_load(fp)
 region = 'eu-north-1'
 # region = 'us-east-1'
 
+# the workload switch, no need to change this
+# should eventually go in a config file.
 switch = Switch(
     name='glorfindel',
     management_ip=IPv4Interface('192.168.0.2/16'),
@@ -19,6 +22,13 @@ switch = Switch(
     password='expeca',
 )
 
+# SDR access point configurations for this workload scenario
+# note that SDRs are no longer associated to hosts, but rather to the network
+# as a whole.
+# The switch connects the port of the sdr to the rest of the network (
+# according to the net_name parameter) so that devices connected by wifi and
+# devices on the wire can talk to each other (and so devices connected by
+# wifi can reach the cloud! this is important).
 sdr_aps = [
     APSoftwareDefinedRadio(
         name='RFSOM-00002',
@@ -33,10 +43,35 @@ sdr_aps = [
     )
 ]
 
+# sdr STA configurations
+sdr_stas = [
+    # StationSoftwareDefinedRadio(
+    #     name='RFSOM=00001',
+    #     management_ip=IPv4Interface('172.16.2.11/24'),
+    #     mac='02:05:f7:80:0b:72',
+    #     ssid='eth_net',
+    #     net_name='eth_net',
+    #     switch_port=41
+    # ),
+    # StationSoftwareDefinedRadio(
+    #     name='RFSOM=00003',
+    #     management_ip=IPv4Interface('172.16.2.13/24'),
+    #     mac='02:05:f7:80:02:c8',
+    #     ssid='eth_net',
+    #     net_name='eth_net',
+    #     switch_port=43
+    # ),
+]
+
+# hosts is a mapping from host name to a LocalAinurHost object
+# note that the system determines how to connect devices using the ethernets
+# and wifis dict.
+# also note that if a device has more than one workload interface, ONLY ONE
+# WILL BE USED (and it will be selected arbitrarily!)
 hosts = {
     'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
-        ansible_user='expeca',
+        ansible_user='expeca',  # cloud instances have a different user
         # ethernets=frozendict({
         #     'eth0': EthernetCfg(
         #         ip_address=IPv4Interface('10.0.2.0/16'),
@@ -59,13 +94,14 @@ hosts = {
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface('10.0.2.0/16'),
                 routes=(
+                    # this route is necessary to reach the VPN to the cloud
                     IPRoute(
                         to=IPv4Interface('172.16.1.0/24'),
                         via=IPv4Address('10.0.1.0')
                     ),
                 ),
                 mac='7c:10:c9:1c:3f:f0',
-                ssid='expeca_wlan_1'
+                ssid='expeca_wlan_1'  # SDR wifi ssid
             )
         )
     ),
@@ -105,6 +141,8 @@ hosts = {
         )
     ),
     # TODO: automatic way of configuring VPN gateway?
+    # OLWE is the VPN host
+    # it is only here to connect it to the network, dont deploy workloads on it.
     'olwe'              : LocalAinurHost(
         management_ip=IPv4Interface('192.168.0.4/16'),
         ansible_user='expeca',
@@ -144,6 +182,9 @@ hosts = {
     ),
 }
 
+# configurations for cloud hosts
+# we only specify the desired ip addresses for the VPN networks and let AWS
+# handle the rest.
 cloud_hosts = [
     AinurCloudHostConfig(
         management_ip=IPv4Interface('172.16.0.2/24'),
@@ -211,9 +252,14 @@ if __name__ == '__main__':
         WorkloadSpecification.from_dict(yaml.safe_load(workload_def))
 
     # prepare everything
+    # if you dont want cloud instances, remove all CloudInstances and
+    # VPNCloudMesh objects!
     cloud = CloudInstances(
         region=region
     )
+
+    # this object merges and arbitrary number of VPN and local networks. it
+    # can be left here if the VPN is removed.
     ip_layer = CompositeLayer3Network()
 
     lan_layer = ip_layer.add_network(
@@ -239,7 +285,7 @@ if __name__ == '__main__':
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts=hosts,
                           radio_aps=sdr_aps,
-                          radio_stas=[],
+                          radio_stas=sdr_stas,
                           switch=switch)
         )
 
@@ -249,6 +295,7 @@ if __name__ == '__main__':
 
         # TODO: rework Swarm config to something less manual. Maybe fold in
         #  configs into general host specification somehow??
+        # swarm is a bit manual for now.
         swarm: DockerSwarm = stack.enter_context(swarm)
         swarm.deploy_managers(hosts={hosts['elrond']: {}},
                               location='edge',
@@ -264,10 +311,10 @@ if __name__ == '__main__':
             host_configs=cloud_hosts
         )
 
-        verify_wkld_net_connectivity(ip_layer)
-
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
                              role='backend', location='cloud')
+
+        # pull the desired workload images ahead of starting the workload
         swarm.pull_image(image='expeca/primeworkload', tag='server')
         swarm.pull_image(image='expeca/primeworkload', tag='client')
 
