@@ -22,9 +22,10 @@ from mypy_boto3_ec2.service_resource import Instance, SecurityGroup
 from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
 
 from ainur.ansible import AnsibleContext
-from ainur.cloud import AWSKeyPair, create_security_group, ssh_ingress_rule, \
+from ainur.cloud import AWSKeyPair, CloudError, create_security_group, \
+    ssh_ingress_rule, \
     tear_down_instances
-from ainur.cloud.instances import _wait_instances_up
+from ainur.cloud.instances import _wait_instances_up, spawn_instances
 
 _vpn_port = 3210
 
@@ -349,27 +350,80 @@ def spawn_meshes(num_meshes: int,
     config_file.write(yaml_record)
 
 
-# @cli.command()
-# @click.argument('config-file',
-#                 type=click.File(mode='r'))
-# def clean_up(config_file: StringIO) -> None:
-#     config = yaml.safe_load(config_file)
-#     records: Collection[SpawnRecord] = \
-#         [SpawnRecord.from_dict(c) for c in config]
-#
-#     for record in records:
-#         ec2 = boto3.resource('ec2', region_name=record.region)
-#
-#         # delete instances first, then sg
-#         def _load_instance(i: SpawnedInstance) -> Instance:
-#             inst = ec2.Instance(i.id)
-#             inst.load()
-#             return inst
-#
-#         tear_down_instances(map(_load_instance, record.instances))
-#
-#         # delete security group
-#         delete_sg(record.security_group, record.region)
+@cli.command()
+@click.argument('region', type=str)
+@click.option('-t', '--instance-type', type=str,
+              default='t3.micro', show_default=True)
+@click.option('--timeout', type=int,
+              default=60 * 3, show_default=True)
+@click.option('-u', '--tcp-port', 'tcp_ports', type=int, multiple=True,
+              default=(), show_default=True)
+@click.option('-u', '--udp-port', 'udp_ports', type=int, multiple=True,
+              default=(), show_default=True)
+def spawn_demo_instance(region: str,
+                        instance_type: str,
+                        timeout: int,
+                        tcp_ports: Collection[int],
+                        udp_ports: Collection[int]) -> None:
+
+    docker_port = 2375
+    tcp_ports = [docker_port] + list(tcp_ports)
+    udp_ports = [docker_port] + list(udp_ports)
+
+    ingress_rules = deque([ssh_ingress_rule])
+
+    for port in tcp_ports:
+        ingress_rules.append(
+            IpPermissionTypeDef(
+                FromPort=port, ToPort=port,
+                IpRanges=[
+                    IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                ],
+                IpProtocol='tcp'
+            )
+        )
+
+    for port in udp_ports:
+        ingress_rules.append(
+            IpPermissionTypeDef(
+                FromPort=port, ToPort=port,
+                IpRanges=[
+                    IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                ],
+                IpProtocol='udp'
+            )
+        )
+
+    with AWSKeyPair(region=region) as key:
+        # sec group first
+        sec_group = create_security_group(
+            name=f'peca-ssh-access-{uuid.uuid4().hex}',
+            desc='Ingress for demo',
+            region=region,
+            ingress_rules=list(ingress_rules)
+        )
+
+        try:
+            logger.info(f'Spawning instance in region {region}.')
+            instance = spawn_instances(
+                num_instances=1,
+                key_name=key.name,
+                ami_id=_ami_ids[region],
+                instance_type=instance_type,
+                region=region,
+                security_group_ids=[sec_group.group_id],
+                startup_timeout_s=timeout,
+            )[0]
+            logger.debug(f'Instance spawned: {instance.instance_id}')
+
+            logger.info(f'Instance IP: {instance.public_ip_address}')
+        except (CloudError, ClientError) as e:
+            logger.warning(f'Deleting security group {sec_group.group_id}.')
+            sec_group.delete()
+            logger.error(e)
+            return 1
+
+
 
 # TODO: delete file?
 
