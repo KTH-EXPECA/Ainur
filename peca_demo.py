@@ -104,7 +104,7 @@ cloud_hosts = [
 @click.option('-d', '--duration', type=str, default='30s', show_default=True)
 @click.option('-t', '--plant-tick-rate', type=int, default=100,
               show_default=True)
-@click.option('-s', '--plant-sample-rate', type='int', default=100)
+@click.option('-s', '--plant-sample-rate', type=int, default=100)
 def run_peca_demo(region: str,
                   duration: str,
                   plant_tick_rate: int,
@@ -114,12 +114,16 @@ def run_peca_demo(region: str,
 
     Parameters
     ----------
+
     region
         AWS region to run on, or 'local' to run locally.
+
     duration
         Emulation duration as a timeparse string.
+
     plant_tick_rate
         Tick rate in Hz.
+
     plant_sample_rate
         Sampling rate in Hz.
     """
