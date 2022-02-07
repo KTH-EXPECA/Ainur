@@ -21,6 +21,7 @@ def create_security_group(name: str,
     logger.debug(f'Egress rules:\n{egress_rules}')
 
     ec2 = boto3.resource('ec2', region_name=region)
+    ec2_client = boto3.client('ec2', region_name=region)
     vpc: Vpc = list(ec2.vpcs.all())[0]
 
     ingress_rules = list(ingress_rules)
@@ -37,6 +38,11 @@ def create_security_group(name: str,
             GroupName=name,
             VpcId=vpc.vpc_id
         )
+
+        # wait until exists
+        waiter = ec2_client.get_waiter('security_group_exists')
+        waiter.wait(GroupNames=[name], WaiterConfig={'Delay'      : 1,
+                                                     'MaxAttempts': 30})
 
         # allow traffic to flow freely within sec group
         sec_group.authorize_ingress(
