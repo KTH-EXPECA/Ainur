@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError
 from dataclasses_json import dataclass_json
 from loguru import logger
 from mypy_boto3_ec2.service_resource import Instance
+from mypy_boto3_ec2.type_defs import IpPermissionTypeDef, IpRangeTypeDef
 
 from ainur.ansible import AnsibleContext
 from ainur.cloud import AWSKeyPair, create_security_group, spawn_instances, \
@@ -104,9 +105,27 @@ def spawn_meshes(num_instances: int,
 
                 ssh_sg = create_security_group(
                     name=f'peca-ssh-access-{uuid.uuid4().hex}',
-                    desc='Ephemeral SSH access for PECA classroom.',
+                    desc='Ephemeral SSH and VPN access for PECA classroom.',
                     region=region,
-                    ingress_rules=[ssh_ingress_rule]
+                    ingress_rules=[
+                        ssh_ingress_rule,
+                        IpPermissionTypeDef(
+                            FromPort=_vpn_port,
+                            ToPort=_vpn_port,
+                            IpRanges=[
+                                IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                            ],
+                            IpProtocol='tcp'
+                        ),
+                        IpPermissionTypeDef(
+                            FromPort=_vpn_port,
+                            ToPort=_vpn_port,
+                            IpRanges=[
+                                IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                            ],
+                            IpProtocol='udp'
+                        )
+                    ]
                 )
                 sec_groups_per_reg[region] = ssh_sg.group_id
 
