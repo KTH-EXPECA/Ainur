@@ -19,43 +19,26 @@ switch = Switch(
     password='expeca',
 )
 
-# sdr_aps = [
-#     APSoftwareDefinedRadio(
-#         name='RFSOM-00002',
-#         management_ip=IPv4Interface('192.168.4.2/16'),
-#         mac='02:05:f7:80:0b:19',
-#         switch_port=42,
-#         ssid='expeca_wlan_1',
-#         net_name='eth_net',
-#         channel=11,
-#         beacon_interval=100,
-#         ht_capable=True
-#     )
-# ]
+sdr_aps = [
+    APSoftwareDefinedRadio(
+        name='RFSOM-00002',
+        management_ip=IPv4Interface('172.16.2.2/24'),
+        mac='02:05:f7:80:0b:19',
+        switch_port=42,
+        ssid='expeca_wlan_1',
+        net_name='eth_net',
+        channel=11,
+        beacon_interval=100,
+        ht_capable=True
+    )
+]
 
 hosts = {
     'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
         ansible_user='expeca',
-        ethernets=frozendict({
-            'eth0': EthernetCfg(
-                ip_address=IPv4Interface('10.0.2.0/16'),
-                routes=(
-                    IPRoute(
-                        to=IPv4Interface('172.16.1.0/24'),
-                        via=IPv4Address('10.0.1.0')
-                    ),
-                ),
-                mac='dc:a6:32:b4:d8:b5',
-                wire_spec=WireSpec(
-                    net_name='eth_net',
-                    switch_port=25
-                )
-            ),
-        }),
-        wifis=frozendict(),
-        # wifis=frozendict(
-        #     wlan1=WiFiCfg(
+        # ethernets=frozendict({
+        #     'eth0': EthernetCfg(
         #         ip_address=IPv4Interface('10.0.2.0/16'),
         #         routes=(
         #             IPRoute(
@@ -63,44 +46,63 @@ hosts = {
         #                 via=IPv4Address('10.0.1.0')
         #             ),
         #         ),
-        #         mac='7c:10:c9:1c:3f:f0',
-        #         ssid='expeca_wlan_1'
-        #     )
-        # )
-    ),
-    'workload-client-01': LocalAinurHost(
-        management_ip=IPv4Interface('192.168.3.1/16'),
-        ansible_user='expeca',
-        ethernets=frozendict({
-            'eth0': EthernetCfg(
-                ip_address=IPv4Interface('10.0.2.1/16'),
-                routes=(  # VPN route
+        #         mac='dc:a6:32:b4:d8:b5',
+        #         wire_spec=WireSpec(
+        #             net_name='eth_net',
+        #             switch_port=25
+        #         )
+        #     ),
+        # }),
+        # wifis=frozendict(),
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
+                ip_address=IPv4Interface('10.0.2.0/16'),
+                routes=(
                     IPRoute(
                         to=IPv4Interface('172.16.1.0/24'),
                         via=IPv4Address('10.0.1.0')
                     ),
                 ),
-                mac='dc:a6:32:bf:53:04',
-                wire_spec=WireSpec(
-                    net_name='eth_net',
-                    switch_port=26
-                )
-            ),
-        }),
-        wifis=frozendict(),
-        # wifis=frozendict(
-        #     wlan1=WiFiCfg(
+                mac='7c:10:c9:1c:3f:f0',
+                ssid='expeca_wlan_1'
+            )
+        )
+    ),
+    'workload-client-01': LocalAinurHost(
+        management_ip=IPv4Interface('192.168.3.1/16'),
+        ansible_user='expeca',
+        # ethernets=frozendict({
+        #     'eth0': EthernetCfg(
         #         ip_address=IPv4Interface('10.0.2.1/16'),
-        #         routes=(
+        #         routes=(  # VPN route
         #             IPRoute(
         #                 to=IPv4Interface('172.16.1.0/24'),
         #                 via=IPv4Address('10.0.1.0')
         #             ),
         #         ),
-        #         mac='7c:10:c9:1c:3f:ea',
-        #         ssid='expeca_wlan_1'
-        #     )
-        # )
+        #         mac='dc:a6:32:bf:53:04',
+        #         wire_spec=WireSpec(
+        #             net_name='eth_net',
+        #             switch_port=26
+        #         )
+        #     ),
+        # }),
+        # wifis=frozendict(),
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
+                ip_address=IPv4Interface('10.0.2.1/16'),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
+                mac='7c:10:c9:1c:3f:ea',
+                ssid='expeca_wlan_1'
+            )
+        )
     ),
     # TODO: automatic way of configuring VPN gateway?
     'olwe'              : LocalAinurHost(
@@ -178,11 +180,11 @@ compose:
       environment:
         PORT: 5000
       deploy:
-        replicas: 5
+        replicas: 4
         placement:
-          max_replicas_per_node: 5
+          max_replicas_per_node: 1  # 1 per cloud, 1 on elrond
           constraints:
-          - "node.labels.type==cloudlet"
+          - "node.labels.role==backend"
   
     client:
       image: expeca/primeworkload:client
@@ -190,11 +192,11 @@ compose:
         SERVER_ADDR: "server.{{.Task.Slot}}"
         SERVER_PORT: 5000
       deploy:
-        replicas: 5
+        replicas: 4
         placement:
           max_replicas_per_node: 1
           constraints:
-          - "node.labels.type==client"
+          - "node.labels.role==client"
         restart_policy:
           condition: on-failure
       depends_on:
@@ -236,7 +238,7 @@ if __name__ == '__main__':
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts=hosts,
-                          radio_aps=[],
+                          radio_aps=sdr_aps,
                           radio_stas=[],
                           switch=switch)
         )
@@ -248,11 +250,12 @@ if __name__ == '__main__':
         # TODO: rework Swarm config to something less manual. Maybe fold in
         #  configs into general host specification somehow??
         swarm: DockerSwarm = stack.enter_context(swarm)
-        swarm.deploy_managers(hosts={hosts['elrond']: {'type': 'cloudlet'}},
-                              location='local') \
+        swarm.deploy_managers(hosts={hosts['elrond']: {}},
+                              location='edge',
+                              role='backend') \
             .deploy_workers(hosts={hosts['workload-client-00']: {},
                                    hosts['workload-client-01']: {}},
-                            type='client', location='local')
+                            role='client')
 
         # start cloud instances
         cloud.init_instances(len(cloud_hosts), ami_id=ami_ids[region])
@@ -264,7 +267,7 @@ if __name__ == '__main__':
         verify_wkld_net_connectivity(ip_layer)
 
         swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
-                             type='client', location='cloud')
+                             role='backend', location='cloud')
         swarm.pull_image(image='expeca/primeworkload', tag='server')
         swarm.pull_image(image='expeca/primeworkload', tag='client')
 
