@@ -22,7 +22,7 @@ switch = Switch(
 sdr_aps = [
     APSoftwareDefinedRadio(
         name='RFSOM-00002',
-        management_ip=IPv4Interface('172.16.2.2/24'),
+        management_ip=IPv4Interface('172.16.2.12/24'),
         mac='02:05:f7:80:0b:19',
         switch_port=42,
         ssid='expeca_wlan_1',
