@@ -272,26 +272,32 @@ compose:
                                  role='controller',
                                  location=region)
 
-        swarm.pull_image(image=image, tag=tag)
+        logger.info('Cluster configured and ready to deploy workload.')
+        logger.debug(f'Backend configuration: {region}')
+        logger.info('Waiting for confirmation to continue...')
+        if click.confirm('Continue?', default=None):
+            logger.info('Deploying workload...')
 
-        storage: ExperimentStorage = stack.enter_context(
-            ExperimentStorage(
-                storage_name=workload_name,
-                storage_host=ManagedHost(
-                    management_ip=IPv4Interface('192.168.1.1/16'),
-                    ansible_user='expeca',
-                ),
-                network=ip_layer,
-                ansible_ctx=ansible_ctx,
-                ansible_quiet=False
+            swarm.pull_image(image=image, tag=tag)
+
+            storage: ExperimentStorage = stack.enter_context(
+                ExperimentStorage(
+                    storage_name=workload_name,
+                    storage_host=ManagedHost(
+                        management_ip=IPv4Interface('192.168.1.1/16'),
+                        ansible_user='expeca',
+                    ),
+                    network=ip_layer,
+                    ansible_ctx=ansible_ctx,
+                    ansible_quiet=False
+                )
             )
-        )
 
-        swarm.deploy_workload(
-            specification=workload,
-            attach_volume=storage.docker_vol_name,
-            max_failed_health_checks=-1
-        )
+            swarm.deploy_workload(
+                specification=workload,
+                attach_volume=storage.docker_vol_name,
+                max_failed_health_checks=-1
+            )
 
 
 if __name__ == '__main__':
