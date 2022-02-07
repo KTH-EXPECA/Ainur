@@ -74,6 +74,8 @@ class SDRManager(AbstractContextManager):
         # connect to the container server app
         # start the socket and connect
         host, port = "localhost", 50505
+        # TODO: dont use magic numbers,
+        #  put this in variables somewhere
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.settimeout(5)
         self._socket.connect((host, port))
