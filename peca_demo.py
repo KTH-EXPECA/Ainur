@@ -16,12 +16,27 @@ switch = Switch(
     password='expeca',
 )
 
+sdr_aps = [
+    APSoftwareDefinedRadio(
+        name='RFSOM-00002',
+        management_ip=IPv4Interface('172.16.2.12/24'),
+        mac='02:05:f7:80:0b:19',
+        switch_port=42,
+        ssid='expeca_wlan_1',
+        net_name='eth_net',
+        channel=11,
+        beacon_interval=100,
+        ht_capable=True
+    )
+]
+
 hosts = {
     'workload-client-00': LocalAinurHost(
         management_ip=IPv4Interface('192.168.3.0/16'),
         ansible_user='expeca',
-        ethernets=frozendict({
-            'eth0': EthernetCfg(
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
                 ip_address=IPv4Interface('10.0.2.0/16'),
                 routes=(
                     IPRoute(
@@ -29,27 +44,10 @@ hosts = {
                         via=IPv4Address('10.0.1.0')
                     ),
                 ),
-                mac='dc:a6:32:b4:d8:b5',
-                wire_spec=WireSpec(
-                    net_name='eth_net',
-                    switch_port=25
-                )
-            ),
-        }),
-        wifis=frozendict(),
-        # wifis=frozendict(
-        #     wlan1=WiFiCfg(
-        #         ip_address=IPv4Interface('10.0.2.0/16'),
-        #         routes=(
-        #             IPRoute(
-        #                 to=IPv4Interface('172.16.1.0/24'),
-        #                 via=IPv4Address('10.0.1.0')
-        #             ),
-        #         ),
-        #         mac='7c:10:c9:1c:3f:f0',
-        #         ssid='expeca_wlan_1'
-        #     )
-        # )
+                mac='7c:10:c9:1c:3f:f0',
+                ssid='expeca_wlan_1'
+            )
+        )
     ),
     # TODO: automatic way of configuring VPN gateway?
     'olwe'              : LocalAinurHost(
@@ -119,7 +117,7 @@ def run_peca_demo(region: str,
     region
         AWS region to run on, or 'local' to run locally.
     duration
-        Duration as a timeparse string.
+        Emulation duration as a timeparse string.
     plant_tick_rate
         Tick rate in Hz.
     plant_sample_rate
@@ -146,6 +144,7 @@ compose:
       image: {image}:{tag}
       hostname: "controller"
       command:
+        - -vvvvv
         - run-controller
         - examples/inverted_pendulum/controller/config.py
       environment:
@@ -167,6 +166,7 @@ compose:
     plant:
       image: {image}:{tag}
       command:
+        - -vvvvv
         - run-plant
         - examples/inverted_pendulum/plant/config.py
       environment:
@@ -237,7 +237,7 @@ compose:
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
             PhysicalLayer(hosts=hosts,
-                          radio_aps=[],
+                          radio_aps=sdr_aps,
                           radio_stas=[],
                           switch=switch)
         )
