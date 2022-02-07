@@ -370,7 +370,16 @@ def spawn_demo_instance(region: str,
     tcp_ports = [docker_port] + list(tcp_ports)
     udp_ports = [docker_port] + list(udp_ports)
 
-    ingress_rules = deque([ssh_ingress_rule])
+    ingress_rules = deque([
+        ssh_ingress_rule,
+        IpPermissionTypeDef(
+            FromPort=-1, ToPort=-1,
+            IpRanges=[
+                IpRangeTypeDef(CidrIp='0.0.0.0/0')
+            ],
+            IpProtocol='icmp'
+        )
+    ])
 
     for port in tcp_ports:
         ingress_rules.append(
