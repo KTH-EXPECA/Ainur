@@ -11,7 +11,7 @@ if __name__ == '__main__':
         with VPNCloudMesh(
                 gateway_ip=IPv4Address('130.237.53.70'),
                 vpn_psk=os.getenv('vpn_psk'),
-                ansible_ctx=AnsibleContext(base_dir=Path('./ansible_env')),
+                ansible_ctx=AnsibleContext(base_dir=Path('../ansible_env')),
                 ansible_quiet=False
         ) as vpn_mesh:
             cloud.init_instances(3)
