@@ -104,7 +104,8 @@ cloud_hosts = [
 @click.option('-d', '--duration', type=str, default='30s', show_default=True)
 @click.option('-t', '--plant-tick-rate', type=int, default=100,
               show_default=True)
-@click.option('-s', '--plant-sample-rate', type=int, default=100)
+@click.option('-s', '--plant-sample-rate', type=int, default=100,
+              show_default=True)
 def run_peca_demo(region: str,
                   duration: str,
                   plant_tick_rate: int,
