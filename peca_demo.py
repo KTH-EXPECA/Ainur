@@ -149,7 +149,7 @@ cloud_hosts = [
 @click.argument('workload_name', type=str)
 @click.option('-n', '--num-loops', type=int, default=1, show_default=True)
 @click.option('-r', '--region', type=str, default='local', show_default=True)
-@click.option('-d', '--duration', type=str, default='30s', show_default=True)
+@click.option('-d', '--duration', type=int, default=30, show_default=True)
 @click.option('-t', '--plant-tick-rate', type=int, default=100,
               show_default=True)
 @click.option('-s', '--plant-sample-rate', type=int, default=100,
@@ -157,7 +157,7 @@ cloud_hosts = [
 def run_peca_demo(workload_name: str,
                   num_loops: int,
                   region: str,
-                  duration: str,
+                  duration: int,
                   plant_tick_rate: int,
                   plant_sample_rate: int) -> None:
     """
@@ -175,7 +175,7 @@ def run_peca_demo(workload_name: str,
         AWS region to run on, or 'local' to run locally.
 
     duration
-        Emulation duration as a timeparse string.
+        Emulation duration in seconds.
 
     plant_tick_rate
         Tick rate in Hz.
@@ -203,7 +203,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "1m"
+max_duration: {1.1 * duration}s
 compose:
   version: "3.9"
   services:
@@ -242,7 +242,7 @@ compose:
         CONTROLLER_ADDRESS: {controller_name}
         CONTROLLER_PORT: "50000"
         TICK_RATE: "{plant_tick_rate:d}"
-        EMU_DURATION: "{duration}"
+        EMU_DURATION: "{duration}s"
         FAIL_ANGLE_RAD: "-1"
         SAMPLE_RATE: "{plant_sample_rate:d}"
         PEND_LEN: 0.75
