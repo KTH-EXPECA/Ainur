@@ -242,6 +242,7 @@ compose:
         EMU_DURATION: "{duration}"
         FAIL_ANGLE_RAD: "-1"
         SAMPLE_RATE: "{plant_sample_rate:d}"
+        PEND_LEN: 0.75
       deploy:
         replicas: 1
         placement:
