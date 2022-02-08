@@ -192,6 +192,9 @@ def run_peca_demo(workload_name: str,
 
     max_reps_per_node = num_loops if region == 'local' else 1
 
+    controller_name = "controller.{{.Task.Slot}}"
+    plant_name = "plant.{{.Task.Slot}}"
+
     # language=yaml
     workload_def = f'''
 ---
@@ -206,14 +209,14 @@ compose:
   services:
     controller:
       image: {image}:{tag}
-      hostname: "controller"
+      hostname: {controller_name}
       command:
         - -vvvvv
         - run-controller
         - examples/inverted_pendulum/controller/config.py
       environment:
         PORT: "50000"
-        NAME: "controller"
+        NAME: {controller_name}
       deploy:
         replicas: {num_loops}
         placement:
@@ -235,8 +238,8 @@ compose:
         - run-plant
         - examples/inverted_pendulum/plant/config.py
       environment:
-        NAME: "plant"
-        CONTROLLER_ADDRESS: "controller"
+        NAME: {plant_name}
+        CONTROLLER_ADDRESS: {controller_name}
         CONTROLLER_PORT: "50000"
         TICK_RATE: "{plant_tick_rate:d}"
         EMU_DURATION: "{duration}"
@@ -244,7 +247,7 @@ compose:
         SAMPLE_RATE: "{plant_sample_rate:d}"
         PEND_LEN: 0.75
       deploy:
-        replicas: 1
+        replicas: {num_loops}
         placement:
           max_replicas_per_node: 1
           constraints:
