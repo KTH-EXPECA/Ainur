@@ -49,6 +49,42 @@ hosts = {
             )
         )
     ),
+    'workload-client-01': LocalAinurHost(
+        management_ip=IPv4Interface('192.168.3.1/16'),
+        ansible_user='expeca',
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
+                ip_address=IPv4Interface('10.0.2.1/16'),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
+                mac='7c:10:c9:1c:3f:ea',
+                ssid='expeca_wlan_1'
+            )
+        )
+    ),
+    'workload-client-02': LocalAinurHost(
+        management_ip=IPv4Interface('192.168.3.2/16'),
+        ansible_user='expeca',
+        ethernets=frozendict(),
+        wifis=frozendict(
+            wlan1=WiFiCfg(
+                ip_address=IPv4Interface('10.0.2.2/16'),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface('172.16.1.0/24'),
+                        via=IPv4Address('10.0.1.0')
+                    ),
+                ),
+                mac='7c:10:c9:1c:3f:e8',
+                ssid='expeca_wlan_1'
+            )
+        )
+    ),
     # TODO: automatic way of configuring VPN gateway?
     'olwe'              : LocalAinurHost(
         management_ip=IPv4Interface('192.168.0.4/16'),
@@ -95,18 +131,32 @@ cloud_hosts = [
         workload_ip=IPv4Interface('172.16.1.2/24'),
         ansible_user='ubuntu',
     ),
+    AinurCloudHostConfig(
+        management_ip=IPv4Interface('172.16.0.3/24'),
+        workload_ip=IPv4Interface('172.16.1.3/24'),
+        ansible_user='ubuntu',
+    ),
+    AinurCloudHostConfig(
+        management_ip=IPv4Interface('172.16.0.4/24'),
+        workload_ip=IPv4Interface('172.16.1.4/24'),
+        ansible_user='ubuntu',
+    ),
 ]
 
 
 # noinspection DuplicatedCode
 @click.command()
+@click.argument('workload_name', type=str)
+@click.option('-n', '--num-loops', type=int, default=1, show_default=True)
 @click.option('-r', '--region', type=str, default='local', show_default=True)
 @click.option('-d', '--duration', type=str, default='30s', show_default=True)
 @click.option('-t', '--plant-tick-rate', type=int, default=100,
               show_default=True)
 @click.option('-s', '--plant-sample-rate', type=int, default=100,
               show_default=True)
-def run_peca_demo(region: str,
+def run_peca_demo(workload_name: str,
+                  num_loops: int,
+                  region: str,
                   duration: str,
                   plant_tick_rate: int,
                   plant_sample_rate: int) -> None:
@@ -115,6 +165,11 @@ def run_peca_demo(region: str,
 
     Parameters
     ----------
+    workload_name
+        Name of this workload. Used for logging and storage.
+
+    num_loops
+        Number of loops to run.
 
     region
         AWS region to run on, or 'local' to run locally.
@@ -129,9 +184,13 @@ def run_peca_demo(region: str,
         Sampling rate in Hz.
     """
 
-    workload_name = f'CLEAVE-{region}'
+    assert num_loops <= 3
+
+    # workload_name = f'CLEAVE-{region}'
     image = 'molguin/cleave'
     tag = 'cleave'
+
+    max_reps_per_node = num_loops if region == 'local' else 1
 
     # language=yaml
     workload_def = f'''
@@ -156,8 +215,9 @@ compose:
         PORT: "50000"
         NAME: "controller"
       deploy:
-        replicas: 1
+        replicas: {num_loops}
         placement:
+          max_replicas_per_node: {max_reps_per_node}
           constraints:
           - "node.labels.role==controller"
           - "node.labels.location=={region}"
@@ -257,9 +317,14 @@ compose:
         swarm.deploy_managers(hosts={hosts['elrond']: {}},
                               role='controller',
                               location='local') \
-            .deploy_workers(hosts={hosts['workload-client-00']: {}},
-                            role='plant',
-                            location='local')
+            .deploy_workers(
+            hosts={
+                hosts['workload-client-00']: {},
+                hosts['workload-client-01']: {},
+                hosts['workload-client-02']: {}
+            },
+            role='plant',
+            location='local')
 
         if region != 'local':
             # start cloud instances

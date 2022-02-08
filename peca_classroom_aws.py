@@ -28,6 +28,7 @@ from ainur.cloud import AWSKeyPair, CloudError, create_security_group, \
 from ainur.cloud.instances import _wait_instances_up, spawn_instances
 
 _vpn_port = 3210
+_jupyter_port = 8080
 
 _ami_ids = {
     'ap-northeast-1': 'ami-00cb30ece35fa32da',
@@ -57,6 +58,7 @@ def make_ssh_secgroup(region: str):
         region=region,
         ingress_rules=[
             ssh_ingress_rule,
+            # VPN
             IpPermissionTypeDef(
                 FromPort=_vpn_port,
                 ToPort=_vpn_port,
@@ -68,6 +70,23 @@ def make_ssh_secgroup(region: str):
             IpPermissionTypeDef(
                 FromPort=_vpn_port,
                 ToPort=_vpn_port,
+                IpRanges=[
+                    IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                ],
+                IpProtocol='udp'
+            ),
+            # jupyter
+            IpPermissionTypeDef(
+                FromPort=_jupyter_port,
+                ToPort=_jupyter_port,
+                IpRanges=[
+                    IpRangeTypeDef(CidrIp='0.0.0.0/0')
+                ],
+                IpProtocol='tcp'
+            ),
+            IpPermissionTypeDef(
+                FromPort=_jupyter_port,
+                ToPort=_jupyter_port,
                 IpRanges=[
                     IpRangeTypeDef(CidrIp='0.0.0.0/0')
                 ],
@@ -364,8 +383,7 @@ def spawn_demo_instance(region: str,
                         instance_type: str,
                         timeout: int,
                         tcp_ports: Collection[int],
-                        udp_ports: Collection[int]) -> None:
-
+                        udp_ports: Collection[int]) -> int:
     docker_port = 2375
     tcp_ports = [docker_port] + list(tcp_ports)
     udp_ports = [docker_port] + list(udp_ports)
@@ -432,9 +450,7 @@ def spawn_demo_instance(region: str,
             logger.error(e)
             return 1
 
-
-
-# TODO: delete file?
+    return 0
 
 
 if __name__ == '__main__':
