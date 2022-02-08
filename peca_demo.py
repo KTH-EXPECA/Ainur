@@ -203,7 +203,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: {1.1 * duration}s
+max_duration: {1.5 * duration}s
 compose:
   version: "3.9"
   services:
