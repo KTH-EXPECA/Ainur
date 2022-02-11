@@ -53,7 +53,7 @@ class PhysicalLayer(AbstractContextManager,
         if startFresh==True:
             self._fluent_server.start_fresh
         else:
-            elf._fluent_server.verify_status
+            self._fluent_server.verify_status
 
 
         # Instantiate sdr network container
