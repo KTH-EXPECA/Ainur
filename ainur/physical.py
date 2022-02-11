@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
+from operator import truediv
 from typing import Dict, Iterator, Mapping
 
 from loguru import logger
@@ -45,12 +46,14 @@ class PhysicalLayer(AbstractContextManager,
                                       conn_specs=network_desc[
                                           'connection_specs'])
 
-        # Instantiate Logger Module
+        # Instantiate Logger Module in Servre (Currently Galadriel)
         log_dirPath="./../Logs/" #Add path to log directory here, assuming it is situated in Ainur.
-        self._fluent_logger=FluentServer(log_dirPath)
-        self._fluent_logger.prune_fluent
-        self._fluent_logger.create_image
-        self._fluent_logger.start_container
+        self._fluent_server=FluentServer(log_dirPath)
+        startFresh=True #Recreate and restart container, <ONLY for development phase>
+        if startFresh==True:
+            self._fluent_server.start_fresh
+        else:
+            elf._fluent_server.verify_status
 
 
         # Instantiate sdr network container

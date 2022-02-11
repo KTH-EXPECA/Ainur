@@ -60,3 +60,12 @@ class FluentServer():
         self.prune_fluent(self)
         self.create_image(self)
         self.start_container(self)
+
+    def verify_status(self):
+        try:
+            self.docker_server.containers.get('fluentserver_container').start()
+        except:   
+            self.prune_fluent(self)
+            self.create_image(self)
+            self.start_container(self)
+            print('No running/stopped fluent Server container found. Creating new image and container')
