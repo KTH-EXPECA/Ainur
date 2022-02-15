@@ -3,37 +3,36 @@
 
 
 
-#======THIS FILE IS ONLY FOR DEBUG PURPOSES IN THE TESTBED======#
+#======THIS FILE IS ONLY FOR DEBUG PURPOSES IN THE LOCAL MACHINE======#
 #-------------WILL BE REMOVED ONCE THE CODE IS STABLE-----------------#
 
 
 
 
 
-import time
-from ipaddress import IPv4Interface
-from pathlib import Path
 
-import yaml
+
 from fluent_server import FluentServer
 from fluent_client import FluentClient
-from loguru import logger
 
 #======Start Logging======#
-startFresh=True #Recreate and restart container, <ONLY for development phase>
+server_rebuildAndRecreate=True #Recreate image & container and restart container, <ONLY for development phase>
+client_rebuildAndRecreate=True 
 
 # 1. Verify that the fluent server is running. Start if it is not.
 # Currently, the server is located in Galadriel. 
 # TODO: Move logging to the custom Machine. It also need fluentClient Config file modification
 log_dirPath="/opt/Logs/" #Note: There is a potential error in fluent in mkdir. Better make sure that the base directory exists.
-print("\nStarting fluent server....")
+log_dirPath="/Users/vnmo/Documents/Python/Logs"
+print("initialising server...........")
 fluentserver=FluentServer(log_dirPath)
-if startFresh==True:
+print("initialised.")
+if server_rebuildAndRecreate==False:
+    print("starting server container fresh...........")
     fluentserver.start_fresh()
 else:
     fluentserver.verify_running_status()
-
-print("Fluent server started.\n")
+print("server container is Running.")
 
 # 2. Start all the Fluent clients
 listOfClientNames=['thingol','elrond','workload-client-00','workload-client-01']
@@ -42,15 +41,14 @@ dockerPort='2375'
 listOfClients=[]
 for ClientName in listOfClientNames:
     client_url=ClientName+'.expeca:'+str(dockerPort)
-    print("\nStarting fluent client in "+client_url+"....")
+    client_url='130.237.53.70:2375'
     fluentclient=FluentClient(client_url)
-    fluentclient.remove_container()
-    if startFresh==True:
-        fluentclient.remove_image()
-        fluentclient.create_image()
+    fluentclient.remove_container
+    if client_rebuildAndRecreate==True:
+        fluentclient.remove_image
+        fluentclient.create_image
     else:
         pass
-    fluentclient.start_container()
+    fluentclient.start_container
     listOfClients.append(fluentclient)
-    print('Fluent client started in '+ClientName+"\n")
     #======End of logging initialisation======#
