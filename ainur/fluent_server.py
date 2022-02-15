@@ -10,7 +10,7 @@ class FluentServer():
         self.dirPath=log_dirPath
 
     def prune(self):
-        self.remove_image(self) 
+        self.remove_image() 
         #Remove fluent images and containers.
         #self.REMOVE_VOLUEMES #Remove volumes if used. Currently only mounting existing directory is used
 
@@ -22,7 +22,7 @@ class FluentServer():
             pass
 
     def remove_container(self):
-        self.stop_container(self)    #Stop Container before removing it
+        self.stop_container()    #Stop Container before removing it
         try:
             self.docker_server.containers.get('fluentserver_container').remove()
             print('Removing existing fluent server containers')
@@ -30,7 +30,7 @@ class FluentServer():
             pass
 
     def remove_image(self):
-        self.remove_container(self)  #Stop (And Remove) Container before removing the image
+        self.remove_container()  #Stop (And Remove) Container before removing the image
         try:
             self.docker_server.images.remove(image="fluentserver_image")
             print('Removing fluent server Image')
@@ -57,15 +57,15 @@ class FluentServer():
         print('Created fluent server container')
 
     def start_fresh(self):
-        self.prune(self)
-        self.create_image(self)
-        self.start_container(self)
+        self.prune()
+        self.create_image()
+        self.start_container()
 
     def verify_running_status(self):
         try:
             self.docker_server.containers.get('fluentserver_container').start()
         except:   
-            self.prune(self)
-            self.create_image(self)
-            self.start_container(self)
+            self.prune()
+            self.create_image()
+            self.start_container()
             print('No running/stopped fluent Server container found. Creating new image and container')

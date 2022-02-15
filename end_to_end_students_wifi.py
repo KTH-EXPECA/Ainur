@@ -537,11 +537,11 @@ if __name__ == '__main__':
     # Currently, the server is located in Galadriel. 
     # TODO: Move logging to the custom Machine. It also need fluentClient Config file modification
     log_dirPath="/opt/Logs/" #Note: There is a potential error in fluent in mkdir. Better make sure that the base directory exists.
-    fluent_server=FluentServer(log_dirPath)
+    fluentserver=FluentServer(log_dirPath)
     if startFresh==True:
-        fluent_server.start_fresh
+        fluentserver.start_fresh()
     else:
-        fluent_server.verify_running_status
+        fluentserver.verify_running_status()
 
     # 2. Start all the Fluent clients
     listOfClientNames=['thingol','elrond','workload-client-00','workload-client-01']
@@ -550,15 +550,15 @@ if __name__ == '__main__':
     listOfClients=[]
     for ClientName in listOfClientNames:
         client_url=ClientName+'.expeca:'+str(dockerPort)
-        fluent_client=FluentClient(client_url)
-        fluent_client.remove_container
+        fluentclient=FluentClient(client_url)
+        fluentclient.remove_container()
         if startFresh==True:
-            fluent_client.remove_image
-            fluent_client.create_image
+            fluentclient.remove_image()
+            fluentclient.create_image()
         else:
             pass       
-        fluent_client.start_container
-        listOfClients.append(fluent_client)
+        fluentclient.start_container()
+        listOfClients.append(fluentclient)
     #======End of logging initialisation======#
 
 
@@ -612,5 +612,5 @@ if __name__ == '__main__':
 
     #===== Stop (Not remove) the Logger in all slients.
     # TODO: Check the posotioning of stopping the fluent clients
-    for fluent_client in listOfClients:
-        fluent_client=fluent_client.stop_container
+    for fluentclient in listOfClients:
+        fluentclient.stop_container()

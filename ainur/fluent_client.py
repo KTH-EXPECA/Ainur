@@ -7,7 +7,7 @@ class FluentClient():
         self.docker_client=docker.DockerClient(base_url=client_url)
 
     def prune(self):
-        self.remove_image(self) 
+        self.remove_image() 
         #Remove fluent images and containers.
         #self.REMOVE_VOLUEMES #Remove volumes if used. Currently only mounting existing directory is used
 
@@ -19,7 +19,7 @@ class FluentClient():
             pass
 
     def remove_container(self):
-        self.stop_container(self)    #Stop Container before removing it
+        self.stop_container()    #Stop Container before removing it
         try:
             self.docker_client.containers.get('fluentclient_container').remove()
             print('Removing existing fluent client containers')
@@ -27,7 +27,7 @@ class FluentClient():
             pass
 
     def remove_image(self):
-        self.remove_container(self)  #Remove Container before removing the image
+        self.remove_container()  #Remove Container before removing the image
         try:
             self.docker_client.images.remove(image="fluentclient_image")
             print('Removing fluent client Image')
@@ -56,6 +56,6 @@ class FluentClient():
         print('Created fluent client container')
 
     def start_fresh(self):
-        self.prune(self)
-        self.create_image(self)
-        self.start_container(self)
+        self.prune()
+        self.create_image()
+        self.start_container()
