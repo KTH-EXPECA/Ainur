@@ -36,7 +36,7 @@ else:
 print("Fluent server started.\n")
 
 # 2. Start all the Fluent clients
-listOfClientNames=['thingol','elrond','workload-client-00','workload-client-01']
+listOfClientNames=['finarfin','elrond','workload-client-00','workload-client-01']
 # TODO: Create this list from the inventory
 dockerPort='2375'
 listOfClients=[]
