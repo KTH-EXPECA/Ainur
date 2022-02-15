@@ -3,6 +3,8 @@ from ipaddress import IPv4Interface
 from pathlib import Path
 
 import yaml
+from ainur.fluent_server import FluentServer
+from ainur.fluent_client import FluentClient
 from loguru import logger
 
 from ainur import *
@@ -528,6 +530,38 @@ if __name__ == '__main__':
 
     conn_specs = workload_network_desc['connection_specs']
 
+    #======Start Logging======#
+    startFresh=True #Recreate and restart container, <ONLY for development phase>
+
+    # 1. Verify that the fluent server is running. Start if it is not.
+    # Currently, the server is located in Galadriel. 
+    # TODO: Move logging to the custom Machine. It also need fluentClient Config file modification
+    log_dirPath="/opt/Logs/" #Note: There is a potential error in fluent in mkdir. Better make sure that the base directory exists.
+    fluent_server=FluentServer(log_dirPath)
+    if startFresh==True:
+        fluent_server.start_fresh
+    else:
+        fluent_server.verify_running_status
+
+    # 2. Start all the Fluent clients
+    listOfClientNames=['thingol','elrond','workload-client-00','workload-client-01']
+    # TODO: Create this list from the inventory
+    dockerPort='2375'
+    listOfClients=[]
+    for ClientName in listOfClientNames:
+        client_url=ClientName+'.expeca:'+str(dockerPort)
+        fluent_client=FluentClient(client_url)
+        fluent_client.remove_container
+        if startFresh==True:
+            fluent_client.remove_image
+            fluent_client.create_image
+        else:
+            pass       
+        fluent_client.start_container
+        listOfClients.append(fluent_client)
+    #======End of logging initialisation======#
+
+
     # Start phy layer
     with PhysicalLayer(inventory,
                        workload_network_desc,
@@ -574,3 +608,9 @@ if __name__ == '__main__':
                         complete_threshold=3,
                         max_failed_health_checks=-1
                     )
+
+
+    #===== Stop (Not remove) the Logger in all slients.
+    # TODO: Check the posotioning of stopping the fluent clients
+    for fluent_client in listOfClients:
+        fluent_client=fluent_client.stop_container

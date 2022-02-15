@@ -10,7 +10,7 @@ from .ansible import AnsibleContext
 from .hosts import Layer2ConnectedWorkloadHost
 from .managed_switch import ManagedSwitch
 from .sdr_manager import SDRManager
-from .fluent_server import FluentServer
+# from .fluent_server import FluentServer
 
 
 class PhysicalLayer(AbstractContextManager,
@@ -46,14 +46,14 @@ class PhysicalLayer(AbstractContextManager,
                                       conn_specs=network_desc[
                                           'connection_specs'])
 
-        # Instantiate Logger Module in Servre (Currently Galadriel)
-        log_dirPath="./../Logs/" #Add path to log directory here, assuming it is situated in Ainur.
-        self._fluent_server=FluentServer(log_dirPath)
-        startFresh=True #Recreate and restart container, <ONLY for development phase>
-        if startFresh==True:
-            self._fluent_server.start_fresh
-        else:
-            self._fluent_server.verify_status
+        # # Instantiate Logger Module in Servre (Currently Galadriel)
+        # log_dirPath="./../Logs/" #Add path to log directory here, assuming it is situated in Ainur.
+        # self._fluent_server=FluentServer(log_dirPath)
+        # startFresh=True #Recreate and restart container, <ONLY for development phase>
+        # if startFresh==True:
+        #     self._fluent_server.start_fresh
+        # else:
+        #     self._fluent_server.verify_status
 
 
         # Instantiate sdr network container
