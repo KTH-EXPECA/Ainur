@@ -49,7 +49,7 @@ class FluentClient():
 	        stdin_open=True,
             tty=True,
             name="fluentclient_container",
-            environment={'logName': 'ArbitraryWorkLoad','hostName':ClientName},
+            environment={'logName': 'ArbitraryWorkLoad','hostName':str(ClientName)},
             ports={'24224/tcp':24224,'24224/udp':24224,'24225/tcp':24225,'24225/udp':24225}
             #,volumes=[str(self.dirPath)+str(self.dirName)+':/fluent-bit/log:rw']
         )
