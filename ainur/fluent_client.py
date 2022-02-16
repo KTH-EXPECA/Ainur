@@ -14,7 +14,7 @@ class FluentClient():
     def stop_container(self):
         try:
             self.docker_client.containers.get('fluentclient_container').stop()
-            print('Stopping existing fluent client containers')
+            print('\tStopping existing fluent client containers...')
         except:
             pass
 
@@ -22,7 +22,7 @@ class FluentClient():
         self.stop_container()    #Stop Container before removing it
         try:
             self.docker_client.containers.get('fluentclient_container').remove()
-            print('Removing existing fluent client containers')
+            print('\tRemoving existing fluent client containers...')
         except:
             pass
 
@@ -30,7 +30,7 @@ class FluentClient():
         self.remove_container()  #Remove Container before removing the image
         try:
             self.docker_client.images.remove(image="fluentclient_image")
-            print('Removing fluent client Image')
+            print('\tRemoving fluent client Image...')
         except:
             pass
 
@@ -39,7 +39,7 @@ class FluentClient():
         # os.chdir(pyFile_dir_path)
         # self.fluentImage = self.docker_client.images.build(path = "./../Fluent/Client/", tag="fluentclient_image")
         self.fluentImage = self.docker_client.images.build(path = "/home/expeca/Ainur/Fluent/Client/", tag="fluentclient_image")
-        print('Created Fluent Client Image, '+str(self.fluentImage[0]))
+        print('\tCreated new Fluent Client Image, '+str(self.fluentImage[0])+'.')
 
     def start_container(self):
         # TODO: Collect the proper workloadName/MetaData to pass on to the container. Currently "ArbitraryWorkLoad" is used
@@ -53,7 +53,7 @@ class FluentClient():
             ports={'24224/tcp':24224,'24224/udp':24224,'24225/tcp':24225,'24225/udp':24225}
             #,volumes=[str(self.dirPath)+str(self.dirName)+':/fluent-bit/log:rw']
         )
-        print('Created fluent client container')
+        print('\tStarting fluent client container...')
 
     def start_fresh(self):
         self.prune()
