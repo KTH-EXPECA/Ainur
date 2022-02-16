@@ -41,7 +41,7 @@ class FluentClient():
         self.fluentImage = self.docker_client.images.build(path = "/home/expeca/Ainur/Fluent/Client/", tag="fluentclient_image")
         print('\tCreated new Fluent Client Image, '+str(self.fluentImage[0])+'.')
 
-    def start_container(self):
+    def start_container(self,ClientName):
         # TODO: Collect the proper workloadName/MetaData to pass on to the container. Currently "ArbitraryWorkLoad" is used
         self.docker_client.containers.run(
             image="fluentclient_image", 
@@ -49,13 +49,13 @@ class FluentClient():
 	        stdin_open=True,
             tty=True,
             name="fluentclient_container",
-            environment={'logName': 'ArbitraryWorkLoad'},
+            environment={'logName': 'ArbitraryWorkLoad','hostName':ClientName},
             ports={'24224/tcp':24224,'24224/udp':24224,'24225/tcp':24225,'24225/udp':24225}
             #,volumes=[str(self.dirPath)+str(self.dirName)+':/fluent-bit/log:rw']
         )
         print('\tStarting fluent client container...')
 
-    def start_fresh(self):
+    def start_fresh(self,ClientName):
         self.prune()
         self.create_image()
-        self.start_container()
+        self.start_container(ClientName)

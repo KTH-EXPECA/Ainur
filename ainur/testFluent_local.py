@@ -43,12 +43,12 @@ for ClientName in listOfClientNames:
     client_url=ClientName+'.expeca:'+str(dockerPort)
     client_url='130.237.53.70:2375'
     fluentclient=FluentClient(client_url)
-    fluentclient.remove_container
+    fluentclient.remove_container()
     if client_rebuildAndRecreate==True:
-        fluentclient.remove_image
-        fluentclient.create_image
+        fluentclient.remove_image()
+        fluentclient.create_image()
     else:
         pass
-    fluentclient.start_container
+    fluentclient.start_container(ClientName)
     listOfClients.append(fluentclient)
     #======End of logging initialisation======#

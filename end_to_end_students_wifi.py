@@ -577,7 +577,7 @@ if __name__ == '__main__':
             fluentclient.create_image()
         else:
             pass       
-        fluentclient.start_container()
+        fluentclient.start_container(ClientName)
         listOfClients.append(fluentclient)
         print('Fluent client started in '+ClientName+"\n")
     #======End of logging initialisation======#
