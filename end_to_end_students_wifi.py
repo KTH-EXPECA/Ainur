@@ -547,9 +547,7 @@ if __name__ == '__main__':
     print("Fluent server started.\n")
 
     # 2. Start all the Fluent clients
-    listOfClientNames=['fingolfin'
-                      ,'elrond'
-                      ,'finarfin'
+    listOfClientNames=['elrond'
                       ,'workload-client-00'
                       ,'workload-client-01'
                       ,'workload-client-02'
@@ -560,9 +558,9 @@ if __name__ == '__main__':
                       ,'workload-client-07'
                       ,'workload-client-08'
                       ,'workload-client-09'
-                      ,'workload-client-10'
-                      ,'workload-client-11'
-                      ,'workload-client-12'
+                    #   ,'workload-client-10'
+                    #   ,'workload-client-11'
+                    #   ,'workload-client-12'
     ]
     # TODO: Create this list from the inventory
     dockerPort='2375'
