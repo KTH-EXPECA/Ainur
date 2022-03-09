@@ -10,7 +10,7 @@ from ainur.swarm.storage import ExperimentStorage
 from autoran.oailte.epc import EvolvedPacketCore
 from autoran.oailte.enodeb import ENodeB
 from autoran.oailte.ue  import LTEUE
-
+from autoran.utils import DockerNetwork
 
 # the workload switch, no need to change this
 # should eventually go in a config file.
@@ -62,11 +62,24 @@ sdr_stas = [
     # ),
 ]
 
-
-lte_epc = EvolvedPacketCore(
-            host='finarfin',
-            private_network='192.168.68.0/26',
-            public_network='192.168.61.192/26',
+# create EPC networks
+# EPC private network
+epc_private_network = DockerNetwork(
+        host='finarfin',
+        network=IPv4Network('192.168.68.0/26'),
+        name='prod-oai-private-net'
+)
+# EPC public network
+epc_public_network = DockerNetwork(
+        host='finarfin',
+        network=IPv4Network('192.168.61.192/26'),
+        name='prod-oai-public-net'
+)
+# create EPC
+epc = EvolvedPacketCore(
+        host='finarfin',
+        private_network=epc_private_network,
+        public_network=epc_public_network,
 )
 
 # create hss config
@@ -75,7 +88,7 @@ hss_config={
     "REALM": "openairinterface.org",
     "HSS_FQDN": "hss.openairinterface.org",
     "PREFIX": "/openair-hss/etc",
-    "cassandra_Server_IP": lte_epc.cassandra_private_ip,
+    "cassandra_Server_IP": epc.cassandra_private_ip,
     "OP_KEY": "63bfa50ee6523365ff14c1f45f88737d",
     "LTE_K": "0c0a34601d4f07677303652c0462535b",
     "APN1": "oai.ipv4",
@@ -91,7 +104,7 @@ mme_config={
     "PREFIX": "/openair-mme/etc",
     "INSTANCE": 1,
     "PID_DIRECTORY": "/var/run",
-    "HSS_IP_ADDR": lte_epc.hss_public_ip,
+    "HSS_IP_ADDR": epc.hss_public_ip,
     "HSS_HOSTNAME": 'hss',
     "HSS_FQDN": "hss.openairinterface.org",
     "HSS_REALM": "openairinterface.org",
@@ -103,15 +116,15 @@ mme_config={
     'TAC_1': 2,
     'TAC_2': 3,
     'MME_FQDN': 'mme.openairinterface.org',
-    'MME_S6A_IP_ADDR': lte_epc.mme_public_ip,
+    'MME_S6A_IP_ADDR': epc.mme_public_ip,
     'MME_INTERFACE_NAME_FOR_S1_MME': 'eth0',
-    'MME_IPV4_ADDRESS_FOR_S1_MME': lte_epc.mme_public_ip,
+    'MME_IPV4_ADDRESS_FOR_S1_MME': epc.mme_public_ip,
     'MME_INTERFACE_NAME_FOR_S11': 'eth0',
-    'MME_IPV4_ADDRESS_FOR_S11': lte_epc.mme_public_ip,
+    'MME_IPV4_ADDRESS_FOR_S11': epc.mme_public_ip,
     'MME_INTERFACE_NAME_FOR_S10': 'lo',
     'MME_IPV4_ADDRESS_FOR_S10': '127.0.0.10',
     'OUTPUT': 'CONSOLE',
-    'SGW_IPV4_ADDRESS_FOR_S11_0': lte_epc.spgwc_public_ip,
+    'SGW_IPV4_ADDRESS_FOR_S11_0': epc.spgwc_public_ip,
     'PEER_MME_IPV4_ADDRESS_FOR_S10_0': '0.0.0.0',
     'PEER_MME_IPV4_ADDRESS_FOR_S10_1': '0.0.0.0',
     'MCC_SGW_0': '208',
@@ -160,7 +173,7 @@ spgwu_config = {
     'SGW_INTERFACE_NAME_FOR_S1U_S12_S4_UP': 'eth0',
     'PGW_INTERFACE_NAME_FOR_SGI': 'eth0',
     'SGW_INTERFACE_NAME_FOR_SX': 'eth0',
-    'SPGWC0_IP_ADDRESS': lte_epc.spgwc_public_ip,
+    'SPGWC0_IP_ADDRESS': epc.spgwc_public_ip,
     'NETWORK_UE_IP': '12.1.1.0/24',
     'NETWORK_UE_NAT_OPTION': 'yes',
     'MCC': '208',
@@ -171,7 +184,7 @@ spgwu_config = {
     'REALM': 'openairinterface.org',
 }
 
-# create routing config
+# create epc routing config
 epc_routing_config = {
     '208960010000001':{
         'epc_tun_if' : IPv4Interface('192.17.0.1/24'),
@@ -181,12 +194,16 @@ epc_routing_config = {
     'epc_ex_net_if' : 'enp5s0',
 }
 
+# create ENodeB
+enb = ENodeB(
+    host='finarfin',
+    network=epc_public_network,
+    name='prod-oai-enb',
+)
 
-# start an internal enb
-enb_public_ip = lte_epc.allocate_public_ip()
 enb_config = {
-    "mme_ip":lte_epc.mme_public_ip,
-    "spgwc_ip":lte_epc.spgwc_public_ip,
+    "mme_ip":epc.mme_public_ip,
+    "spgwc_ip":epc.spgwc_public_ip,
     "USE_FDD_MONO": 1,
     "USE_B2XX": 1,
     'ENB_NAME':'eNB-Eurecom-LTEBox',
@@ -201,13 +218,13 @@ enb_config = {
     'NID_CELL':0,
     'NB_PRB':25,
     'ENABLE_MEASUREMENT_REPORTS':'yes',
-    'MME_S1C_IP_ADDRESS':lte_epc.mme_public_ip,
+    'MME_S1C_IP_ADDRESS':epc.mme_public_ip,
     'ENABLE_X2':'yes',
-    'ENB_X2_IP_ADDRESS':enb_public_ip,
+    'ENB_X2_IP_ADDRESS':enb.ip,
     'ENB_S1C_IF_NAME':'eth0',
-    'ENB_S1C_IP_ADDRESS':enb_public_ip,
+    'ENB_S1C_IP_ADDRESS':enb.ip,
     'ENB_S1U_IF_NAME':'eth0',
-    'ENB_S1U_IP_ADDRESS':enb_public_ip,
+    'ENB_S1U_IP_ADDRESS':enb.ip,
     'THREAD_PARALLEL_CONFIG':'PARALLEL_SINGLE_THREAD',
     'FLEXRAN_ENABLED':'no',
     'FLEXRAN_INTERFACE_NAME':'eth0',
@@ -215,7 +232,7 @@ enb_config = {
 }
 
 
-# create and run ue container
+# create ue config
 ue_config = {
     "PLMN_FULLNAME":"OpenAirInterface",
     "PLMN_SHORTNAME":"OAICN",
@@ -366,15 +383,18 @@ if __name__ == '__main__':
         
         input("Press any key to start lte epc...\n")
 
-        lte_epc.start(hss_config,mme_config,spgwc_config,spgwu_config, epc_routing_config)
+        epc.start(
+            hss_config=hss_config,
+            mme_config=mme_config,
+            spgwc_config=spgwc_config,
+            spgwu_config=spgwu_config,
+            routing_config=epc_routing_config,
+        )
+
 
         input("Press any key to start lte enb...\n")
-
-        lte_enb = ENodeB(
-            name='prod-oai-enb',
-            client=lte_epc.client,
-            network=lte_epc.docker_public_network,
-            ip=enb_public_ip,
+        
+        enb.start(
             config=enb_config,
         )
 
@@ -390,8 +410,6 @@ if __name__ == '__main__':
         input("Press any key to stop...\n")
 
         lteue.__del__()
-
-        lte_enb.__del__()
-        lte_epc.stop()
-        lte_epc.__del__()
+        enb.__del__()
+        epc.__del__()
 
