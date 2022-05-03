@@ -202,7 +202,7 @@ cloud_hosts = [
     # ),
 ]
 
-task = "test"
+task = "square00"
 model = "empirical"
 workload_name = "EdgeDroidTest"
 duration = "5m"
