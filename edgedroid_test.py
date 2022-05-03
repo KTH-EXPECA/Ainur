@@ -206,6 +206,8 @@ task = "test"
 model = "empirical"
 workload_name = "EdgeDroidTest"
 duration = "10m"
+server_img = "molguin/edgedroid2:server"
+client_img = "molguin/edgedroid2:client"
 
 # language=yaml
 workload_def = f'''
@@ -220,7 +222,7 @@ compose:
   version: "3.9"
   services:
     server:
-      image: molguin/edgedroid2:server
+      image: {server_img}
       hostname: server
       command:
       - "--one-shot"
@@ -244,7 +246,7 @@ compose:
             nocopy: true
   
     client:
-      image: molguin/edgedroid2:client
+      image: {client_img}
       hostname: client
       volumes:
         - type: volume
@@ -334,9 +336,12 @@ if __name__ == '__main__':
         swarm.deploy_managers(hosts={hosts['elrond']: {}},
                               location='edge',
                               role='backend') \
-            .deploy_workers(hosts={hosts['workload-client-00']: {},
-                                   hosts['workload-client-01']: {}},
-                            role='client')
+            .deploy_workers(
+            hosts={
+                hosts['workload-client-00']: {},
+                # hosts['workload-client-01']: {}
+            },
+            role='client')
 
         # start cloud instances
         # cloud.init_instances(len(cloud_hosts), ami_id=ami_ids[region])
@@ -349,8 +354,8 @@ if __name__ == '__main__':
         #                      role='backend', location='cloud')
 
         # pull the desired workload images ahead of starting the workload
-        swarm.pull_image(image='expeca/primeworkload', tag='server')
-        swarm.pull_image(image='expeca/primeworkload', tag='client')
+        swarm.pull_image(image=server_img)
+        swarm.pull_image(image=client_img)
 
         storage: ExperimentStorage = stack.enter_context(
             ExperimentStorage(
