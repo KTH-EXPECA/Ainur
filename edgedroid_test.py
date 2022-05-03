@@ -205,7 +205,7 @@ cloud_hosts = [
 task = "test"
 model = "empirical"
 workload_name = "EdgeDroidTest"
-duration = "10m"
+duration = "5m"
 server_img = "molguin/edgedroid2:server"
 client_img = "molguin/edgedroid2:client"
 
