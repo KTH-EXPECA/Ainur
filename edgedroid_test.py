@@ -206,8 +206,9 @@ task = "test"
 model = "empirical"
 workload_name = "EdgeDroidTest"
 duration = "5m"
-server_img = "molguin/edgedroid2:server"
-client_img = "molguin/edgedroid2:client"
+image = "molguin/edgedroid2"
+server_tag = "server"
+client_tag = "client"
 
 # language=yaml
 workload_def = f'''
@@ -222,7 +223,7 @@ compose:
   version: "3.9"
   services:
     server:
-      image: {server_img}
+      image: {image}:{server_tag}
       hostname: server
       command:
       - "--one-shot"
@@ -246,7 +247,7 @@ compose:
             nocopy: true
   
     client:
-      image: {client_img}
+      image: {image}:{client_tag}
       hostname: client
       volumes:
         - type: volume
@@ -354,8 +355,8 @@ if __name__ == '__main__':
         #                      role='backend', location='cloud')
 
         # pull the desired workload images ahead of starting the workload
-        swarm.pull_image(image=server_img)
-        swarm.pull_image(image=client_img)
+        swarm.pull_image(image=image, tag=server_tag)
+        swarm.pull_image(image=image, tag=client_tag)
 
         storage: ExperimentStorage = stack.enter_context(
             ExperimentStorage(
