@@ -239,6 +239,8 @@ compose:
           max_replicas_per_node: 1  # 1 per cloud, 1 on elrond
           constraints:
           - "node.labels.role==backend"
+        restart_policy:
+          condition: none
       volumes:
         - type: volume
           source: {workload_name}
@@ -276,7 +278,7 @@ compose:
           constraints:
           - "node.labels.role==client"
         restart_policy:
-          condition: on-failure
+          condition: none
       depends_on:
       - server
 ...
