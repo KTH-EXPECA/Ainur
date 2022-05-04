@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+function get_mac_address() {
+    return "$(ssh "$1" cat /sys/class/net/"$2"/address)"
+}
+
+for i in {00..10}; do
+  echo get_mac_address "workload-client-$i" "eth0"
+done
