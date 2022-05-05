@@ -438,8 +438,9 @@ if __name__ == "__main__":
             hosts={hosts["elrond"]: {}}, location="edge", role="backend"
         ).deploy_workers(
             hosts={
-                hosts[f"workload-client-{i:02d}"]: {}
-                for i in (0, 1, 2, 3, 5, 6, 7, 8, 9, 10)
+                h: {}
+                for h, v in hosts.items()
+                if h.startswith("workload-client")
                 # hosts['workload-client-01']: {}
             },
             role="client",
