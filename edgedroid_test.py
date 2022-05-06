@@ -296,7 +296,7 @@ cloud_hosts = [
     # ),
 ]
 
-task = "test"
+task = "square00"
 model = "naive"
 workload_name = "EdgeDroidWiFi10"
 duration = "40m"
@@ -369,6 +369,10 @@ compose:
         - "-m"
         - "{model}"
         - "--verbose"
+        - "--connect-timeout-seconds"
+        - "5.0"
+        - "--max-connection-retries"
+        - "720"
       deploy:
         replicas: 10
         placement:
