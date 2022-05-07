@@ -329,6 +329,7 @@ compose:
       hostname: {SERVER_HOST}
       environment:
         EDGEDROID_SERVER_OUTPUT: /opt/results/server{TASK_SLOT}_{task}_{model}.csv
+        EDGEDROID_SERVER_LOG_FILE: /opt/results/server{TASK_SLOT}_{task}_{model}.log
       command:
       - "--one-shot"
       - "--verbose"
@@ -363,6 +364,7 @@ compose:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
         EDGEDROID_CLIENT_OUTPUT: /opt/results/client{TASK_SLOT}_{task}_{model}.csv
+        EDGEDROID_CLIENT_LOG_FILE: /opt/results/client{TASK_SLOT}_{task}_{model}.log
       command:
         - "-n"
         - "0.5"
@@ -375,7 +377,7 @@ compose:
         - "--verbose"
         - "--connect-timeout-seconds"
         - "5.0"
-        - "--max-connection-retries"
+        - "--max-connection-attempts"
         - "720"
       deploy:
         replicas: 10
