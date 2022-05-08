@@ -43,7 +43,6 @@ sdr_aps = [
     )
 ]
 
-
 # sdr STA configurations
 sdr_stas = [
     # StationSoftwareDefinedRadio(
@@ -297,13 +296,14 @@ cloud_hosts = [
     # ),
 ]
 
-
 IMAGE = "molguin/edgedroid2"
 SERVER_TAG = "server"
 CLIENT_TAG = "client"
 TASK_SLOT = r"{{.Task.Slot}}"
-SERVER_HOST = f"server{TASK_SLOT}"
-CLIENT_HOST = f"client{TASK_SLOT}"
+
+
+# SERVER_HOST = f"server"  # {TASK_SLOT}"
+# CLIENT_HOST = f"client"  # {TASK_SLOT}"
 
 
 def generate_workload_def(
@@ -326,7 +326,6 @@ compose:
   services:
     server:
       image: {IMAGE}:{SERVER_TAG}
-      hostname: {SERVER_HOST}
       environment:
         EDGEDROID_SERVER_OUTPUT: /opt/results/server{TASK_SLOT}_{task}_{model}.csv
         EDGEDROID_SERVER_LOG_FILE: /opt/results/server{TASK_SLOT}_{task}_{model}.log
@@ -353,7 +352,6 @@ compose:
   
     client:
       image: {IMAGE}:{CLIENT_TAG}
-      hostname: {CLIENT_HOST}
       volumes:
         - type: volume
           source: {workload_name}
@@ -361,7 +359,7 @@ compose:
           volume:
             nocopy: true
       environment:
-        EDGEDROID_CLIENT_HOST: {SERVER_HOST}
+        EDGEDROID_CLIENT_HOST: server
         EDGEDROID_CLIENT_PORT: 5000
         EDGEDROID_CLIENT_OUTPUT: /opt/results/client{TASK_SLOT}_{task}_{model}.csv
         EDGEDROID_CLIENT_LOG_FILE: /opt/results/client{TASK_SLOT}_{task}_{model}.log
