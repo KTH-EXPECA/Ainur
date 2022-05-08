@@ -301,7 +301,7 @@ cloud_hosts = [
 IMAGE = "molguin/edgedroid2"
 SERVER_TAG = "server"
 CLIENT_TAG = "client"
-TASK_SLOT = r".{{.Task.Slot}}"
+TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
 
