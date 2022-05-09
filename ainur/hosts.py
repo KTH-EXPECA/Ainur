@@ -14,6 +14,7 @@ from dataclasses_json import config, dataclass_json
 
 
 # TODO: this file needs renaming. it's no longer only about hosts.
+from frozendict import frozendict
 
 
 @dataclass_json
@@ -216,8 +217,12 @@ class AinurHost(ManagedHost, abc.ABC):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class LocalAinurHost(AinurHost):
-    ethernets: Mapping[str, EthernetCfg]
-    wifis: Mapping[str, WiFiCfg]
+    ethernets: Mapping[str, EthernetCfg] = field(
+        metadata=config(encoder=dict, decoder=frozendict)
+    )
+    wifis: Mapping[str, WiFiCfg] = field(
+        metadata=config(encoder=dict, decoder=frozendict)
+    )
 
     def __post_init__(self):
         for iface, config in self.ethernets.items():
