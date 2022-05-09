@@ -440,7 +440,7 @@ def get_hosts(
         hd = CLIENT_HOSTS[k].to_dict()
         if iface == "wifi":
             hd["ethernets"] = frozendict()
-        elif iface == "ethernets":
+        elif iface == "ethernet":
             hd["wifis"] = frozendict()
         else:
             raise NotImplementedError(f"Unrecognized interface: {iface}")
