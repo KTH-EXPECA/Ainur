@@ -74,7 +74,7 @@ sdr_stas = [
 # also note that if a device has more than one workload interface, ONLY ONE
 # WILL BE USED (and it will be selected arbitrarily!)
 CLIENT_HOSTS = {
-    "workload-client-00": LocalAinurHost(
+    "workload-client-00": dict(
         management_ip=IPv4Interface("192.168.3.0/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -106,7 +106,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-01": LocalAinurHost(
+    "workload-client-01": dict(
         management_ip=IPv4Interface("192.168.3.1/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -138,7 +138,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-02": LocalAinurHost(
+    "workload-client-02": dict(
         management_ip=IPv4Interface("192.168.3.2/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -170,7 +170,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-03": LocalAinurHost(
+    "workload-client-03": dict(
         management_ip=IPv4Interface("192.168.3.3/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -203,7 +203,7 @@ CLIENT_HOSTS = {
         ),
     ),
     # client-04 is not working
-    "workload-client-05": LocalAinurHost(
+    "workload-client-05": dict(
         management_ip=IPv4Interface("192.168.3.5/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -235,7 +235,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-06": LocalAinurHost(
+    "workload-client-06": dict(
         management_ip=IPv4Interface("192.168.3.6/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -267,7 +267,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-07": LocalAinurHost(
+    "workload-client-07": dict(
         management_ip=IPv4Interface("192.168.3.7/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -299,7 +299,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-08": LocalAinurHost(
+    "workload-client-08": dict(
         management_ip=IPv4Interface("192.168.3.8/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -331,7 +331,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-09": LocalAinurHost(
+    "workload-client-09": dict(
         management_ip=IPv4Interface("192.168.3.9/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -363,7 +363,7 @@ CLIENT_HOSTS = {
             )
         ),
     ),
-    "workload-client-10": LocalAinurHost(
+    "workload-client-10": dict(
         management_ip=IPv4Interface("192.168.3.10/16"),
         ansible_user="expeca",  # cloud instances have a different user
         ethernets=frozendict(
@@ -437,7 +437,7 @@ def get_hosts(
 
     hosts = EDGE_HOSTS.copy()
     for k in keys:
-        hd = CLIENT_HOSTS[k].to_dict()
+        hd = CLIENT_HOSTS[k].copy()
         if iface == "wifi":
             hd["ethernets"] = frozendict()
         elif iface == "ethernet":
@@ -445,7 +445,7 @@ def get_hosts(
         else:
             raise NotImplementedError(f"Unrecognized interface: {iface}")
 
-        hosts[k] = LocalAinurHost.from_dict(hd)
+        hosts[k] = LocalAinurHost(**hd)
 
     return hosts
 

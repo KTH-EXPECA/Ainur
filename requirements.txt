@@ -8,7 +8,7 @@ docker
 loguru
 pytimeparse
 frozendict
-dataclasses-json < 0.4.5
+dataclasses-json
 petname
 python-on-whales
 docker-compose

@@ -217,12 +217,8 @@ class AinurHost(ManagedHost, abc.ABC):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class LocalAinurHost(AinurHost):
-    ethernets: Mapping[str, EthernetCfg] = field(
-        metadata=config(encoder=dict, decoder=frozendict)
-    )
-    wifis: Mapping[str, WiFiCfg] = field(
-        metadata=config(encoder=dict, decoder=frozendict)
-    )
+    ethernets: frozendict[str, EthernetCfg]
+    wifis: frozendict[str, WiFiCfg]
 
     def __post_init__(self):
         for iface, config in self.ethernets.items():
