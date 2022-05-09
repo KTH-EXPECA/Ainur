@@ -1,7 +1,12 @@
 import itertools
+import random
 from pathlib import Path
 
 # from ainur import *
+from typing import Literal, Sequence
+
+import click
+
 from ainur.hosts import *
 from ainur.networks import *
 from ainur.swarm import *
@@ -68,11 +73,25 @@ sdr_stas = [
 # and wifis dict.
 # also note that if a device has more than one workload interface, ONLY ONE
 # WILL BE USED (and it will be selected arbitrarily!)
-hosts = {
+CLIENT_HOSTS = {
     "workload-client-00": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.0/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.0/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:b4:d8:b5",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=25),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.0/16"),
@@ -90,7 +109,21 @@ hosts = {
     "workload-client-01": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.1/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.1/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:53:04",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=26),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.1/16"),
@@ -108,7 +141,21 @@ hosts = {
     "workload-client-02": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.2/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.2/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:52:95",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=27),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.2/16"),
@@ -126,7 +173,21 @@ hosts = {
     "workload-client-03": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.3/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.3/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:52:a1",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=28),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.3/16"),
@@ -145,7 +206,21 @@ hosts = {
     "workload-client-05": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.5/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.5/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:07:fe:f2",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=30),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.5/16"),
@@ -163,7 +238,21 @@ hosts = {
     "workload-client-06": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.6/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.6/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:53:f4",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=31),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.6/16"),
@@ -181,7 +270,21 @@ hosts = {
     "workload-client-07": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.7/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.7/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:52:83",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=32),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.7/16"),
@@ -199,7 +302,21 @@ hosts = {
     "workload-client-08": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.8/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.8/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:54:12",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=33),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.8/16"),
@@ -217,7 +334,21 @@ hosts = {
     "workload-client-09": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.9/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.9/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:53:40",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=34),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.9/16"),
@@ -235,7 +366,21 @@ hosts = {
     "workload-client-10": LocalAinurHost(
         management_ip=IPv4Interface("192.168.3.10/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(),
+        ethernets=frozendict(
+            {
+                "eth0": EthernetCfg(
+                    ip_address=IPv4Interface("10.0.2.10/16"),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("172.16.1.0/24"),
+                            via=IPv4Address("10.0.1.0"),
+                        ),
+                    ),
+                    mac="dc:a6:32:bf:52:b0",
+                    wire_spec=WireSpec(net_name="eth_net", switch_port=35),
+                ),
+            }
+        ),
         wifis=frozendict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.10/16"),
@@ -250,6 +395,9 @@ hosts = {
             )
         ),
     ),
+}
+
+EDGE_HOSTS = {
     "elrond": LocalAinurHost(
         management_ip=IPv4Interface("192.168.1.2/16"),
         ansible_user="expeca",
@@ -274,6 +422,33 @@ hosts = {
         wifis=frozendict(),
     ),
 }
+
+
+def get_hosts(
+    client_count: int,
+    iface: Literal["wifi", "ethernet"],
+) -> Dict[str, LocalAinurHost]:
+    assert client_count <= len(CLIENT_HOSTS) - 1
+
+    keys = random.sample(
+        population=CLIENT_HOSTS.keys(),
+        k=client_count,
+    )
+
+    hosts = EDGE_HOSTS.copy()
+    for k in keys:
+        hd = CLIENT_HOSTS[k].to_dict()
+        if iface == "wifi":
+            hd["ethernets"] = frozendict()
+        elif iface == "ethernets":
+            hd["wifis"] = frozendict()
+        else:
+            raise NotImplementedError(f"Unrecognized interface: {iface}")
+
+        hosts[k] = LocalAinurHost.from_dict(hd)
+
+    return hosts
+
 
 # configurations for cloud hosts
 # we only specify the desired ip addresses for the VPN networks and let AWS
@@ -307,6 +482,7 @@ TASK_SLOT = r"{{.Task.Slot}}"
 
 
 def generate_workload_def(
+    num_clients: int,
     task: str,
     model: str,
     workload_name: str,
@@ -336,9 +512,9 @@ compose:
       - "5000"
       - "{task}"
       deploy:
-        replicas: 10
+        replicas: {num_clients:d}
         placement:
-          max_replicas_per_node: 10
+          max_replicas_per_node: {num_clients:d}
           constraints:
           - "node.labels.role==backend"
         restart_policy:
@@ -378,7 +554,7 @@ compose:
         - "--max-connection-attempts"
         - "720"
       deploy:
-        replicas: 10
+        replicas: {num_clients:d}
         placement:
           max_replicas_per_node: 1
           constraints:
@@ -392,18 +568,61 @@ compose:
 
 
 # noinspection DuplicatedCode
-if __name__ == "__main__":
-
-    tasks = ("square00",)
-    models = ("naive", "empirical", "theoretical")
-    workload_name = "EdgeDroidWiFi10"
+@click.command()
+@click.argument("workload-name", type=str)
+@click.argument("num-clients", type=click.IntRange(0, len(CLIENT_HOSTS), max_open=True))
+@click.option(
+    "-t",
+    "--task",
+    "tasks",
+    type=str,
+    multiple=True,
+    show_default=True,
+    default=("square00",),
+)
+@click.option(
+    "-m",
+    "--model",
+    "models",
+    type=str,
+    multiple=True,
+    show_default=True,
+    default=("naive", "empirical", "theoretical"),
+)
+@click.option(
+    "-i",
+    "--interface",
+    type=click.Choice(["wifi", "ethernet"]),
+    default="ethernet",
+    show_default=True,
+)
+@click.option(
+    "--noconfirm",
+    is_flag=True,
+)
+def run_experiment(
+    workload_name: str,
+    num_clients: int,
+    tasks: Sequence[str],
+    models: Sequence[str],
+    interface: Literal["wifi", "ethernet"],
+    noconfirm: bool,
+):
+    # tasks = ("square00",)
+    # models = ("naive", "empirical", "theoretical")
+    # workload_name = "EdgeDroidWiFi10"
 
     for task, model in itertools.product(tasks, models):
+        hosts = get_hosts(client_count=num_clients, iface=interface)
+
         ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
         workload: WorkloadSpecification = WorkloadSpecification.from_dict(
             yaml.safe_load(
                 generate_workload_def(
-                    task=task, model=model, workload_name=workload_name
+                    num_clients=num_clients,
+                    task=task,
+                    model=model,
+                    workload_name=workload_name,
                 )
             )
         )
@@ -492,8 +711,20 @@ if __name__ == "__main__":
                 )
             )
 
+            if not noconfirm:
+                click.confirm(
+                    f"Workload {workload_name} ({num_clients} clients, task {task}, "
+                    f"model {model}) is ready to run.\n\nContinue?",
+                    default=True,
+                    abort=True,
+                )
+
             swarm.deploy_workload(
                 specification=workload,
                 attach_volume=storage.docker_vol_name,
                 max_failed_health_checks=-1,
             )
+
+
+if __name__ == "__main__":
+    run_experiment()
