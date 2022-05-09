@@ -428,7 +428,7 @@ def get_hosts(
     client_count: int,
     iface: Literal["wifi", "ethernet"],
 ) -> Dict[str, LocalAinurHost]:
-    assert client_count <= len(CLIENT_HOSTS) - 1
+    assert client_count <= len(CLIENT_HOSTS)
 
     keys = random.sample(
         population=CLIENT_HOSTS.keys(),
