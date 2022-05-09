@@ -570,7 +570,10 @@ compose:
 # noinspection DuplicatedCode
 @click.command()
 @click.argument("workload-name", type=str)
-@click.argument("num-clients", type=click.IntRange(0, len(CLIENT_HOSTS), max_open=True))
+@click.argument(
+    "num-clients",
+    type=click.IntRange(0, len(CLIENT_HOSTS), max_open=False),
+)
 @click.option(
     "-t",
     "--task",
