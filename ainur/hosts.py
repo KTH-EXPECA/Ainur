@@ -4,12 +4,13 @@ import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 import yaml
 from dataclasses_json import config, dataclass_json
+
+
 # Switch connection dataclass
-from frozendict import frozendict
 
 
 # TODO: this file needs renaming. it's no longer only about hosts.
@@ -26,10 +27,7 @@ class SwitchConnected(abc.ABC):
 class Switch:
     name: str
     management_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
     username: str
     password: str
@@ -40,10 +38,7 @@ class Switch:
 class SoftwareDefinedRadio(SwitchConnected):
     name: str
     management_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
     mac: str
     ssid: str
@@ -85,28 +80,15 @@ class SwitchConfig:
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class IPRoute:
-    to: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
-    )
-    via: IPv4Address = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Address
-        )
-    )
+    to: IPv4Interface = field(metadata=config(encoder=str, decoder=IPv4Interface))
+    via: IPv4Address = field(metadata=config(encoder=str, decoder=IPv4Address))
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class InterfaceCfg(abc.ABC):
     ip_address: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
     routes: Tuple[IPRoute, ...]
     mac: str
@@ -123,9 +105,9 @@ class InterfaceCfg(abc.ABC):
         """
 
         return {
-            'addresses': [str(self.ip_address)],
-            'dhcp4'    : False,
-            'routes'   : [r.to_dict() for r in self.routes]
+            "addresses": [str(self.ip_address)],
+            "dhcp4": False,
+            "routes": [r.to_dict() for r in self.routes],
         }
 
 
@@ -147,7 +129,7 @@ class WiFiCfg(InterfaceCfg):
 
     def to_netplan_dict(self) -> Dict[str, Any]:
         cfg = super(WiFiCfg, self).to_netplan_dict()
-        cfg['access-points'] = {self.ssid: {}}
+        cfg["access-points"] = {self.ssid: {}}
         return cfg
 
 
@@ -158,14 +140,14 @@ class NetplanConfig:
     """
 
     version: int = 2
-    renderer: str = 'networkd'
-    configs: Dict[str, Dict[str, InterfaceCfg]] \
-        = field(default_factory=lambda: defaultdict(dict), init=False)
+    renderer: str = "networkd"
+    configs: Dict[str, Dict[str, InterfaceCfg]] = field(
+        default_factory=lambda: defaultdict(dict), init=False
+    )
 
-    def add_config(self,
-                   cfg_type: str,
-                   iface_name: str,
-                   config: InterfaceCfg) -> NetplanConfig:
+    def add_config(
+        self, cfg_type: str, iface_name: str, config: InterfaceCfg
+    ) -> NetplanConfig:
         self.configs[cfg_type][iface_name] = config
         return self
 
@@ -185,12 +167,12 @@ class NetplanConfig:
                 cfg_dicts[cfg_cat][interface] = cfg.to_netplan_dict()
 
         network_cfg = {
-            'version' : self.version,
-            'renderer': self.renderer,
+            "version": self.version,
+            "renderer": self.renderer,
         }
         network_cfg.update(cfg_dicts)
 
-        return {'network': network_cfg}
+        return {"network": network_cfg}
 
     def to_netplan_yaml(self) -> str:
         """
@@ -216,10 +198,7 @@ class HostError(Exception):
 @dataclass(frozen=True, eq=True)
 class ManagedHost:
     management_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
 
     ansible_user: str
@@ -237,14 +216,16 @@ class AinurHost(ManagedHost, abc.ABC):
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class LocalAinurHost(AinurHost):
-    ethernets: frozendict[str, EthernetCfg]
-    wifis: frozendict[str, WiFiCfg]
+    ethernets: Mapping[str, EthernetCfg]
+    wifis: Mapping[str, WiFiCfg]
 
     def __post_init__(self):
         for iface, config in self.ethernets.items():
             if iface in self.wifis:
-                raise HostError(f'Duplicated interface {iface} definition in '
-                                f'host {self.management_ip}.')
+                raise HostError(
+                    f"Duplicated interface {iface} definition in "
+                    f"host {self.management_ip}."
+                )
 
     @property
     def interfaces(self) -> Dict[str, InterfaceCfg]:
@@ -261,63 +242,48 @@ class LocalAinurHost(AinurHost):
     def ansible_host(self) -> str:
         return str(self.management_ip.ip)
 
-    def gen_netplan_config(self,
-                           version: int = 2,
-                           renderer: str = 'networkd') -> NetplanConfig:
+    def gen_netplan_config(
+        self, version: int = 2, renderer: str = "networkd"
+    ) -> NetplanConfig:
         config = NetplanConfig(version=version, renderer=renderer)
         for name, interface in self.ethernets.items():
-            config.add_config('ethernets', name, interface)
+            config.add_config("ethernets", name, interface)
 
         for name, interface in self.wifis.items():
-            config.add_config('wifis', name, interface)
+            config.add_config("wifis", name, interface)
 
         return config
 
     @property
     def workload_ips(self) -> Tuple[IPv4Address]:
-        return tuple([iface_cfg.ip_address.ip
-                      for iface_cfg in self.interfaces.values()])
+        return tuple(
+            [iface_cfg.ip_address.ip for iface_cfg in self.interfaces.values()]
+        )
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class AinurCloudHost(AinurHost):
     workload_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
 
-    public_ip: IPv4Address = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Address
-        )
-    )
+    public_ip: IPv4Address = field(metadata=config(encoder=str, decoder=IPv4Address))
 
-    vpc_ip: IPv4Address = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Address
-        )
-    )
+    vpc_ip: IPv4Address = field(metadata=config(encoder=str, decoder=IPv4Address))
 
     @property
     def workload_ips(self) -> Tuple[IPv4Address]:
-        return self.workload_ip.ip,  # NOTE THE COMMA
+        return (self.workload_ip.ip,)  # NOTE THE COMMA
 
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
 class AinurCloudHostConfig(AinurHost):
     workload_ip: IPv4Interface = field(
-        metadata=config(
-            encoder=str,
-            decoder=IPv4Interface
-        )
+        metadata=config(encoder=str, decoder=IPv4Interface)
     )
 
     @property
     def workload_ips(self) -> Tuple[IPv4Address]:
-        return self.workload_ip.ip,  # NOTE THE COMMA
+        return (self.workload_ip.ip,)  # NOTE THE COMMA
