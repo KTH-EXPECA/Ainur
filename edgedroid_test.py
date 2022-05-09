@@ -717,7 +717,8 @@ def run_experiment(
             if not noconfirm:
                 click.confirm(
                     f"Workload {workload_name} ({num_clients} clients, task {task}, "
-                    f"model {model}) is ready to run.\n\nContinue?",
+                    f"model {model}, interface {interface}) is ready to run.\n\n"
+                    f"Continue?",
                     default=True,
                     abort=True,
                 )
