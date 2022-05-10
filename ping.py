@@ -57,12 +57,7 @@ compose:
       environment:
         HOST: {CLIENT_HOST}
         OUTPUT: /opt/results/{SERVER_HOST}.log
-      command:
-        - "ping"
-        - "$HOST"
-        - "|"
-        - "tee"
-        - "$OUTPUT"
+      command: bash -c "ping $HOST | tee $OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -84,12 +79,7 @@ compose:
       environment:
         HOST: {SERVER_HOST}
         OUTPUT: /opt/results/{CLIENT_HOST}.log
-      command:
-        - "ping"
-        - "$HOST"
-        - "|"
-        - "tee"
-        - "$OUTPUT"
+      command: bash -c "ping $HOST | tee $OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
