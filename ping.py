@@ -64,7 +64,7 @@ compose:
           constraints:
           - "node.labels.role==backend"
         restart_policy:
-          condition: none
+          condition: on-failure
       volumes:
         - type: volume
           source: {workload_name}
@@ -85,7 +85,7 @@ compose:
           constraints:
           - "node.labels.role==client"
         restart_policy:
-          condition: none
+          condition: on-failure
       volumes:
         - type: volume
           source: {workload_name}
