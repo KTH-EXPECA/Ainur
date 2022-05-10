@@ -60,7 +60,7 @@ compose:
       command:
         - "sh"
         - "-c"
-        - "ping \\$HOST | tee \\$OUTPUT"
+        - "ping \\\\$HOST | tee \\\\$OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -85,7 +85,7 @@ compose:
       command: 
         - "sh"
         - "-c"
-        - "ping \\$HOST | tee \\$OUTPUT"
+        - "ping \\\\$HOST | tee \\\\$OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
