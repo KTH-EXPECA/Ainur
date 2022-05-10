@@ -55,7 +55,7 @@ compose:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
       environment:
-        HOST: {CLIENT_HOST}
+        HOST: google.com
         OUTPUT: /opt/results/{SERVER_HOST}.log
       deploy:
         replicas: {num_clients:d}
