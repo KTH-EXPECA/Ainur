@@ -32,6 +32,7 @@ CLIENT_TAG = "latest"
 TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
+PING_CMD = r'sh -c "ping \$HOST | tee \$OUTPUT"'
 
 
 def generate_workload_def(
@@ -57,7 +58,7 @@ compose:
       environment:
         HOST: {CLIENT_HOST}
         OUTPUT: /opt/results/{SERVER_HOST}.log
-      command: sh -c "ping $HOST | tee $OUTPUT"
+      command: {PING_CMD}
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -79,7 +80,7 @@ compose:
       environment:
         HOST: {SERVER_HOST}
         OUTPUT: /opt/results/{CLIENT_HOST}.log
-      command: sh -c "ping $HOST | tee $OUTPUT"
+      command: {PING_CMD}
       deploy:
         replicas: {num_clients:d}
         placement:
