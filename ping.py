@@ -32,7 +32,7 @@ CLIENT_TAG = "latest"
 TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
-PING_CMD = r'sh -c "ping \$HOST | tee \$OUTPUT"'
+PING_CMD = "'" r'sh -c "ping \$HOST | tee \$OUTPUT"' "'"
 
 
 def generate_workload_def(
