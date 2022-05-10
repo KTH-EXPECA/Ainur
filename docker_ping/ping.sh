@@ -1,5 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
+set -o pipefail
 if [ -z ${OUTPUT+x} ]; then
   ping "$HOST"
 else
