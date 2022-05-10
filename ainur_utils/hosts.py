@@ -13,7 +13,12 @@ from ainur.hosts import (
     WireSpec,
 )
 
-__all__ = ["get_hosts", "generate_cloud_host_configs"]
+__all__ = [
+    "get_hosts",
+    "generate_cloud_host_configs",
+    "MAX_NUM_EDGE",
+    "MAX_NUM_CLIENTS",
+]
 
 CLIENT_HOSTS = {
     "workload-client-00": dict(
@@ -364,6 +369,9 @@ EDGE_HOSTS = {
         wifis=frozendict(),
     ),
 }
+
+MAX_NUM_CLIENTS = len(CLIENT_HOSTS)
+MAX_NUM_EDGE = len(EDGE_HOSTS)
 
 
 # hosts is a mapping from host name to a LocalAinurHost object
