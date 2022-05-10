@@ -41,7 +41,7 @@ def generate_workload_def(
     duration: str = "5m",
 ) -> str:
     # language=yaml
-    return f"""
+    return rf"""
 ---
 name: {workload_name}
 author: "Manuel Olguín Muñoz"
