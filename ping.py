@@ -32,7 +32,7 @@ CLIENT_TAG = "latest"
 TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
-PING_CMD = r'"ping \$HOST | tee \$OUTPUT"'
+PING_CMD = '"ping \\$HOST | tee \\$OUTPUT"'
 
 
 def generate_workload_def(
@@ -41,7 +41,7 @@ def generate_workload_def(
     duration: str = "5m",
 ) -> str:
     # language=yaml
-    return rf"""
+    return f"""
 ---
 name: {workload_name}
 author: "Manuel Olguín Muñoz"
