@@ -26,7 +26,7 @@ sdr_aps = [
     )
 ]
 
-IMAGE = "alpine"
+IMAGE = "molguin/alping"
 SERVER_TAG = "latest"
 CLIENT_TAG = "latest"
 TASK_SLOT = r"{{.Task.Slot}}"
@@ -57,10 +57,6 @@ compose:
       environment:
         HOST: {CLIENT_HOST}
         OUTPUT: /opt/results/{SERVER_HOST}.log
-      command:
-        - "sh"
-        - "-c"
-        - "ping \\\\$HOST | tee \\\\$OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -82,10 +78,6 @@ compose:
       environment:
         HOST: {SERVER_HOST}
         OUTPUT: /opt/results/{CLIENT_HOST}.log
-      command: 
-        - "sh"
-        - "-c"
-        - "ping \\\\$HOST | tee \\\\$OUTPUT"
       deploy:
         replicas: {num_clients:d}
         placement:
