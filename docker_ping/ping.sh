@@ -3,5 +3,5 @@
 if [ -z ${OUTPUT+x} ]; then
   ping "$HOST"
 else
-  ping "$HOST" | tee "$OUTPUT"
+  ping "$HOST" 2>&1 | tee "$OUTPUT"
 fi
