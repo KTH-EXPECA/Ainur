@@ -263,7 +263,24 @@ def deploy_swarm():
 
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
-            PhysicalLayer(hosts=hosts, radio_aps=[], radio_stas=[], switch=switch)
+            PhysicalLayer(
+                hosts=hosts,
+                radio_aps=[
+                    APSoftwareDefinedRadio(
+                        name="RFSOM-00002",
+                        management_ip=IPv4Interface("172.16.2.12/24"),
+                        mac="02:05:f7:80:0b:19",
+                        switch_port=42,
+                        ssid="expeca_wlan_1",
+                        net_name="eth_net",
+                        channel=11,
+                        beacon_interval=100,
+                        ht_capable=True,
+                    )
+                ],
+                radio_stas=[],
+                switch=switch,
+            )
         )
 
         # init layer 3 connectivity
