@@ -80,7 +80,7 @@ CLIENT_HOSTS = {
                         to=IPv4Interface("172.16.1.0/24"), via=IPv4Address("10.0.1.0")
                     ),
                 ),
-                mac="7c:10:c9:1c:3f:ea",
+                mac="dc:a6:32:bf:53:05",
                 ssid="expeca_wlan_1",  # SDR wifi ssid
             )
         ),
@@ -112,7 +112,7 @@ CLIENT_HOSTS = {
                         to=IPv4Interface("172.16.1.0/24"), via=IPv4Address("10.0.1.0")
                     ),
                 ),
-                mac="7c:10:c9:1c:3f:e8",
+                mac="dc:a6:32:bf:52:96",
                 ssid="expeca_wlan_1",  # SDR wifi ssid
             )
         ),
@@ -177,7 +177,7 @@ CLIENT_HOSTS = {
                         to=IPv4Interface("172.16.1.0/24"), via=IPv4Address("10.0.1.0")
                     ),
                 ),
-                mac="7c:10:c9:1c:3e:a8",
+                mac="dc:a6:32:07:fe:f3",
                 ssid="expeca_wlan_1",  # SDR wifi ssid
             )
         ),
@@ -241,7 +241,7 @@ CLIENT_HOSTS = {
                         to=IPv4Interface("172.16.1.0/24"), via=IPv4Address("10.0.1.0")
                     ),
                 ),
-                mac="24:4b:fe:b7:26:92",
+                mac="dc:a6:32:bf:52:84",
                 ssid="expeca_wlan_1",  # SDR wifi ssid
             )
         ),
@@ -337,7 +337,7 @@ CLIENT_HOSTS = {
                         to=IPv4Interface("172.16.1.0/24"), via=IPv4Address("10.0.1.0")
                     ),
                 ),
-                mac="fc:34:97:25:a2:0d",
+                mac="dc:a6:32:bf:52:b1",
                 ssid="expeca_wlan_1",  # SDR wifi ssid
             )
         ),
