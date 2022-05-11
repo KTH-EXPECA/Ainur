@@ -67,7 +67,7 @@ def generate_workload_def(
     task: str,
     model: str,
     workload_name: str,
-    duration: str = "40m",
+    max_duration: str = "40m",
 ) -> str:
     # language=yaml
     return f"""
@@ -77,7 +77,7 @@ author: "Manuel Olguín Muñoz"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "{duration}"
+max_duration: "{max_duration}"
 compose:
   version: "3.9"
   services:
@@ -158,6 +158,13 @@ compose:
     type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
 )
 @click.option(
+    "-d",
+    "--max-duration",
+    type=str,
+    default="1h",
+    show_default=True,
+)
+@click.option(
     "-t",
     "--task",
     "tasks",
@@ -189,6 +196,7 @@ compose:
 def run_experiment(
     workload_name: str,
     num_clients: int,
+    max_duration: str,
     tasks: Sequence[str],
     models: Sequence[str],
     interface: Literal["wifi", "ethernet"],
@@ -209,6 +217,7 @@ def run_experiment(
                     task=task,
                     model=model,
                     workload_name=workload_name,
+                    max_duration=max_duration,
                 )
             )
         )
