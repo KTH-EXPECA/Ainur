@@ -120,9 +120,9 @@ compose:
       environment:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
-        EDGEDROID_CLIENT_STEP_RECORDS_OUTPUT: >
+        EDGEDROID_CLIENT_STEP_RECORDS_OUTPUT: >-
             /opt/results/{CLIENT_HOST}_steps_{task}_{model}.csv
-        EDGEDROID_CLIENT_FRAME_RECORDS_OUTPUT: >
+        EDGEDROID_CLIENT_FRAME_RECORDS_OUTPUT: >-
             /opt/results/{CLIENT_HOST}_frames_{task}_{model}.csv
         EDGEDROID_CLIENT_LOG_FILE: /opt/results/{CLIENT_HOST}_{task}_{model}.log
       command:
