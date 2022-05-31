@@ -68,6 +68,7 @@ def generate_workload_def(
     model: str,
     workload_name: str,
     max_duration: str = "40m",
+    neuroticism: float = 0.5,
 ) -> str:
     # language=yaml
     return f"""
@@ -127,7 +128,7 @@ compose:
         EDGEDROID_CLIENT_LOG_FILE: /opt/results/{CLIENT_HOST}_{task}_{model}.log
       command:
         - "-n"
-        - "0.5"
+        - "{neuroticism}"
         - "-t"
         - "{task}"
         - "-f"
@@ -159,6 +160,19 @@ compose:
 @click.argument(
     "num-clients",
     type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
+)
+@click.option(
+    "-n",
+    "--neuroticism",
+    type=click.FloatRange(
+        min=0,
+        max=1.0,
+        min_open=False,
+        max_open=False,
+        clamp=True,
+    ),
+    default=0.5,
+    show_default=True,
 )
 @click.option(
     "-d",
@@ -199,6 +213,7 @@ compose:
 def run_experiment(
     workload_name: str,
     num_clients: int,
+    neuroticism: float,
     max_duration: str,
     tasks: Sequence[str],
     models: Sequence[str],
@@ -221,6 +236,7 @@ def run_experiment(
                     model=model,
                     workload_name=workload_name,
                     max_duration=max_duration,
+                    neuroticism=neuroticism,
                 )
             )
         )
