@@ -1,4 +1,4 @@
 nav:
   - index.md
-  - ExPECA Testbed Website: ../index
+  - ExPECA Testbed Website: "/../index"
   - ...
