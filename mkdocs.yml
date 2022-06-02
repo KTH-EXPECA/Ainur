@@ -4,9 +4,9 @@ site_name: "Ainur Testbed Management and Workload Orchestration"
 #   - stylesheets/extra.css
 theme: 
   palette:
-    scheme: default
-    primary: indigo
-    accent: amber
+    scheme: slate
+    primary: grey
+    accent: indigo
   logo: assets/kth_logo.png
   name: material
   font:

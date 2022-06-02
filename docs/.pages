@@ -1,4 +1,6 @@
 nav:
   - index.md
   - ExPECA Testbed Website: "/../index"
+  - Using Ainur: using
+  - contributing
   - ...
