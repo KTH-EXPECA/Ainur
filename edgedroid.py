@@ -139,7 +139,7 @@ compose:
         - "--connect-timeout-seconds"
         - "5.0"
         - "--max-connection-attempts"
-        - "720"
+        - "0"
       deploy:
         replicas: {num_clients:d}
         placement:
