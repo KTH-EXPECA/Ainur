@@ -89,7 +89,6 @@ compose:
         EDGEDROID_SERVER_OUTPUT: /opt/results/{SERVER_HOST}_{task}_{model}.csv
         EDGEDROID_SERVER_LOG_FILE: /opt/results/{SERVER_HOST}_{task}_{model}.log
       command:
-      - "--one-shot"
       - "--verbose"
       - "0.0.0.0"
       - "5000"
