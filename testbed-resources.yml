@@ -1,0 +1,227 @@
+---
+switches:
+  glorfindel:
+    management_ip: 192.168.0.2/16
+    username: cisco
+    password: expeca
+    ports: 48
+
+sdrs:
+  RFSOM-00001:
+    management_ip: 172.16.2.11/24
+    mac: 02:05:f7:80:0b:72
+    switch:
+      name: glorfindel
+      port: 41
+
+  RFSOM-00002:
+    management_ip: 172.16.2.12/24
+    mac: 02:05:f7:80:0b:19
+    switch:
+      name: glorfindel
+      port: 42
+
+  RFSOM-00003:
+    management_ip: 172.16.2.13/24
+    mac: 02:05:f7:80:02:c8
+    switch:
+      name: glorfindel
+      port: 43
+
+hosts:
+  elrond:
+    ansible_user: expeca
+    ethernets:
+      enp4s0:
+        default: yes
+        mac: d8:47:32:a3:25:20
+        switch:
+          name: glorfindel
+          port: 2
+    labels:
+      role: backend
+      type: x86-server
+    management_ip: 192.168.1.2/16
+    wifis: {}
+
+  workload-client-00:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:b4:d8:b5
+        switch:
+          name: glorfindel
+          port: 25
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.0/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: 7c:10:c9:1c:3f:f0
+
+  workload-client-01:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:53:04
+        switch:
+          name: glorfindel
+          port: 26
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.1/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:bf:53:05
+
+  workload-client-02:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:52:95
+        switch:
+          name: glorfindel
+          port: 27
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.2/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:bf:52:96
+
+  workload-client-03:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:52:a1
+        switch:
+          name: glorfindel
+          port: 28
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.3/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: 7c:10:c9:1c:3e:04
+
+  workload-client-05:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:07:fe:f2
+        switch:
+          name: glorfindel
+          port: 30
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.5/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:07:fe:f3
+
+  workload-client-06:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:53:f4
+        switch:
+          name: glorfindel
+          port: 31
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.6/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: fc:34:97:25:a2:92
+
+  workload-client-07:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:52:83
+        switch:
+          name: glorfindel
+          port: 32
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.7/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:bf:52:84
+
+  workload-client-08:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:54:12
+        switch:
+          name: glorfindel
+          port: 33
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.8/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:bf:54:13
+
+  workload-client-09:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:53:40
+        switch:
+          name: glorfindel
+          port: 34
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.9/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: 3c:7c:3f:a2:50:bd
+
+  workload-client-10:
+    ansible_user: expeca
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:52:b0
+        switch:
+          name: glorfindel
+          port: 35
+    labels:
+      role: client
+      type: raspberry-pi
+    management_ip: 192.168.3.10/16
+    wifis:
+      wlan1:
+        default: yes
+        mac: dc:a6:32:bf:52:b1
+
+...
