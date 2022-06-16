@@ -5,6 +5,11 @@ switches:
     username: cisco
     password: expeca
     ports: 48
+    reserved_ports:
+      - 1
+      - 3  # TODO: include radio hosts
+      - 4
+    peers: {}  # for daisy-chained switches
 
 sdrs:
   RFSOM-00001:
@@ -224,4 +229,29 @@ hosts:
         default: yes
         mac: dc:a6:32:bf:52:b1
 
+wifi_aps:
+  dlink:
+    ssid: expeca_wlan_2
+    switch:
+      name: glorfindel
+      port: 5
+    metadata:
+      admin_ip: 192.168.50.1/24
+      username: admin
+      password: expeca
+
+gateways:
+  olwe:
+    management_ip: 192.168.0.4/16
+    ansible_user: expeca
+    to_networks:
+      - 172.16.1.0/24
+    ethernets:
+      eth0:
+        default: yes
+        mac: dc:a6:32:bf:54:1b
+        switch:
+          name: glorfindel
+          port: 36
+    wifis: {}
 ...
