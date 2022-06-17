@@ -326,33 +326,44 @@ def run_experiment(
                 swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
                 swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
 
-                storage: ExperimentStorage = stack.enter_context(
-                    ExperimentStorage(
-                        storage_name=workload.name,
-                        storage_host=ManagedHost(
-                            management_ip=IPv4Interface("192.168.1.1/16"),
-                            ansible_user="expeca",
-                        ),
-                        network=ip_layer,
-                        ansible_ctx=ansible_ctx,
-                        ansible_quiet=False,
-                    )
-                )
+                with ExperimentStorage(
+                    storage_name=workload.name,
+                    storage_host=ManagedHost(
+                        management_ip=IPv4Interface("192.168.1.1/16"),
+                        ansible_user="expeca",
+                    ),
+                    network=ip_layer,
+                    ansible_ctx=ansible_ctx,
+                    ansible_quiet=False,
+                ) as storage:
 
-                if not noconfirm:
-                    click.confirm(
-                        f"Workload {workload_name} ({num_clients} clients, task {task}, "
-                        f"model {model}, interface {interface}) is ready to run.\n\n"
-                        f"Continue?",
-                        default=True,
-                        abort=True,
-                    )
+                    # storage: ExperimentStorage = stack.enter_context(
+                    #     ExperimentStorage(
+                    #         storage_name=workload.name,
+                    #         storage_host=ManagedHost(
+                    #             management_ip=IPv4Interface("192.168.1.1/16"),
+                    #             ansible_user="expeca",
+                    #         ),
+                    #         network=ip_layer,
+                    #         ansible_ctx=ansible_ctx,
+                    #         ansible_quiet=False,
+                    #     )
+                    # )
 
-                swarm.deploy_workload(
-                    specification=workload,
-                    attach_volume=storage.docker_vol_name,
-                    max_failed_health_checks=-1,
-                )
+                    if not noconfirm:
+                        click.confirm(
+                            f"Workload {workload_name} ({num_clients} clients, task {task}, "
+                            f"model {model}, interface {interface}) is ready to run.\n\n"
+                            f"Continue?",
+                            default=True,
+                            abort=True,
+                        )
+
+                    swarm.deploy_workload(
+                        specification=workload,
+                        attach_volume=storage.docker_vol_name,
+                        max_failed_health_checks=-1,
+                    )
 
 
 if __name__ == "__main__":
