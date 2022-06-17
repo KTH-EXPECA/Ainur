@@ -13,6 +13,8 @@ from ainur.swarm.storage import ExperimentStorage
 from ainur_utils.hosts import MAX_NUM_CLIENTS, get_hosts
 from ainur_utils.resources import switch
 
+AP_PORT = 5
+
 # SDR access point configurations for this workload scenario
 # note that SDRs are no longer associated to hosts, but rather to the network
 # as a whole.
@@ -20,39 +22,39 @@ from ainur_utils.resources import switch
 # according to the net_name parameter) so that devices connected by wifi and
 # devices on the wire can talk to each other (and so devices connected by
 # wifi can reach the cloud! this is important).
-sdr_aps = [
-    APSoftwareDefinedRadio(
-        name="RFSOM-00002",
-        management_ip=IPv4Interface("172.16.2.12/24"),
-        mac="02:05:f7:80:0b:19",
-        switch_port=42,
-        ssid="expeca_wlan_1",
-        net_name="eth_net",
-        channel=11,
-        beacon_interval=100,
-        ht_capable=True,
-    )
-]
-
-# sdr STA configurations
-sdr_stas = [
-    # StationSoftwareDefinedRadio(
-    #     name='RFSOM=00001',
-    #     management_ip=IPv4Interface('172.16.2.11/24'),
-    #     mac='02:05:f7:80:0b:72',
-    #     ssid='eth_net',
-    #     net_name='eth_net',
-    #     switch_port=41
-    # ),
-    # StationSoftwareDefinedRadio(
-    #     name='RFSOM=00003',
-    #     management_ip=IPv4Interface('172.16.2.13/24'),
-    #     mac='02:05:f7:80:02:c8',
-    #     ssid='eth_net',
-    #     net_name='eth_net',
-    #     switch_port=43
-    # ),
-]
+# sdr_aps = [
+#     APSoftwareDefinedRadio(
+#         name="RFSOM-00002",
+#         management_ip=IPv4Interface("172.16.2.12/24"),
+#         mac="02:05:f7:80:0b:19",
+#         switch_port=42,
+#         ssid="expeca_wlan_1",
+#         net_name="eth_net",
+#         channel=11,
+#         beacon_interval=100,
+#         ht_capable=True,
+#     )
+# ]
+#
+# # sdr STA configurations
+# sdr_stas = [
+#     # StationSoftwareDefinedRadio(
+#     #     name='RFSOM=00001',
+#     #     management_ip=IPv4Interface('172.16.2.11/24'),
+#     #     mac='02:05:f7:80:0b:72',
+#     #     ssid='eth_net',
+#     #     net_name='eth_net',
+#     #     switch_port=41
+#     # ),
+#     # StationSoftwareDefinedRadio(
+#     #     name='RFSOM=00003',
+#     #     management_ip=IPv4Interface('172.16.2.13/24'),
+#     #     mac='02:05:f7:80:02:c8',
+#     #     ssid='eth_net',
+#     #     net_name='eth_net',
+#     #     switch_port=43
+#     # ),
+# ]
 
 IMAGE = "molguin/edgedroid2"
 SERVER_TAG = "server"
@@ -272,10 +274,15 @@ def run_experiment(
 
             # start phy layer
             phy_layer: PhysicalLayer = stack.enter_context(
-                PhysicalLayer(
-                    hosts=hosts, radio_aps=sdr_aps, radio_stas=sdr_stas, switch=switch
-                )
+                PhysicalLayer(hosts={}, radio_aps=[], radio_stas=[], switch=switch)
             )
+            # hack to make vlan including AP and elrond
+            switch_ports = [
+                AP_PORT,
+                hosts["elrond"].ethernets["enp4s0"].wire_spec.switch_port,
+            ]
+            phy_layer._switch.make_vlan(switch_ports, name="edgedroid_vlan")
+            phy_layer._hosts = hosts.copy()
 
             # init layer 3 connectivity
             ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)

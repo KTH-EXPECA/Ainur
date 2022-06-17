@@ -24,7 +24,7 @@ CLIENT_HOSTS = {
     "workload-client-00": dict(
         management_ip=IPv4Interface("192.168.3.0/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.0/16"),
@@ -39,7 +39,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.0/16"),
                 routes=(
@@ -56,7 +56,7 @@ CLIENT_HOSTS = {
     "workload-client-01": dict(
         management_ip=IPv4Interface("192.168.3.1/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.1/16"),
@@ -71,7 +71,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.1/16"),
                 routes=(
@@ -88,7 +88,7 @@ CLIENT_HOSTS = {
     "workload-client-02": dict(
         management_ip=IPv4Interface("192.168.3.2/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.2/16"),
@@ -103,7 +103,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.2/16"),
                 routes=(
@@ -120,7 +120,7 @@ CLIENT_HOSTS = {
     "workload-client-03": dict(
         management_ip=IPv4Interface("192.168.3.3/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.3/16"),
@@ -135,7 +135,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.3/16"),
                 routes=(
@@ -153,7 +153,7 @@ CLIENT_HOSTS = {
     "workload-client-05": dict(
         management_ip=IPv4Interface("192.168.3.5/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.5/16"),
@@ -168,7 +168,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.5/16"),
                 routes=(
@@ -185,7 +185,7 @@ CLIENT_HOSTS = {
     "workload-client-06": dict(
         management_ip=IPv4Interface("192.168.3.6/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.6/16"),
@@ -200,7 +200,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.6/16"),
                 routes=(
@@ -217,7 +217,7 @@ CLIENT_HOSTS = {
     "workload-client-07": dict(
         management_ip=IPv4Interface("192.168.3.7/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.7/16"),
@@ -232,7 +232,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.7/16"),
                 routes=(
@@ -249,7 +249,7 @@ CLIENT_HOSTS = {
     "workload-client-08": dict(
         management_ip=IPv4Interface("192.168.3.8/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.8/16"),
@@ -264,7 +264,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.8/16"),
                 routes=(
@@ -281,7 +281,7 @@ CLIENT_HOSTS = {
     "workload-client-09": dict(
         management_ip=IPv4Interface("192.168.3.9/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.9/16"),
@@ -296,7 +296,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.9/16"),
                 routes=(
@@ -313,7 +313,7 @@ CLIENT_HOSTS = {
     "workload-client-10": dict(
         management_ip=IPv4Interface("192.168.3.10/16"),
         ansible_user="expeca",  # cloud instances have a different user
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "eth0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.2.10/16"),
@@ -328,7 +328,7 @@ CLIENT_HOSTS = {
                 ),
             }
         ),
-        wifis=frozendict(
+        wifis=dict(
             wlan1=WiFiCfg(
                 ip_address=IPv4Interface("10.0.2.10/16"),
                 routes=(
@@ -348,7 +348,7 @@ EDGE_HOSTS = {
     "elrond": LocalAinurHost(
         management_ip=IPv4Interface("192.168.1.2/16"),
         ansible_user="expeca",
-        ethernets=frozendict(
+        ethernets=dict(
             {
                 "enp4s0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.1.1/16"),
@@ -366,7 +366,7 @@ EDGE_HOSTS = {
                 )
             }
         ),
-        wifis=frozendict(),
+        wifis=dict(),
     ),
 }
 
@@ -382,6 +382,7 @@ MAX_NUM_EDGE = len(EDGE_HOSTS)
 def get_hosts(
     client_count: int,
     iface: Literal["wifi", "ethernet"],
+    wifi_ssid: str = "expeca_wlan_1",
 ) -> Dict[str, LocalAinurHost]:
     assert client_count <= len(CLIENT_HOSTS)
 
@@ -395,7 +396,17 @@ def get_hosts(
         hd = CLIENT_HOSTS[k].copy()
         if iface == "wifi":
             hd["ethernets"] = frozendict()
+
+            wifis = {}
+            for nic, cfg in hd["wifis"].items():
+                wifi_cfg = cfg.to_dict()
+                wifi_cfg["ssid"] = wifi_ssid
+                wifis[nic] = WiFiCfg.from_dict(wifi_cfg)
+
+            hd["wifis"] = frozendict(wifis)
+
         elif iface == "ethernet":
+            hd["ethernets"] = frozendict(hd["ethernets"])
             hd["wifis"] = frozendict()
         else:
             raise NotImplementedError(f"Unrecognized interface: {iface}")
