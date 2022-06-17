@@ -4,7 +4,7 @@ import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Any, Dict, Mapping, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import yaml
 from dataclasses_json import config, dataclass_json
@@ -125,12 +125,20 @@ class EthernetCfg(InterfaceCfg):
 @dataclass(frozen=True, eq=True)
 class WiFiCfg(InterfaceCfg):
     ssid: str
+    hidden: bool = False
+    password: Optional[str] = None
 
     # TODO: implement non-open wifi config?
 
     def to_netplan_dict(self) -> Dict[str, Any]:
         cfg = super(WiFiCfg, self).to_netplan_dict()
-        cfg["access-points"] = {self.ssid: {}}
+        ap_cfg = {}
+        if self.hidden:
+            ap_cfg["hidden"] = True
+        if self.password is not None:
+            ap_cfg["password"] = self.password
+
+        cfg["access-points"] = {self.ssid: ap_cfg}
         return cfg
 
 
