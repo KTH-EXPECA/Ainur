@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import re
+import sys
 from abc import abstractmethod
 from contextlib import AbstractContextManager
 from ipaddress import IPv4Interface
-from typing import FrozenSet, Iterable, Iterator, NamedTuple, Optional, Tuple
+from typing import FrozenSet, Iterable, Iterator, NamedTuple, Optional
 
 import pexpect
 from loguru import logger
@@ -56,22 +57,22 @@ class ManagedSwitch(_SwitchBase):
         num_ports: int,
         reserved_ports: Iterable[int] = (),
     ):
-
-        self._address = address
-
         @contextlib.contextmanager
         def login_context() -> Iterator[pexpect.spawn]:
             # context manager for logging in and logging out during operations
             # This spawns the telnet program and connects it to the variable name
-            telnet = pexpect.spawn(f"telnet {address.ip}", timeout=timeout)
+            telnet = pexpect.spawn(
+                f"telnet {address.ip}", timeout=timeout, encoding="utf8"
+            )
+            telnet.logfile_read = sys.stderr
 
             # The script expects login
             telnet.expect_exact("Username:")
-            telnet.send(username + "\n")
+            telnet.sendline(username)
 
             # The script expects Password
             telnet.expect_exact("Password:")
-            telnet.send(password + "\n")
+            telnet.sendline(password)
 
             # match "<any name>#"
             telnet.expect(self._LOGIN_REGEX)
@@ -86,12 +87,12 @@ class ManagedSwitch(_SwitchBase):
 
         @contextlib.contextmanager
         def config_context(telnet: pexpect.spawn) -> Iterator[pexpect.spawn]:
-            telnet.send("configure terminal\n")
+            telnet.sendline("configure terminal")
             telnet.expect(self._CONFIG_REGEX)
             try:
                 yield telnet
             finally:
-                telnet.send("exit\n")
+                telnet.sendline("exit")
                 telnet.expect(self._LOGIN_REGEX)
 
         self._login_ctx = login_context
@@ -107,48 +108,44 @@ class ManagedSwitch(_SwitchBase):
         # fetch initial state
         logger.debug("Updating VLANs.")
         with self._login_ctx() as telnet:
-            telnet.send("show vlan\n")
+            telnet.sendline("show vlan")
+            telnet.expect(self._LOGIN_REGEX)
 
-            # go to config mode (necessary for having one line after the table)
-            with self._config_ctx(telnet) as telnet:
+            lines = telnet.after.splitlines()
+            lines = lines[1:-2]
 
-                lines = telnet.before.splitlines()
-                lines = lines[1:-2]
+            for item in lines:
+                logger.debug(item)
 
-                for item in lines:
-                    logger.debug(item.decode("utf-8"))
+            lines = lines[2:]
+            logger.debug(f"Number of vlans: {len(lines)}")
 
-                lines = lines[3:]
+            for idx, line in enumerate(lines):
+                result = [x.strip() for x in line.split("|")]
+                vlan_id = int(result[0])
+                vlan_name = result[1]
+                ports_str = re.sub(r"[^\d-]", " ", result[2])
+                vlan_ports = set()
+                for vlp in ports_str.split():
+                    if "-" not in vlp:
+                        vlan_ports.add(int(vlp))
+                    else:
+                        nums = vlp.split("-")
+                        vlan_ports.update(
+                            [n for n in range(int(nums[0]), int(nums[1]) + 1)]
+                        )
 
-                logger.debug(f"Number of vlans: {len(lines)}")
+                self._avail_ports.difference_update(vlan_ports)
+                vlan = _VLAN(
+                    name=vlan_name,
+                    id_num=vlan_id,
+                    ports=frozenset(vlan_ports),
+                    default=True,
+                )
+                self._vlans[vlan_id] = vlan
+                self._vlan_names.add(vlan.name)
 
-                for idx, line in enumerate(lines):
-                    line = line.decode("utf-8")
-                    result = [x.strip() for x in line.split("|")]
-                    vlan_id = int(result[0])
-                    vlan_name = result[1]
-                    ports_str = re.sub(r"[^\d-]", " ", result[2])
-                    vlan_ports = set()
-                    for vlp in ports_str.split():
-                        if "-" not in vlp:
-                            vlan_ports.add(int(vlp))
-                        else:
-                            nums = vlp.split("-")
-                            vlan_ports.update(
-                                [n for n in range(int(nums[0]), int(nums[1]) + 1)]
-                            )
-
-                    self._avail_ports.difference_update(vlan_ports)
-                    vlan = _VLAN(
-                        name=vlan_name,
-                        id_num=vlan_id,
-                        ports=frozenset(vlan_ports),
-                        default=True,
-                    )
-                    self._vlans[vlan_id] = vlan
-                    self._vlan_names.add(vlan.name)
-
-                    logger.debug(f"VLAN: {vlan}")
+                logger.debug(f"VLAN: {vlan}")
 
             logger.info("Default vlans loaded.")
 
@@ -179,27 +176,27 @@ class ManagedSwitch(_SwitchBase):
         with self._login_ctx() as telnet:
             with self._config_ctx(telnet) as telnet:
                 # create the vlan
-                telnet.send(f"vlan {id_num:d}\n")
+                telnet.sendline(f"vlan {id_num:d}")
 
                 telnet.expect(self._CFG_VLAN_REGEX)
-                telnet.send(f"name {name}\n")
+                telnet.sendline(f"name {name}")
 
                 telnet.expect(self._CFG_VLAN_REGEX)
-                telnet.send("exit\n")
+                telnet.sendline("exit")
 
                 # add the ports
                 for portnum in ports:
                     telnet.expect(self._CONFIG_REGEX)
-                    telnet.send(f"interface gi{portnum:d}\n")
+                    telnet.sendline(f"interface gi{portnum:d}")
 
                     telnet.expect(self._CFG_IF_REGEX)
-                    telnet.send("switchport mode access\n")
+                    telnet.sendline("switchport mode access")
 
                     telnet.expect(self._CFG_IF_REGEX)
-                    telnet.send(f"switchport access vlan {id_num:d}\n")
+                    telnet.sendline(f"switchport access vlan {id_num:d}")
 
                     telnet.expect(self._CFG_IF_REGEX)
-                    telnet.send("exit\n")
+                    telnet.sendline("exit")
 
                 telnet.expect(self._CONFIG_REGEX)
 
@@ -220,7 +217,7 @@ class ManagedSwitch(_SwitchBase):
         with self._login_ctx() as telnet:
             with self._config_ctx(telnet) as telnet:
                 # remove it
-                telnet.send(f"no vlan {vlan.id_num:d}\n")
+                telnet.sendline(f"no vlan {vlan.id_num:d}")
                 telnet.expect(self._CONFIG_REGEX)
 
         # update internal state
@@ -234,7 +231,7 @@ class ManagedSwitch(_SwitchBase):
         logger.warning("Removing non-default VLANS")
         vlans = self._vlans.copy()
 
-        for id_num, vlan in vlans:
+        for id_num, vlan in vlans.items():
             if not vlan.default:
                 self.remove_vlan(id_num)
 
@@ -255,5 +252,6 @@ if __name__ == "__main__":
         num_ports=48,
         reserved_ports=[1, 3, 4],
     ) as switch:
+        # pass
         vlan_id = switch.add_vlan(name="testvlan", ports=[25, 26, 27])
         input("Press any key to shut down.")
