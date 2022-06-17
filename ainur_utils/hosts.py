@@ -1,6 +1,6 @@
 import random
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
 from frozendict import frozendict
 
@@ -383,6 +383,8 @@ def get_hosts(
     client_count: int,
     iface: Literal["wifi", "ethernet"],
     wifi_ssid: str = "expeca_wlan_1",
+    wifi_hidden: bool = False,
+    wifi_password: Optional[str] = None,
 ) -> Dict[str, LocalAinurHost]:
     assert client_count <= len(CLIENT_HOSTS)
 
@@ -401,6 +403,11 @@ def get_hosts(
             for nic, cfg in hd["wifis"].items():
                 wifi_cfg = cfg.to_dict()
                 wifi_cfg["ssid"] = wifi_ssid
+                wifi_cfg["hidden"] = wifi_hidden
+
+                if wifi_password is not None:
+                    wifi_cfg["password"] = wifi_password
+
                 wifis[nic] = WiFiCfg.from_dict(wifi_cfg)
 
             hd["wifis"] = frozendict(wifis)
