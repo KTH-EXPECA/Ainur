@@ -42,10 +42,10 @@ class _SwitchBase(AbstractContextManager):
 
 
 class ManagedSwitch(_SwitchBase):
-    _LOGIN_REGEX = re.compile(r".*#")
-    _CONFIG_REGEX = re.compile(r".*\(config\)#")
-    _CFG_VLAN_REGEX = re.compile(r".*\(config-vlan\)#")
-    _CFG_IF_REGEX = re.compile(r".*\(config-if\)")
+    _LOGIN_REGEX = r".*#"
+    _CONFIG_REGEX = r".*\(config\)#"
+    _CFG_VLAN_REGEX = r".*\(config-vlan\)#"
+    _CFG_IF_REGEX = r".*\(config-if\)"
 
     def __init__(
         self,
