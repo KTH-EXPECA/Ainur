@@ -226,7 +226,10 @@ def run_experiment(
     # workload_name = "EdgeDroidWiFi10"
 
     hosts = get_hosts(
-        client_count=num_clients, iface=interface, wifi_ssid="expeca_wlan_2"
+        client_count=num_clients,
+        iface=interface,
+        wifi_ssid="expeca_wlan_2",
+        wifi_hidden=True,
     )
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
