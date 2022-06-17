@@ -304,7 +304,7 @@ def run_experiment(
                         num_clients=num,
                         task=task,
                         model=model,
-                        workload_name=f"{workload_name}_{num}Clients_Run{run + 1}",
+                        workload_name=f"{workload_name}_Clients{num}_Run{run + 1}",
                         max_duration=max_duration,
                         neuroticism=neuroticism,
                     )
