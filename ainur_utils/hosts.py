@@ -366,7 +366,7 @@ EDGE_HOSTS = {
                 )
             }
         ),
-        wifis=dict(),
+        wifis=frozendict(),
     ),
 }
 
