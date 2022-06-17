@@ -226,7 +226,9 @@ def run_experiment(
     # workload_name = "EdgeDroidWiFi10"
 
     for task, model in itertools.product(tasks, models):
-        hosts = get_hosts(client_count=num_clients, iface=interface)
+        hosts = get_hosts(
+            client_count=num_clients, iface=interface, wifi_ssid="expeca_wlan_2"
+        )
 
         ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
         workload: WorkloadSpecification = WorkloadSpecification.from_dict(

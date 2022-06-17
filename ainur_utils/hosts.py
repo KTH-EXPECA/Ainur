@@ -348,7 +348,7 @@ EDGE_HOSTS = {
     "elrond": LocalAinurHost(
         management_ip=IPv4Interface("192.168.1.2/16"),
         ansible_user="expeca",
-        ethernets=dict(
+        ethernets=frozendict(
             {
                 "enp4s0": EthernetCfg(
                     ip_address=IPv4Interface("10.0.1.1/16"),
