@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from ipaddress import IPv4Interface
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Dict, Tuple, Type, Union
 
 import yaml
 from dataclasses_json import config, dataclass_json
@@ -72,6 +72,7 @@ class SwitchResource(ManagedResource):
     password: str
     ports: int
     reserved_ports: Tuple[int, ...]
+    peers: frozendict[str, int]
 
 
 @dataclass_json
@@ -89,8 +90,8 @@ class _NIC(_HasMACMixin, abc.ABC):
 
 @dataclass_json
 @dataclass(frozen=True, eq=True)
-class _EthNIC(_NIC):
-    switch: _SwitchConnection
+class _EthNIC(_NIC, SwitchConnectedResource):
+    pass
 
 
 @dataclass_json
@@ -144,21 +145,34 @@ class ResourceCollection:
     gateways: frozendict[str, GatewayResource]
     wifi_aps: frozendict[str, WiFiAPResource]
 
-    @classmethod
-    def from_yaml(
-        cls: Type[ResourceCollection],
-        cfg_path: PathLike | str,
-    ) -> ResourceCollection:
-        cfg_path = Path(cfg_path)
+    def __post_init__(self):
+        if len(self.switches) == 0:
+            raise ValueError("Need at least one switch.")
+        elif len(self.hosts) == 0:
+            raise ValueError("Need at least one host.")
 
-        with cfg_path.open("r") as fp:
-            d = yaml.safe_load(fp)
+        # check for name duplicates
+        names = (
+            set(self.switches.keys())
+            .union(self.sdrs.keys())
+            .union(self.hosts.keys())
+            .union(self.gateways.keys())
+            .union(self.wifi_aps.keys())
+        )
+        num_items = (
+            len(self.switches)
+            + len(self.sdrs)
+            + len(self.hosts)
+            + len(self.gateways)
+            + len(self.wifi_aps)
+        )
 
-        resources: ResourceCollection = cls.from_dict(d)
+        if len(names) < num_items:
+            raise ValueError("Duplicated names in testbed resource description.")
 
         # validate switch ports
         switch_ports: Dict[str, Dict[int, Tuple[str, str]]] = {
-            name: {} for name, _ in resources.switches.items()
+            name: {} for name, _ in self.switches.items()
         }
 
         def check_switch(
@@ -166,18 +180,18 @@ class ResourceCollection:
             resource: Any,
             switch_cfg: _SwitchConnection,
         ):
-            if switch_cfg.name not in resources.switches:
+            if switch_cfg.name not in self.switches:
                 raise ValueError(
                     f"(Resource {resource_name} ({resource.__class__.__name__})) "
                     f"No such switch: '{switch_cfg.name}'."
                 )
-            elif switch_cfg.port > resources.switches[switch_cfg.name].ports:
+            elif switch_cfg.port > self.switches[switch_cfg.name].ports:
                 raise ValueError(
                     f"(Resource {resource_name} ({resource.__class__.__name__})) "
-                    f"Port {switch_cfg.port} outside switch {switch_cfg.name}'s range"
-                    f"({resources.switches[switch_cfg.name].ports})."
+                    f"Port {switch_cfg.port} outside switch {switch_cfg.name}'s "
+                    f"range ({self.switches[switch_cfg.name].ports})."
                 )
-            elif switch_cfg.port in resources.switches[switch_cfg.name].reserved_ports:
+            elif switch_cfg.port in self.switches[switch_cfg.name].reserved_ports:
                 raise ValueError(
                     f"(Resource {resource_name} ({resource.__class__.__name__})) "
                     f"Port {switch_cfg.port} is a reserved port on switch "
@@ -199,22 +213,30 @@ class ResourceCollection:
                 )
 
         # SDRs
-        for name, sdr in resources.sdrs.items():
+        for name, sdr in self.sdrs.items():
             check_switch(name, sdr, sdr.switch)
 
         # hosts/gateways
-        for d in (resources.hosts, resources.gateways):
+        for d in (self.hosts, self.gateways):
             for name, host in d.items():
                 for nic_name, nic in host.ethernets.items():
                     check_switch(f"{name}.{nic_name}", host, nic.switch)
 
         # wifi aps
-        for name, ap in resources.wifi_aps.items():
+        for name, ap in self.wifi_aps.items():
             check_switch(name, ap, ap.switch)
 
-        # make sure
+    @classmethod
+    def from_yaml(
+        cls: Type[ResourceCollection],
+        cfg_path: Union[PathLike, str],
+    ) -> ResourceCollection:
+        cfg_path = Path(cfg_path)
 
-        return resources
+        with cfg_path.open("r") as fp:
+            d = yaml.safe_load(fp)
+
+        return cls.from_dict(d)
 
 
 if __name__ == "__main__":
