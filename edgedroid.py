@@ -219,6 +219,13 @@ compose:
     show_default=True,
 )
 @click.option(
+    "-r",
+    "--repetitions",
+    type=int,
+    default=1,
+    show_default=True,
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Brings up everything up to the Swarm, but doesn't run workloads.",
@@ -233,6 +240,7 @@ def run_experiment(
     interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
     swarm_size: int,
+    repetitions: int,
     dry_run: bool,
 ):
     # workload client count and swarm size are not related
@@ -287,14 +295,16 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
 
-        for num, task, model in itertools.product(num_clients, tasks, models):
+        for num, task, model, run in itertools.product(
+            num_clients, tasks, models, range(repetitions)
+        ):
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
                         num_clients=num,
                         task=task,
                         model=model,
-                        workload_name=workload_name,
+                        workload_name=f"{workload_name}_{num}Clients_Run{run + 1}",
                         max_duration=max_duration,
                         neuroticism=neuroticism,
                     )
