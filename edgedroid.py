@@ -2,7 +2,7 @@ import itertools
 from pathlib import Path
 
 # from ainur import *
-from typing import Literal, Sequence
+from typing import Iterable, Literal, Sequence
 
 import click
 
@@ -161,6 +161,7 @@ compose:
 @click.argument(
     "num-clients",
     type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
+    nargs=-1,
 )
 @click.option(
     "-n",
@@ -211,55 +212,45 @@ compose:
     "--noconfirm",
     is_flag=True,
 )
+@click.option(
+    "--swarm-size",
+    type=int,
+    default=10,
+    show_default=True,
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Brings up everything up to the Swarm, but doesn't run workloads.",
+)
 def run_experiment(
     workload_name: str,
-    num_clients: int,
+    num_clients: Sequence[int],
     neuroticism: float,
     max_duration: str,
     tasks: Sequence[str],
     models: Sequence[str],
     interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
+    swarm_size: int,
+    dry_run: bool,
 ):
-    # tasks = ("square00",)
-    # models = ("naive", "empirical", "theoretical")
-    # workload_name = "EdgeDroidWiFi10"
+    # workload client count and swarm size are not related
 
+    num_clients = set(num_clients)
     hosts = get_hosts(
-        client_count=num_clients,
+        client_count=swarm_size,
         iface=interface,
         wifi_ssid="expeca_wlan_2",
         wifi_hidden=True,
     )
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
-
-    # prepare everything
-    # if you dont want cloud instances, remove all CloudInstances and
-    # VPNCloudMesh objects!
-    # cloud = CloudInstances(
-    #     region=region
-    # )
-
-    # this object merges and arbitrary number of VPN and local networks. it
-    # can be left here if the VPN is removed.
     ip_layer = CompositeLayer3Network()
 
     lan_layer = ip_layer.add_network(
         LANLayer(ansible_context=ansible_ctx, ansible_quiet=False)
     )
-    # vpn_mesh = ip_layer.add_network(
-    #     VPNCloudMesh(
-    #         gateway_ip=IPv4Address('130.237.53.70'),
-    #         vpn_psk=os.environ['vpn_psk'],
-    #         ansible_ctx=ansible_ctx,
-    #         ansible_quiet=False
-    #     )
-    # )
-    # swarm = DockerSwarm()
-
-    # TODO: rework Phy to also be "preparable"
-    # TODO: same for experiment storage
 
     with ExitStack() as stack:
         # cloud = stack.enter_context(cloud)
@@ -280,15 +271,27 @@ def run_experiment(
         ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
         lan_layer.add_hosts(phy_layer)
 
-        # TODO: rework Swarm config to something less manual. Maybe fold in
-        #  configs into general host specification somehow??
-        # swarm is a bit manual for now.
-        for task, model in itertools.product(tasks, models):
+        # init swarm
+        swarm = stack.enter_context(DockerSwarm())
+        swarm.deploy_managers(
+            hosts={hosts["elrond"]: {}}, location="edge", role="backend"
+        ).deploy_workers(
+            hosts={
+                host: {}
+                for name, host in hosts.items()
+                if name.startswith("workload-client")
+                # hosts['workload-client-01']: {}
+            },
+            role="client",
+        )
+        swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
+        swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
 
+        for num, task, model in itertools.product(num_clients, tasks, models):
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
-                        num_clients=num_clients,
+                        num_clients=num,
                         task=task,
                         model=model,
                         workload_name=workload_name,
@@ -297,73 +300,36 @@ def run_experiment(
                     )
                 )
             )
+            if dry_run:
+                logger.debug(f"Dry run: {num=} | {task=} | {model=}")
+                logger.debug(f"\n{workload.to_json(indent=4)}\n")
+                continue
 
-            with DockerSwarm() as swarm:
-                # swarm: DockerSwarm = stack.enter_context(swarm)
-                swarm.deploy_managers(
-                    hosts={hosts["elrond"]: {}}, location="edge", role="backend"
-                ).deploy_workers(
-                    hosts={
-                        host: {}
-                        for name, host in hosts.items()
-                        if name.startswith("workload-client")
-                        # hosts['workload-client-01']: {}
-                    },
-                    role="client",
-                )
-
-                # start cloud instances
-                # cloud.init_instances(len(cloud_hosts), ami_id=ami_ids[region])
-                # vpn_mesh.connect_cloud(
-                #     cloud_layer=cloud,
-                #     host_configs=cloud_hosts
-                # )
-                #
-                # swarm.deploy_workers(hosts={host: {} for host in cloud_hosts},
-                #                      role='backend', location='cloud')
-
-                # pull the desired workload images ahead of starting the workload
-                swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
-                swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
-
-                with ExperimentStorage(
-                    storage_name=workload.name,
-                    storage_host=ManagedHost(
-                        management_ip=IPv4Interface("192.168.1.1/16"),
-                        ansible_user="expeca",
-                    ),
-                    network=ip_layer,
-                    ansible_ctx=ansible_ctx,
-                    ansible_quiet=False,
-                ) as storage:
-
-                    # storage: ExperimentStorage = stack.enter_context(
-                    #     ExperimentStorage(
-                    #         storage_name=workload.name,
-                    #         storage_host=ManagedHost(
-                    #             management_ip=IPv4Interface("192.168.1.1/16"),
-                    #             ansible_user="expeca",
-                    #         ),
-                    #         network=ip_layer,
-                    #         ansible_ctx=ansible_ctx,
-                    #         ansible_quiet=False,
-                    #     )
-                    # )
-
-                    if not noconfirm:
-                        click.confirm(
-                            f"Workload {workload_name} ({num_clients} clients, task {task}, "
-                            f"model {model}, interface {interface}) is ready to run.\n\n"
-                            f"Continue?",
-                            default=True,
-                            abort=True,
-                        )
-
-                    swarm.deploy_workload(
-                        specification=workload,
-                        attach_volume=storage.docker_vol_name,
-                        max_failed_health_checks=-1,
+            # storage is restarted for each run
+            with ExperimentStorage(
+                storage_name=workload.name,
+                storage_host=ManagedHost(
+                    management_ip=IPv4Interface("192.168.1.1/16"),
+                    ansible_user="expeca",
+                ),
+                network=ip_layer,
+                ansible_ctx=ansible_ctx,
+                ansible_quiet=False,
+            ) as storage:
+                if not noconfirm:
+                    click.confirm(
+                        f"Workload {workload_name} ({num_clients} clients, task {task}, "
+                        f"model {model}, interface {interface}) is ready to run.\n\n"
+                        f"Continue?",
+                        default=True,
+                        abort=True,
                     )
+
+                swarm.deploy_workload(
+                    specification=workload,
+                    attach_volume=storage.docker_vol_name,
+                    max_failed_health_checks=-1,
+                )
 
 
 if __name__ == "__main__":
