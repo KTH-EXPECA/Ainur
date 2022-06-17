@@ -230,18 +230,6 @@ def run_experiment(
     )
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
-    workload: WorkloadSpecification = WorkloadSpecification.from_dict(
-        yaml.safe_load(
-            generate_workload_def(
-                num_clients=num_clients,
-                task=task,
-                model=model,
-                workload_name=workload_name,
-                max_duration=max_duration,
-                neuroticism=neuroticism,
-            )
-        )
-    )
 
     # prepare everything
     # if you dont want cloud instances, remove all CloudInstances and
@@ -293,6 +281,20 @@ def run_experiment(
         #  configs into general host specification somehow??
         # swarm is a bit manual for now.
         for task, model in itertools.product(tasks, models):
+
+            workload: WorkloadSpecification = WorkloadSpecification.from_dict(
+                yaml.safe_load(
+                    generate_workload_def(
+                        num_clients=num_clients,
+                        task=task,
+                        model=model,
+                        workload_name=workload_name,
+                        max_duration=max_duration,
+                        neuroticism=neuroticism,
+                    )
+                )
+            )
+
             with DockerSwarm() as swarm:
                 # swarm: DockerSwarm = stack.enter_context(swarm)
                 swarm.deploy_managers(
