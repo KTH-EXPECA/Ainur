@@ -311,7 +311,7 @@ def run_experiment(
                 )
             )
             if dry_run:
-                logger.debug(f"Dry run: {num=} | {task=} | {model=}")
+                logger.debug(f"Dry run: {num=} | {task=} | {model=} | {run=}")
                 logger.debug(f"\n{workload.to_json(indent=4)}\n")
                 continue
 
