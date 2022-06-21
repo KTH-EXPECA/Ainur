@@ -301,7 +301,8 @@ compose:
     is_flag=True,
 )
 @click.option(
-    "--iperf-rates",
+    "--iperf-rate",
+    "iperf-rates",
     type=str,
     multiple=True,
     default=("50M",),
