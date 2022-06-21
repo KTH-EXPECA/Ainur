@@ -85,7 +85,8 @@ class ServiceHealthCheckThread(RepeatingTimer):
                 tasks = serv.tasks(filters={"desired-state": "running"})
                 total_tasks = len(tasks)
 
-                logger.warning(f"Service {serv.name}: health checks ignored.")
+                if ignored:
+                    logger.warning(f"Service {serv.name}: health checks ignored.")
 
                 if total_tasks == 0:
                     complete = (complete and True) if not ignored else complete
