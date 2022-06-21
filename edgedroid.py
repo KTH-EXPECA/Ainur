@@ -92,6 +92,7 @@ compose:
       command:
       - "-s"
       - "-p"
+      - "--one-off"
       - "1337"
       - "--logfile"
       - "/opt/results/iperf-server.log"
@@ -104,7 +105,7 @@ compose:
           - "node.labels.role==backend"
           - "node.labels.iperf==yes"
         restart_policy:
-          condition: none
+          condition: on-failure
       volumes:
       - type: volume
         source: {workload_name}
