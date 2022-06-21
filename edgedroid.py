@@ -107,10 +107,10 @@ compose:
           condition: none
       volumes:
       - type: volume
-          source: {workload_name}
-          target: /opt/results/
-          volume:
-            nocopy: true
+        source: {workload_name}
+        target: /opt/results/
+        volume:
+          nocopy: true
     
     iperf3-client:
       image: molguin/iperf3-alpine:latest
@@ -138,10 +138,10 @@ compose:
           condition: none
       volumes:
       - type: volume
-          source: {workload_name}
-          target: /opt/results/
-          volume:
-            nocopy: true
+        source: {workload_name}
+        target: /opt/results/
+        volume:
+          nocopy: true
   
     server:
       image: {IMAGE}:{SERVER_TAG}
