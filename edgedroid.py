@@ -361,7 +361,7 @@ def run_experiment(
         }
 
         if iperf:
-            iperf_host = random.choice(worker_hosts)
+            iperf_host = random.choice(list(worker_hosts))
             worker_hosts[iperf_host]["iperf"] = "yes"
 
         # init swarm
