@@ -429,6 +429,7 @@ def run_experiment(
                     specification=workload,
                     attach_volume=storage.docker_vol_name,
                     max_failed_health_checks=-1,
+                    ignored_health_services=["iperf3-client", "iperf3-server"],
                 )
 
 

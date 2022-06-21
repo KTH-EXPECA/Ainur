@@ -5,9 +5,17 @@ import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager
-from typing import Any, Collection, Dict, FrozenSet, Mapping, \
-    Optional, \
-    Set, Tuple
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    FrozenSet,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 from docker.models.services import Service
 from loguru import logger
@@ -23,24 +31,33 @@ from ..misc import RepeatingTimer, seconds2hms
 
 # TODO: daemon port should be handled in hosts?
 
+
 class ServiceHealthCheckThread(RepeatingTimer):
     # checking for x in set is O(1)
-    _unhealthy_task_states = {'failed', 'rejected', 'orphaned'}
+    _unhealthy_task_states = {"failed", "rejected", "orphaned"}
 
-    def __init__(self,
-                 shared_condition: threading.Condition,
-                 services: Collection[Service],
-                 check_interval: float,
-                 complete_thresh: int = 3,
-                 max_failed_health_checks: int = 3):
+    def __init__(
+        self,
+        shared_condition: threading.Condition,
+        services: Collection[Service],
+        check_interval: float,
+        complete_thresh: int = 3,
+        max_failed_health_checks: int = 3,
+        ignored_services: Collection[Service] = (),
+    ):
         super(ServiceHealthCheckThread, self).__init__(
-            interval=check_interval,
-            function=self.health_check
+            interval=check_interval, function=self.health_check
         )
         self._shared_cond = shared_condition
         self._unhealthy = threading.Event()
         self._finished = threading.Event()
-        self._services = services
+        self._services = {}
+
+        for s in services:
+            self._services[s] = False
+        for s in ignored_services:
+            self._services[s] = True
+
         self._complete_thresh = complete_thresh
         self._max_failed_checks = max_failed_health_checks
         self._fail_count = 0
@@ -53,48 +70,53 @@ class ServiceHealthCheckThread(RepeatingTimer):
         return self._finished.is_set()
 
     def _is_task_healthy(self, task: Dict[str, Any]) -> bool:
-        state = task.get('Status', {}).get('State', None)
-        task_id = task.get('ID', None)
-        logger.debug(f'Task {task_id} state: {state}')
-        return (state is not None) and \
-               (state not in self._unhealthy_task_states)
+        state = task.get("Status", {}).get("State", None)
+        task_id = task.get("ID", None)
+        logger.debug(f"Task {task_id} state: {state}")
+        return (state is not None) and (state not in self._unhealthy_task_states)
 
     def health_check(self) -> bool:
         try:
             complete = True
             unhealthy = False
-            for serv in self._services:
+            for serv, ignored in self._services.items():
                 serv.reload()
                 # we only care about tasks that *should* be running
-                tasks = serv.tasks(filters={'desired-state': 'running'})
+                tasks = serv.tasks(filters={"desired-state": "running"})
                 total_tasks = len(tasks)
 
+                logger.warning(f"Service {serv.name}: health checks ignored.")
+
                 if total_tasks == 0:
-                    complete = (complete and True)
-                    logger.info(f'Service {serv.name} currently has no tasks.')
+                    complete = (complete and True) if not ignored else complete
+                    logger.info(f"Service {serv.name} currently has no tasks.")
                     continue
 
-                complete = False
-                healthy_tasks = sum([self._is_task_healthy(task)
-                                     for task in tasks])
+                complete = False if not ignored else complete
+                healthy_tasks = sum([self._is_task_healthy(task) for task in tasks])
 
                 if healthy_tasks < total_tasks:
-                    logger.warning(f'Service {serv.name}: '
-                                   f'{total_tasks - healthy_tasks} out of'
-                                   f'{total_tasks} tasks are unhealthy.')
-                    unhealthy = True
+                    logger.warning(
+                        f"Service {serv.name}: "
+                        f"{total_tasks - healthy_tasks} out of"
+                        f"{total_tasks} tasks are unhealthy."
+                    )
+                    unhealthy = True if not ignored else unhealthy
                 else:
-                    logger.info(f'Service {serv.name}: All tasks are healthy.')
+                    logger.info(f"Service {serv.name}: All tasks are healthy.")
 
             if unhealthy:
                 self._fail_count += 1
-                logger.warning(f'Unhealthy services. Check '
-                               f'{self._fail_count}/'
-                               f'{self._max_failed_checks} '
-                               f'failed.')
+                logger.warning(
+                    f"Unhealthy services. Check "
+                    f"{self._fail_count}/"
+                    f"{self._max_failed_checks} "
+                    f"failed."
+                )
                 if self._fail_count >= self._max_failed_checks:
-                    logger.error('Maximum number of health checks failed, '
-                                 'aborting workload.')
+                    logger.error(
+                        "Maximum number of health checks failed, " "aborting workload."
+                    )
                     with self._shared_cond:
                         self._unhealthy.set()
                         self._shared_cond.notify_all()
@@ -102,12 +124,16 @@ class ServiceHealthCheckThread(RepeatingTimer):
                 return True
             elif complete:
                 self._complete_count += 1
-                logger.info(f'All services complete. '
-                            f'{self._complete_count}/{self._complete_thresh} '
-                            f'checks passed before workload shutdown.')
+                logger.info(
+                    f"All services complete. "
+                    f"{self._complete_count}/{self._complete_thresh} "
+                    f"checks passed before workload shutdown."
+                )
                 if self._complete_count >= self._complete_thresh:
-                    logger.warning('All services have finished and exited '
-                                   'cleanly; shutting down workload.')
+                    logger.warning(
+                        "All services have finished and exited "
+                        "cleanly; shutting down workload."
+                    )
                     with self._shared_cond:
                         self._finished.set()
                         self._shared_cond.notify_all()
@@ -121,7 +147,7 @@ class ServiceHealthCheckThread(RepeatingTimer):
         except Exception as e:
             # any failure should cause this thread to shut down and set the flag
             # to unhealthy!
-            logger.exception('Exception in health check thread.', e)
+            logger.exception("Exception in health check thread.", e)
             with self._shared_cond:
                 self._unhealthy.set()
                 self._shared_cond.notify_all()
@@ -144,10 +170,11 @@ class DockerSwarm(AbstractContextManager):
         self._manager_nodes: Set[ManagerNode] = set()
         self._worker_nodes: Set[WorkerNode] = set()
 
-    def deploy_managers(self,
-                        hosts: Mapping[AinurHost, Dict[str, Any]],
-                        **default_labels: Any,
-                        ) -> DockerSwarm:
+    def deploy_managers(
+        self,
+        hosts: Mapping[AinurHost, Dict[str, Any]],
+        **default_labels: Any,
+    ) -> DockerSwarm:
         """
         Configures Manager nodes on the Swarm.
 
@@ -171,8 +198,7 @@ class DockerSwarm(AbstractContextManager):
                 mgr_node = self._manager_nodes.pop()
                 self._manager_nodes.add(mgr_node)
 
-                logger.info(f'Deploying hosts {hosts.keys()} as Swarm '
-                            f'managers.')
+                logger.info(f"Deploying hosts {hosts.keys()} as Swarm " f"managers.")
 
                 with ThreadPoolExecutor() as tpool:
                     # use thread pool instead of process pool, as we only really
@@ -187,9 +213,7 @@ class DockerSwarm(AbstractContextManager):
                         labels.update(host_labels)
                         try:
                             node = mgr_node.attach_manager(
-                                host=host,
-                                labels=labels,
-                                daemon_port=self._daemon_port
+                                host=host, labels=labels, daemon_port=self._daemon_port
                             )
                             self._manager_nodes.add(node)
                         except Exception as e:
@@ -204,9 +228,9 @@ class DockerSwarm(AbstractContextManager):
                     tpool.map(_add_manager, hosts.items())
 
                 if len(caught_exceptions) > 0:
-                    raise SwarmException(f'Could not attach all nodes in '
-                                         f'{hosts.keys()} to Swarm.') \
-                        from caught_exceptions.pop()
+                    raise SwarmException(
+                        f"Could not attach all nodes in " f"{hosts.keys()} to Swarm."
+                    ) from caught_exceptions.pop()
 
                 hosts.clear()
                 return self
@@ -216,15 +240,13 @@ class DockerSwarm(AbstractContextManager):
                 labels = dict(default_labels)
                 labels.update(host_labels)
                 first_manager_node = ManagerNode.init_swarm(
-                    host=host,
-                    labels=labels,
-                    daemon_port=self._daemon_port
+                    host=host, labels=labels, daemon_port=self._daemon_port
                 )
                 self._manager_nodes.add(first_manager_node)
                 continue
         return self
 
-    def pull_image(self, image: str, tag: str = 'latest'):
+    def pull_image(self, image: str, tag: str = "latest"):
         """
         Pulls a container image on all the Swarm nodes.
 
@@ -249,21 +271,27 @@ class DockerSwarm(AbstractContextManager):
                     with exc_lock:
                         caught_exceptions.append(e)
 
-            tpool.map(_pull, zip(self._manager_nodes,
-                                 itertools.repeat(image),
-                                 itertools.repeat(tag)))
-            tpool.map(_pull, zip(self._worker_nodes,
-                                 itertools.repeat(image),
-                                 itertools.repeat(tag)))
+            tpool.map(
+                _pull,
+                zip(
+                    self._manager_nodes, itertools.repeat(image), itertools.repeat(tag)
+                ),
+            )
+            tpool.map(
+                _pull,
+                zip(self._worker_nodes, itertools.repeat(image), itertools.repeat(tag)),
+            )
 
         if len(caught_exceptions) > 0:
-            raise SwarmException(f'Could not pull image {image}:{tag} on all '
-                                 f'nodes of the Swarm!') \
-                from caught_exceptions.pop()
+            raise SwarmException(
+                f"Could not pull image {image}:{tag} on all " f"nodes of the Swarm!"
+            ) from caught_exceptions.pop()
 
-    def deploy_workers(self,
-                       hosts: Mapping[AinurHost, Dict[str, Any]],
-                       **default_labels: Any, ) -> DockerSwarm:
+    def deploy_workers(
+        self,
+        hosts: Mapping[AinurHost, Dict[str, Any]],
+        **default_labels: Any,
+    ) -> DockerSwarm:
         """
         Configures Worker nodes on the Swarm.
 
@@ -297,9 +325,7 @@ class DockerSwarm(AbstractContextManager):
                     labels.update(host_labels)
                     try:
                         node = mgr_node.attach_worker(
-                            host=host,
-                            labels=labels,
-                            daemon_port=self._daemon_port
+                            host=host, labels=labels, daemon_port=self._daemon_port
                         )
                         self._worker_nodes.add(node)
                     except Exception as e:
@@ -314,15 +340,16 @@ class DockerSwarm(AbstractContextManager):
                 tpool.map(_add_worker, hosts.items())
 
             if len(caught_exceptions) > 0:
-                raise SwarmException(f'Could not attach all nodes in '
-                                     f'{hosts.keys()} to Swarm.') \
-                    from caught_exceptions.pop()
+                raise SwarmException(
+                    f"Could not attach all nodes in " f"{hosts.keys()} to Swarm."
+                ) from caught_exceptions.pop()
 
             return self
         except KeyError:
             # if no existing managers, we have a problem
-            raise SwarmException('No managers available in the Swarm, cannot '
-                                 'deploy worker nodes!')
+            raise SwarmException(
+                "No managers available in the Swarm, cannot " "deploy worker nodes!"
+            )
 
     @property
     def num_nodes(self) -> int:
@@ -340,6 +367,7 @@ class DockerSwarm(AbstractContextManager):
     @staticmethod
     def _tear_down(nodes: Collection[SwarmNode]):
         with ThreadPoolExecutor() as tpool:
+
             def leave_swarm(node: SwarmNode) -> None:
                 node.leave_swarm(force=True)
 
@@ -354,12 +382,12 @@ class DockerSwarm(AbstractContextManager):
         used any more.
         """
 
-        logger.warning('Tearing down Swarm!')
+        logger.warning("Tearing down Swarm!")
         self._tear_down(self._worker_nodes)
         self._worker_nodes.clear()
         self._tear_down(self._manager_nodes)
         self._manager_nodes.clear()
-        logger.warning('Swarm has been torn down.')
+        logger.warning("Swarm has been torn down.")
 
     def __enter__(self) -> DockerSwarm:
         return self
@@ -389,13 +417,15 @@ class DockerSwarm(AbstractContextManager):
         """
         return frozenset(self._worker_nodes)
 
-    def deploy_workload(self,
-                        specification: WorkloadSpecification,
-                        attach_volume: Optional[str] = None,
-                        health_check_poll_interval: float = 10.0,
-                        complete_threshold: int = 3,
-                        max_failed_health_checks: int = 3) \
-            -> WorkloadResult:
+    def deploy_workload(
+        self,
+        specification: WorkloadSpecification,
+        attach_volume: Optional[str] = None,
+        health_check_poll_interval: float = 10.0,
+        complete_threshold: int = 3,
+        max_failed_health_checks: int = 3,
+        ignored_health_services: Sequence[str] = (),
+    ) -> WorkloadResult:
         """
         Runs a workload, as described by a WorkloadDefinition object, on this
         Swarm and waits for it to finish (or fail).
@@ -423,49 +453,62 @@ class DockerSwarm(AbstractContextManager):
 
         # sanity check
         if self.num_nodes == 0:
-            raise SwarmException('Cannot deploy a workload to a Docker Swarm '
-                                 'that has not been deployed.')
+            raise SwarmException(
+                "Cannot deploy a workload to a Docker Swarm "
+                "that has not been deployed."
+            )
 
-        logger.info(f'Deploying workload {specification.name}:\n'
-                    f'{specification}')
+        logger.info(f"Deploying workload {specification.name}:\n" f"{specification}")
 
         # TODO: figure out a way to pull images before deploying
 
         # calculate  time log formats before launching to not
         # interfere with actual duration
-        max_duration = timeparse.timeparse(specification.max_duration,
-                                           granularity='seconds')
+        max_duration = timeparse.timeparse(
+            specification.max_duration, granularity="seconds"
+        )
         max_dur_hms = seconds2hms(max_duration)
         health_ival_hms = seconds2hms(health_check_poll_interval)
 
-        log_max_fails = max_failed_health_checks \
-            if max_failed_health_checks > 0 else '∞'
+        log_max_fails = (
+            max_failed_health_checks if max_failed_health_checks > 0 else "∞"
+        )
 
-        logger.info(f'Max workload runtime: {max_dur_hms}')
-        logger.info(f'Health check interval: {health_ival_hms}; maximum '
-                    f'allowed failed health checks: {log_max_fails}.')
+        logger.info(f"Max workload runtime: {max_dur_hms}")
+        logger.info(
+            f"Health check interval: {health_ival_hms}; maximum "
+            f"allowed failed health checks: {log_max_fails}."
+        )
+        if len(ignored_health_services) > 0:
+            logger.warning(
+                f"Ignoring health status of services: {ignored_health_services}"
+            )
+            ignored_health_services = {
+                f"{specification.name}_{name}" for name in ignored_health_services
+            }
 
         with specification.temp_compose_file(attach_volume) as compose_file:
-            logger.debug(f'Using temporary docker-compose v3 at '
-                         f'{compose_file}.')
+            logger.debug(f"Using temporary docker-compose v3 at " f"{compose_file}.")
 
             # we use python-on-whales to deploy the service stack,
             # since docker-py is too low-level.
 
             # grab an arbitrary manager and point a client to it
             mgr_node = next(iter(self._manager_nodes))
-            host_addr = f'{mgr_node.host.management_ip.ip}:' \
-                        f'{mgr_node.daemon_port}'
+            host_addr = f"{mgr_node.host.management_ip.ip}:" f"{mgr_node.daemon_port}"
 
             try:
                 stack = WhaleClient(host=host_addr).stack.deploy(
                     name=specification.name,
                     compose_files=[compose_file],
-                    orchestrator='swarm',
+                    orchestrator="swarm",
                 )
             except DockerException as e:
-                logger.exception('Caught exception when deploying workload '
-                                 'service stack to Swarm.', e)
+                logger.exception(
+                    "Caught exception when deploying workload "
+                    "service stack to Swarm.",
+                    e,
+                )
                 raise e
 
             # TODO: environment files
@@ -476,11 +519,22 @@ class DockerSwarm(AbstractContextManager):
             # Docker-Py Service objects for more efficient health checks
 
             with mgr_node.client_context() as client:
-                services = [client.services.get(s.id)
-                            for s in stack.services()]
+                services = []
+                ignored_services = []
 
-            logger.warning(f'Workload {specification.name} '
-                           f'({len(services)} services) has been deployed!')
+                for s in stack.services():
+                    serv = client.services.get(s.id)
+                    if serv.name in ignored_health_services:
+                        ignored_services.append(serv)
+                    else:
+                        services.append(serv)
+
+                # services = [client.services.get(s.id) for s in stack.services()]
+
+            logger.warning(
+                f"Workload {specification.name} "
+                f"({len(services)} services) has been deployed!"
+            )
 
             # start health checks and countdown to max duration
             # thread functions
@@ -489,15 +543,16 @@ class DockerSwarm(AbstractContextManager):
             status_cond = threading.Condition()
 
             def _wkld_timeout():
-                logger.warning(f'Workload {specification.name} timed out!')
+                logger.warning(f"Workload {specification.name} timed out!")
                 with status_cond:
                     timed_out.set()
                     status_cond.notify_all()
 
             # ----------------
 
-            timeout_timer = threading.Timer(interval=max_duration,
-                                            function=_wkld_timeout)
+            timeout_timer = threading.Timer(
+                interval=max_duration, function=_wkld_timeout
+            )
             timeout_timer.start()
 
             health_check_timer = ServiceHealthCheckThread(
@@ -505,7 +560,8 @@ class DockerSwarm(AbstractContextManager):
                 services=services,
                 check_interval=health_check_poll_interval,
                 complete_thresh=complete_threshold,
-                max_failed_health_checks=max_failed_health_checks
+                max_failed_health_checks=max_failed_health_checks,
+                ignored_services=ignored_services,
             )
             health_check_timer.start()
 
@@ -538,8 +594,10 @@ class DockerSwarm(AbstractContextManager):
                 timeout_timer.join()
                 health_check_timer.join()
 
-                logger.warning('Tearing down Docker Swarm service '
-                               f'stack for workload {specification.name}.')
+                logger.warning(
+                    "Tearing down Docker Swarm service "
+                    f"stack for workload {specification.name}."
+                )
                 stack.remove()
 
             return result
