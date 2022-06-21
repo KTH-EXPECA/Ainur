@@ -1,8 +1,9 @@
 import itertools
+import random
 from pathlib import Path
 
 # from ainur import *
-from typing import Iterable, Literal, Sequence
+from typing import Literal, Sequence
 
 import click
 
@@ -57,6 +58,7 @@ AP_PORT = 5
 # ]
 
 IMAGE = "molguin/edgedroid2"
+IPERF_IMG = "molguin/iperf3-alpine"
 SERVER_TAG = "server"
 CLIENT_TAG = "client"
 TASK_SLOT = r"{{.Task.Slot}}"
@@ -84,6 +86,63 @@ max_duration: "{max_duration}"
 compose:
   version: "3.9"
   services:
+    iperf3-server:
+      image: molguin/iperf3-alpine:latest
+      hostname: iperf
+      command:
+      - "-s"
+      - "-p"
+      - "1337"
+      - "--logfile"
+      - "/opt/results/iperf-server.log"
+      - "--forceflush"
+      deploy:
+        replicas: 1
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.role==backend"
+          - "node.labels.iperf==yes"
+        restart_policy:
+          condition: none
+      volumes:
+      - type: volume
+          source: {workload_name}
+          target: /opt/results/
+          volume:
+            nocopy: true
+    
+    iperf3-client:
+      image: molguin/iperf3-alpine:latest
+      command:
+      - "-c"
+      - "iperf"
+      - "-p"
+      - "1337"
+      - "-b"
+      - "100M"
+      - "-t"
+      - "0"
+      - "--reverse"
+      - "--logfile"
+      - "/opt/results/iperf-client.log"
+      - "--forceflush"
+      deploy:
+        replicas: 1
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.role==client"
+          - "node.labels.iperf==yes"
+        restart_policy:
+          condition: none
+      volumes:
+      - type: volume
+          source: {workload_name}
+          target: /opt/results/
+          volume:
+            nocopy: true
+  
     server:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
@@ -147,6 +206,7 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.role==client"
+          - "node.labels.iperf==no"
         restart_policy:
           condition: none
       depends_on:
@@ -230,6 +290,10 @@ compose:
     is_flag=True,
     help="Brings up everything up to the Swarm, but doesn't run workloads.",
 )
+@click.option(
+    "--iperf",
+    is_flag=True,
+)
 def run_experiment(
     workload_name: str,
     num_clients: Sequence[int],
@@ -242,10 +306,20 @@ def run_experiment(
     swarm_size: int,
     repetitions: int,
     dry_run: bool,
+    iperf: bool,
 ):
     # workload client count and swarm size are not related
 
     num_clients = set(num_clients)
+
+    if iperf:
+        for n in num_clients:
+            if n > 9:
+                raise RuntimeError(
+                    "Maximum number of clients is 9 when running "
+                    "iperf instance concurrently."
+                )
+
     hosts = get_hosts(
         client_count=swarm_size,
         iface=interface,
@@ -279,21 +353,31 @@ def run_experiment(
         ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
         lan_layer.add_hosts(phy_layer)
 
+        # iperf label
+        worker_hosts = {
+            host: {"iperf": "no", "role": "client"}
+            for name, host in hosts.items()
+            if name.startswith("workload-client")
+        }
+
+        if iperf:
+            iperf_host = random.choice(worker_hosts)
+            worker_hosts[iperf_host]["iperf"] = "yes"
+
         # init swarm
-        swarm = stack.enter_context(DockerSwarm())
+        swarm: DockerSwarm = stack.enter_context(DockerSwarm())
         swarm.deploy_managers(
-            hosts={hosts["elrond"]: {}}, location="edge", role="backend"
+            hosts={hosts["elrond"]: {}},
+            location="edge",
+            role="backend",
+            iperf="yes" if iperf else "no",
         ).deploy_workers(
-            hosts={
-                host: {}
-                for name, host in hosts.items()
-                if name.startswith("workload-client")
-                # hosts['workload-client-01']: {}
-            },
+            hosts=worker_hosts,
             role="client",
         )
         swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
+        swarm.pull_image(image=IPERF_IMG, tag="latest")
 
         for num, task, model, run in itertools.product(
             num_clients, tasks, models, range(repetitions)
@@ -328,8 +412,9 @@ def run_experiment(
             ) as storage:
                 if not noconfirm:
                     click.confirm(
-                        f"Workload {workload_name} ({num_clients} clients, task {task}, "
-                        f"model {model}, interface {interface}) is ready to run.\n\n"
+                        f"Workload {workload_name} ({num_clients} clients, "
+                        f"task {task}, model {model}, interface {interface}) "
+                        f"is ready to run.\n\n"
                         f"Continue?",
                         default=True,
                         abort=True,
