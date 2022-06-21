@@ -123,6 +123,8 @@ compose:
       - "100M"
       - "-t"
       - "0"
+      - "--connect-timeout"
+      - "{1 * 60 * 60 * 1000}"
       - "--reverse"
       - "--logfile"
       - "/opt/results/iperf-client.log"
