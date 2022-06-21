@@ -123,8 +123,6 @@ compose:
       - "100M"
       - "-t"
       - "0"
-      - "--connect-timeout"
-      - "{1 * 60 * 60 * 1000}"
       - "--reverse"
       - "--logfile"
       - "/opt/results/iperf-client.log"
@@ -137,7 +135,7 @@ compose:
           - "node.labels.role==client"
           - "node.labels.iperf==yes"
         restart_policy:
-          condition: none
+          condition: on-failure
       volumes:
       - type: volume
         source: {workload_name}
