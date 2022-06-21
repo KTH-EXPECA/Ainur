@@ -73,6 +73,7 @@ def generate_workload_def(
     workload_name: str,
     max_duration: str = "40m",
     neuroticism: float = 0.5,
+    iperf_rate: str = "50M",
 ) -> str:
     # language=yaml
     return f"""
@@ -122,7 +123,7 @@ compose:
       - "-p"
       - "1337"
       - "-b"
-      - "100M"
+      - "{iperf_rate}"
       - "-t"
       - "0"
       - "--reverse"
@@ -299,6 +300,12 @@ compose:
     "--iperf",
     is_flag=True,
 )
+@click.option(
+    "--iperf-rate",
+    type=str,
+    default="50M",
+    show_default=True,
+)
 def run_experiment(
     workload_name: str,
     num_clients: Sequence[int],
@@ -312,6 +319,7 @@ def run_experiment(
     repetitions: int,
     dry_run: bool,
     iperf: bool,
+    iperf_rate: str,
 ):
     # workload client count and swarm size are not related
 
@@ -396,6 +404,7 @@ def run_experiment(
                         workload_name=f"{workload_name}_Clients{num}_Run{run + 1}",
                         max_duration=max_duration,
                         neuroticism=neuroticism,
+                        iperf_rate=iperf_rate,
                     )
                 )
             )
