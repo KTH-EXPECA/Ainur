@@ -92,8 +92,8 @@ compose:
       command:
       - "-s"
       - "-p"
-      - "--one-off"
       - "1337"
+      - "--one-off"
       - "--logfile"
       - "/opt/results/iperf-server.log"
       - "--forceflush"
