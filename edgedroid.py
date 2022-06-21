@@ -106,6 +106,7 @@ compose:
           - "node.labels.iperf==yes"
         restart_policy:
           condition: on-failure
+          max_attempts: 3
       volumes:
       - type: volume
         source: {workload_name}
@@ -137,6 +138,7 @@ compose:
           - "node.labels.iperf==yes"
         restart_policy:
           condition: on-failure
+          max_attempts: 3
       volumes:
       - type: volume
         source: {workload_name}
