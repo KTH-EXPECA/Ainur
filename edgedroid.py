@@ -142,6 +142,8 @@ compose:
         target: /opt/results/
         volume:
           nocopy: true
+      depends_on:
+      - iperf3-server
   
     server:
       image: {IMAGE}:{SERVER_TAG}
