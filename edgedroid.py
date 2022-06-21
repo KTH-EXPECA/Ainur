@@ -302,7 +302,7 @@ compose:
 )
 @click.option(
     "--iperf-rate",
-    "iperf-rates",
+    "iperf_rates",
     type=str,
     multiple=True,
     default=("50M",),
