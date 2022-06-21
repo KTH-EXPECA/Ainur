@@ -301,9 +301,10 @@ compose:
     is_flag=True,
 )
 @click.option(
-    "--iperf-rate",
+    "--iperf-rates",
     type=str,
-    default="50M",
+    multiple=True,
+    default=("50M",),
     show_default=True,
 )
 def run_experiment(
@@ -319,7 +320,7 @@ def run_experiment(
     repetitions: int,
     dry_run: bool,
     iperf: bool,
-    iperf_rate: str,
+    iperf_rates: Sequence[str],
 ):
     # workload client count and swarm size are not related
 
@@ -392,16 +393,23 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for num, task, model, run in itertools.product(
-            num_clients, tasks, models, range(repetitions)
+        for num, task, model, iperf_rate, run in itertools.product(
+            num_clients, tasks, models, iperf_rates, range(repetitions)
         ):
+            if iperf:
+                wkld_name = (
+                    f"{workload_name}_Clients{num}_iperf{iperf_rate}_Run{run + 1}"
+                )
+            else:
+                wkld_name = f"{workload_name}_Clients{num}_Run{run + 1}"
+
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
                         num_clients=num,
                         task=task,
                         model=model,
-                        workload_name=f"{workload_name}_Clients{num}_Run{run + 1}",
+                        workload_name=wkld_name,
                         max_duration=max_duration,
                         neuroticism=neuroticism,
                         iperf_rate=iperf_rate,
