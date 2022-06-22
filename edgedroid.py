@@ -394,8 +394,8 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for num, task, model, iperf_rate, run in itertools.product(
-            num_clients, tasks, models, iperf_rates, range(repetitions)
+        for num, task, iperf_rate, run, model in itertools.product(
+            num_clients, tasks, iperf_rates, range(repetitions), models
         ):
             if iperf:
                 wkld_name = (
