@@ -3,7 +3,7 @@ import random
 from pathlib import Path
 
 # from ainur import *
-from typing import Literal, Sequence
+from typing import Sequence
 
 import click
 
@@ -267,13 +267,13 @@ compose:
     show_default=True,
     default=("naive", "empirical", "theoretical"),
 )
-@click.option(
-    "-i",
-    "--interface",
-    type=click.Choice(["wifi", "ethernet"]),
-    default="ethernet",
-    show_default=True,
-)
+# @click.option(
+#     "-i",
+#     "--interface",
+#     type=click.Choice(["wifi", "ethernet"]),
+#     default="ethernet",
+#     show_default=True,
+# )
 @click.option(
     "--noconfirm",
     is_flag=True,
@@ -315,7 +315,7 @@ def run_experiment(
     max_duration: str,
     tasks: Sequence[str],
     models: Sequence[str],
-    interface: Literal["wifi", "ethernet"],
+    # interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
     swarm_size: int,
     repetitions: int,
@@ -324,7 +324,7 @@ def run_experiment(
     iperf_rates: Sequence[str],
 ):
     # workload client count and swarm size are not related
-
+    interface = "wifi"
     num_clients = set(num_clients)
 
     if iperf:
