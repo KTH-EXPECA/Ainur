@@ -339,6 +339,7 @@ def run_experiment(
         client_count=swarm_size,
         iface=interface,
         wifi_ssid="expeca_wlan_2",
+        wifi_password="EXPECA-WLAN",
         wifi_hidden=True,
     )
 
