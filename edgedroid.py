@@ -303,10 +303,10 @@ compose:
     is_flag=True,
     help="Brings up everything up to the Swarm, but doesn't run workloads.",
 )
-@click.option(
-    "--iperf",
-    is_flag=True,
-)
+# @click.option(
+#     "--iperf",
+#     is_flag=True,
+# )
 # @click.option(
 #     "--iperf-rate",
 #     "iperf_rates",
