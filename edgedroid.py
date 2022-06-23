@@ -1,5 +1,4 @@
 import itertools
-import random
 from pathlib import Path
 
 # from ainur import *
@@ -65,16 +64,27 @@ TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
 
+TASK = "square00"
+
 
 def generate_workload_def(
     num_clients: int,
-    task: str,
+    run_n: int,
+    # task: str,
     model: str,
     workload_name: str,
     max_duration: str = "40m",
     neuroticism: float = 0.5,
-    iperf_rate: str = "50M",
+    sampling_strategy: str = "zero-wait",
 ) -> str:
+    edgedroid_output = (
+        f"/opt/results"
+        f"/neuro-{neuroticism}_model-{model}_sampling-{sampling_strategy}"
+        f"/clients-{num_clients}"
+        f"/run-{run_n}"
+        f"/loop{TASK_SLOT}"
+    )
+
     # language=yaml
     return f"""
 ---
@@ -87,79 +97,78 @@ max_duration: "{max_duration}"
 compose:
   version: "3.9"
   services:
-    iperf3-server:
-      image: molguin/iperf3-alpine:latest
-      hostname: iperf
-      command:
-      - "-s"
-      - "-p"
-      - "1337"
-      - "--one-off"
-      - "--logfile"
-      - "/opt/results/iperf-server.log"
-      - "--forceflush"
-      deploy:
-        replicas: 1
-        placement:
-          max_replicas_per_node: 1
-          constraints:
-          - "node.labels.role==backend"
-          - "node.labels.iperf==yes"
-        restart_policy:
-          condition: on-failure
-          max_attempts: 3
-      volumes:
-      - type: volume
-        source: {workload_name}
-        target: /opt/results/
-        volume:
-          nocopy: true
-    
-    iperf3-client:
-      image: molguin/iperf3-alpine:latest
-      command:
-      - "-c"
-      - "iperf"
-      - "-p"
-      - "1337"
-      - "-b"
-      - "{iperf_rate}"
-      - "-t"
-      - "0"
-      - "--reverse"
-      - "--logfile"
-      - "/opt/results/iperf-client.log"
-      - "--forceflush"
-      deploy:
-        replicas: 1
-        placement:
-          max_replicas_per_node: 1
-          constraints:
-          - "node.labels.role==client"
-          - "node.labels.iperf==yes"
-        restart_policy:
-          condition: on-failure
-          max_attempts: 3
-      volumes:
-      - type: volume
-        source: {workload_name}
-        target: /opt/results/
-        volume:
-          nocopy: true
-      depends_on:
-      - iperf3-server
+#    iperf3-server:
+#      image: molguin/iperf3-alpine:latest
+#      hostname: iperf
+#      command:
+#      - "-s"
+#      - "-p"
+#      - "1337"
+#      - "--one-off"
+#      - "--logfile"
+#      - "/opt/results/iperf-server.log"
+#      - "--forceflush"
+#      deploy:
+#        replicas: 1
+#        placement:
+#          max_replicas_per_node: 1
+#          constraints:
+#          - "node.labels.role==backend"
+#          - "node.labels.iperf==yes"
+#        restart_policy:
+#          condition: on-failure
+#          max_attempts: 3
+#      volumes:
+#      - type: volume
+#        source: {workload_name}
+#        target: /opt/results/
+#        volume:
+#          nocopy: true
+#    
+#    iperf3-client:
+#      image: molguin/iperf3-alpine:latest
+#      command:
+#      - "-c"
+#      - "iperf"
+#      - "-p"
+#      - "1337"
+#      - "-b"
+#      - "iperf_rate"
+#      - "-t"
+#      - "0"
+#      - "--reverse"
+#      - "--logfile"
+#      - "/opt/results/iperf-client.log"
+#      - "--forceflush"
+#      deploy:
+#        replicas: 1
+#        placement:
+#          max_replicas_per_node: 1
+#          constraints:
+#          - "node.labels.role==client"
+#          - "node.labels.iperf==yes"
+#        restart_policy:
+#          condition: on-failure
+#          max_attempts: 3
+#      volumes:
+#      - type: volume
+#        source: {workload_name}
+#        target: /opt/results/
+#        volume:
+#          nocopy: true
+#      depends_on:
+#      - iperf3-server
   
     server:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
       environment:
-        EDGEDROID_SERVER_OUTPUT: /opt/results/{SERVER_HOST}_{task}_{model}.csv
-        EDGEDROID_SERVER_LOG_FILE: /opt/results/{SERVER_HOST}_{task}_{model}.log
+        EDGEDROID_OUTPUT_DIR: {edgedroid_output}
       command:
       - "--verbose"
       - "0.0.0.0"
       - "5000"
-      - "{task}"
+      - "{TASK}"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -187,20 +196,18 @@ compose:
       environment:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
-        EDGEDROID_CLIENT_STEP_RECORDS_OUTPUT: >-
-            /opt/results/{CLIENT_HOST}_steps_{task}_{model}.csv
-        EDGEDROID_CLIENT_FRAME_RECORDS_OUTPUT: >-
-            /opt/results/{CLIENT_HOST}_frames_{task}_{model}.csv
-        EDGEDROID_CLIENT_LOG_FILE: /opt/results/{CLIENT_HOST}_{task}_{model}.log
+        EDGEDROID_OUTPUT_DIR: {edgedroid_output}
       command:
         - "-n"
         - "{neuroticism}"
         - "-t"
-        - "{task}"
+        - "{TASK}"
         - "-f"
         - "8"
         - "-m"
         - "{model}"
+        - "-s"
+        - "{sampling_strategy}"
         - "--verbose"
         - "--connect-timeout-seconds"
         - "5.0"
@@ -249,15 +256,15 @@ compose:
     default="1h",
     show_default=True,
 )
-@click.option(
-    "-t",
-    "--task",
-    "tasks",
-    type=str,
-    multiple=True,
-    show_default=True,
-    default=("square00",),
-)
+# @click.option(
+#     "-t",
+#     "--task",
+#     "tasks",
+#     type=str,
+#     multiple=True,
+#     show_default=True,
+#     default=("square00",),
+# )
 @click.option(
     "-m",
     "--model",
@@ -300,12 +307,21 @@ compose:
     "--iperf",
     is_flag=True,
 )
+# @click.option(
+#     "--iperf-rate",
+#     "iperf_rates",
+#     type=str,
+#     multiple=True,
+#     default=("50M",),
+#     show_default=True,
+# )
 @click.option(
-    "--iperf-rate",
-    "iperf_rates",
+    "-s",
+    "--sampling-strategy",
+    "sampling_strategies",
     type=str,
     multiple=True,
-    default=("50M",),
+    default=("zero-wait",),
     show_default=True,
 )
 def run_experiment(
@@ -313,27 +329,28 @@ def run_experiment(
     num_clients: Sequence[int],
     neuroticism: float,
     max_duration: str,
-    tasks: Sequence[str],
+    # tasks: Sequence[str],
     models: Sequence[str],
     # interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
     swarm_size: int,
     repetitions: int,
     dry_run: bool,
-    iperf: bool,
-    iperf_rates: Sequence[str],
+    # iperf: bool,
+    # iperf_rates: Sequence[str],
+    sampling_strategies: Sequence[str],
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
     num_clients = set(num_clients)
 
-    if iperf:
-        for n in num_clients:
-            if n > 9:
-                raise RuntimeError(
-                    "Maximum number of clients is 9 when running "
-                    "iperf instance concurrently."
-                )
+    # if iperf:
+    #     for n in num_clients:
+    #         if n > 9:
+    #             raise RuntimeError(
+    #                 "Maximum number of clients is 9 when running "
+    #                 "iperf instance concurrently."
+    #             )
 
     hosts = get_hosts(
         client_count=swarm_size,
@@ -376,9 +393,9 @@ def run_experiment(
             if name.startswith("workload-client")
         }
 
-        if iperf:
-            iperf_host = random.choice(list(worker_hosts))
-            worker_hosts[iperf_host]["iperf"] = "yes"
+        # if iperf:
+        #     iperf_host = random.choice(list(worker_hosts))
+        #     worker_hosts[iperf_host]["iperf"] = "yes"
 
         # init swarm
         swarm: DockerSwarm = stack.enter_context(DockerSwarm())
@@ -386,7 +403,8 @@ def run_experiment(
             hosts={hosts["elrond"]: {}},
             location="edge",
             role="backend",
-            iperf="yes" if iperf else "no",
+            # iperf="yes" if iperf else "no",
+            iperf="no",
         ).deploy_workers(
             hosts=worker_hosts,
             role="client",
@@ -395,31 +413,38 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for num, task, iperf_rate, run, model in itertools.product(
-            num_clients, tasks, iperf_rates, range(repetitions), models
+        for num, sampling, run, model in itertools.product(
+            num_clients,
+            sampling_strategies,
+            # tasks,
+            # iperf_rates,
+            range(repetitions),
+            models,
         ):
-            if iperf:
-                wkld_name = (
-                    f"{workload_name}_Clients{num}_iperf{iperf_rate}_Run{run + 1}"
-                )
-            else:
-                wkld_name = f"{workload_name}_Clients{num}_Run{run + 1}"
+            # if iperf:
+            #     wkld_name = (
+            #         f"{workload_name}_Clients{num}_iperf{iperf_rate}_Run{run + 1}"
+            #     )
+            # else:
+            #     wkld_name = f"{workload_name}_Clients{num}_Run{run + 1}"
 
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
                         num_clients=num,
-                        task=task,
+                        run_n=run,
+                        # task=task,
                         model=model,
-                        workload_name=wkld_name,
+                        workload_name=workload_name,
                         max_duration=max_duration,
                         neuroticism=neuroticism,
-                        iperf_rate=iperf_rate,
+                        # iperf_rate=iperf_rate,
+                        sampling_strategy=sampling,
                     )
                 )
             )
             if dry_run:
-                logger.debug(f"Dry run: {num=} | {task=} | {model=} | {run=}")
+                logger.debug(f"Dry run: {num=} | {model=} | {run=}")
                 logger.debug(f"\n{workload.to_json(indent=4)}\n")
                 continue
 
@@ -436,10 +461,7 @@ def run_experiment(
             ) as storage:
                 if not noconfirm:
                     click.confirm(
-                        f"Workload {workload_name} ({num_clients} clients, "
-                        f"task {task}, model {model}, interface {interface}) "
-                        f"is ready to run.\n\n"
-                        f"Continue?",
+                        f"Workload {workload_name} is ready to run.\n\nContinue?",
                         default=True,
                         abort=True,
                     )
