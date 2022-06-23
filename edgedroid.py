@@ -80,7 +80,7 @@ def generate_workload_def(
         f"/neuro-{neuroticism}_model-{model}_sampling-{sampling_strategy}_task-{task}"
         f"/clients-{num_clients}"
         f"/run-{run_n}"
-        f"/loop-{TASK_SLOT}"
+        f"/loop{TASK_SLOT}"
     )
 
     # language=yaml
