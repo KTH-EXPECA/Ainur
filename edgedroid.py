@@ -70,7 +70,7 @@ TASK = "square00"
 def generate_workload_def(
     num_clients: int,
     run_n: int,
-    # task: str,
+    task: str,
     model: str,
     workload_name: str,
     max_duration: str = "40m",
@@ -168,7 +168,7 @@ compose:
       - "--verbose"
       - "0.0.0.0"
       - "5000"
-      - "{TASK}"
+      - "{task}"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -201,7 +201,7 @@ compose:
         - "-n"
         - "{neuroticism}"
         - "-t"
-        - "{TASK}"
+        - "{task}"
         - "-f"
         - "8"
         - "-m"
@@ -265,6 +265,13 @@ compose:
 #     show_default=True,
 #     default=("square00",),
 # )
+@click.option(
+    "-t",
+    "--test",
+    type=bool,
+    default=False,
+    show_default=True,
+)
 @click.option(
     "-m",
     "--model",
@@ -339,6 +346,7 @@ def run_experiment(
     # iperf: bool,
     # iperf_rates: Sequence[str],
     sampling_strategies: Sequence[str],
+    test: bool = False,
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
@@ -433,7 +441,7 @@ def run_experiment(
                     generate_workload_def(
                         num_clients=num,
                         run_n=run,
-                        # task=task,
+                        task="test" if test else TASK,
                         model=model,
                         workload_name=workload_name,
                         max_duration=max_duration,
