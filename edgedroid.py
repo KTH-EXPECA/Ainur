@@ -435,7 +435,7 @@ def run_experiment(
                 yaml.safe_load(
                     generate_workload_def(
                         num_clients=num,
-                        run_n=run,
+                        run_n=run + 1,
                         task=task,
                         model=model,
                         workload_name=workload_name,
