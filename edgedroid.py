@@ -334,6 +334,8 @@ def run_experiment(
                     "Maximum number of clients is 9 when running "
                     "iperf instance concurrently."
                 )
+    else:
+        iperf_rates = []
 
     hosts = get_hosts(
         client_count=swarm_size,
