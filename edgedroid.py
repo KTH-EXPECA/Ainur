@@ -161,7 +161,7 @@ compose:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
       environment:
-        EDGEDROID_OUTPUT_DIR: {edgedroid_output}
+        EDGEDROID_SERVER_OUTPUT_DIR: {edgedroid_output}
       command:
       - "--verbose"
       - "0.0.0.0"
@@ -194,7 +194,7 @@ compose:
       environment:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
-        EDGEDROID_OUTPUT_DIR: {edgedroid_output}
+        EDGEDROID_CLIENT_OUTPUT_DIR: {edgedroid_output}
       command:
         - "-n"
         - "{neuroticism}"
