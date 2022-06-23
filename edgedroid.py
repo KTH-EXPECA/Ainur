@@ -64,8 +64,6 @@ TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
 
-TASK = "square00"
-
 
 def generate_workload_def(
     num_clients: int,
@@ -239,6 +237,7 @@ compose:
 @click.option(
     "-n",
     "--neuroticism",
+    "neuroticisms",
     type=click.FloatRange(
         min=0,
         max=1.0,
@@ -246,7 +245,8 @@ compose:
         max_open=False,
         clamp=True,
     ),
-    default=0.5,
+    multiple=True,
+    default=(0.5,),
     show_default=True,
 )
 @click.option(
@@ -256,21 +256,14 @@ compose:
     default="1h",
     show_default=True,
 )
-# @click.option(
-#     "-t",
-#     "--task",
-#     "tasks",
-#     type=str,
-#     multiple=True,
-#     show_default=True,
-#     default=("square00",),
-# )
 @click.option(
     "-t",
-    "--test",
-    type=bool,
-    default=False,
+    "--task",
+    "tasks",
+    type=str,
+    multiple=True,
     show_default=True,
+    default=("square00",),
 )
 @click.option(
     "-m",
@@ -334,9 +327,9 @@ compose:
 def run_experiment(
     workload_name: str,
     num_clients: Sequence[int],
-    neuroticism: float,
+    neuroticisms: Sequence[float],
     max_duration: str,
-    # tasks: Sequence[str],
+    tasks: Sequence[str],
     models: Sequence[str],
     # interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
@@ -346,7 +339,7 @@ def run_experiment(
     # iperf: bool,
     # iperf_rates: Sequence[str],
     sampling_strategies: Sequence[str],
-    test: bool = False,
+    # test: bool = False,
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
@@ -421,7 +414,9 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for num, sampling, run, model in itertools.product(
+        for task, neuro, num, sampling, run, model in itertools.product(
+            tasks,
+            neuroticisms,
             num_clients,
             sampling_strategies,
             # tasks,
@@ -441,11 +436,11 @@ def run_experiment(
                     generate_workload_def(
                         num_clients=num,
                         run_n=run,
-                        task="test" if test else TASK,
+                        task=task,
                         model=model,
                         workload_name=workload_name,
                         max_duration=max_duration,
-                        neuroticism=neuroticism,
+                        neuroticism=neuro,
                         # iperf_rate=iperf_rate,
                         sampling_strategy=sampling,
                     )
