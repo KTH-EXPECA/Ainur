@@ -77,7 +77,7 @@ def generate_workload_def(
 ) -> str:
     edgedroid_output = (
         f"/opt/results"
-        f"/neuro-{neuroticism}_model-{model}_sampling-{sampling_strategy}"
+        f"/neuro-{neuroticism}_model-{model}_sampling-{sampling_strategy}_task-{task}"
         f"/clients-{num_clients}"
         f"/run-{run_n}"
         f"/loop{TASK_SLOT}"
