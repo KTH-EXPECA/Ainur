@@ -19,3 +19,4 @@ boto3 # for AWS
 boto3-stubs[essential]  # type hints for AWS...
 multipledispatch
 netaddr
+parse

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Sequence
 
 import click
+import parse
 
 from ainur.hosts import *
 from ainur.networks import *
@@ -82,6 +83,12 @@ def generate_workload_def(
         f"/run-{run_n}"
         f"/loop{TASK_SLOT}"
     )
+
+    if sampling_strategy.startswith("hold-"):
+        (hold_time_seconds,) = parse.parse("hold-{0:f}", sampling_strategy)
+        sampling_strategy = "hold"
+    else:
+        hold_time_seconds = 0.0
 
     # language=yaml
     return f"""
@@ -206,6 +213,8 @@ compose:
         - "{model}"
         - "-s"
         - "{sampling_strategy}"
+        - "--hold-time-seconds"
+        - "{hold_time_seconds}"
         - "--verbose"
         - "--connect-timeout-seconds"
         - "5.0"
