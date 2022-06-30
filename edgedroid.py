@@ -84,11 +84,14 @@ def generate_workload_def(
         f"/loop{TASK_SLOT}"
     )
 
+    hold_time_seconds = 0.0
+    sampling_interval_seconds = 0.0
     if sampling_strategy.startswith("hold-"):
         (hold_time_seconds,) = parse.parse("hold-{0:f}", sampling_strategy)
         sampling_strategy = "hold"
-    else:
-        hold_time_seconds = 0.0
+    elif sampling_strategy.startswith("regular-"):
+        (sampling_interval_seconds,) = parse.parse("regular-{0:f}", sampling_strategy)
+        sampling_strategy = "regular"
 
     # language=yaml
     return f"""
@@ -215,6 +218,8 @@ compose:
         - "{sampling_strategy}"
         - "--hold-time-seconds"
         - "{hold_time_seconds}"
+        - "--sampling-interval-seconds"
+        - "{sampling_interval_seconds}"
         - "--verbose"
         - "--connect-timeout-seconds"
         - "5.0"
