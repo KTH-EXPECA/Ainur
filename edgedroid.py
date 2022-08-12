@@ -172,6 +172,13 @@ compose:
       image: {IPERF_IMG}:latest
       hostname: {IPERF_SERVER_HOST}
       environment:
+        IPERF_LOG_HEADER: >-
+            neuro-{neuroticism}
+            model-{model}
+            sampling-{sampling_strategy}
+            task-{task}
+            clients-{num_clients}
+            run-{run_n}
         IPERF_LOGFILE: /opt/results/{IPERF_SERVER_HOST}.log
       command: iperf-server.sh
       deploy:
@@ -200,6 +207,13 @@ compose:
           volume:
             nocopy: true
       environment:
+        IPERF_LOG_HEADER: >-
+            neuro-{neuroticism}
+            model-{model}
+            sampling-{sampling_strategy}
+            task-{task}
+            clients-{num_clients}
+            run-{run_n}
         IPERF_SERVER_ADDR: {IPERF_SERVER_HOST}
         IPERF_TIME: {iperf_time_seconds:d}
         IPERF_BITRATE: {iperf_rate}
