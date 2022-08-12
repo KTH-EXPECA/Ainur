@@ -1,4 +1,5 @@
 import itertools
+import random
 from pathlib import Path
 
 # from ainur import *
@@ -10,7 +11,7 @@ from ainur.hosts import *
 from ainur.networks import *
 from ainur.swarm import *
 from ainur.swarm.storage import ExperimentStorage
-from ainur_utils.hosts import MAX_NUM_CLIENTS, get_hosts
+from ainur_utils.hosts import EDGE_HOST, MAX_NUM_CLIENTS, get_hosts
 from ainur_utils.resources import switch
 
 AP_PORT = 5
@@ -57,23 +58,29 @@ AP_PORT = 5
 # ]
 
 IMAGE = "molguin/edgedroid2"
-IPERF_IMG = "molguin/iperf3-alpine"
+IPERF_IMG = "expeca/simple-network-load"
 SERVER_TAG = "server"
 CLIENT_TAG = "client"
 TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
+IPERF_SERVER_HOST = f"iperfserver{TASK_SLOT}"
+IPERF_CLIENT_HOST = f"iperfclient{TASK_SLOT}"
 
 
 def generate_workload_def(
     num_clients: int,
+    num_iperf_clients: int,
     run_n: int,
     task: str,
     model: str,
     workload_name: str,
-    max_duration: str = "40m",
-    neuroticism: float = 0.5,
-    sampling_strategy: str = "zero-wait",
+    max_duration: str,
+    neuroticism: float,
+    sampling_strategy: str,
+    iperf_rate: str,
+    iperf_time_seconds: int,
+    iperf_start_delay_seconds: int,
 ) -> str:
     edgedroid_output = (
         f"/opt/results"
@@ -82,15 +89,6 @@ def generate_workload_def(
         f"/run-{run_n}"
         f"/loop{TASK_SLOT}"
     )
-
-    # hold_time_seconds = 0.0
-    # sampling_interval_seconds = 0.0
-    # if sampling_strategy.startswith("hold-"):
-    #     (hold_time_seconds,) = parse.parse("hold-{0:f}", sampling_strategy)
-    #     sampling_strategy = "hold"
-    # elif sampling_strategy.startswith("regular-"):
-    #     (sampling_interval_seconds,) = parse.parse("regular-{0:f}", sampling_strategy)
-    #     sampling_strategy = "regular"
 
     # language=yaml
     return f"""
@@ -104,68 +102,6 @@ max_duration: "{max_duration}"
 compose:
   version: "3.9"
   services:
-#    iperf3-server:
-#      image: molguin/iperf3-alpine:latest
-#      hostname: iperf
-#      command:
-#      - "-s"
-#      - "-p"
-#      - "1337"
-#      - "--one-off"
-#      - "--logfile"
-#      - "/opt/results/iperf-server.log"
-#      - "--forceflush"
-#      deploy:
-#        replicas: 1
-#        placement:
-#          max_replicas_per_node: 1
-#          constraints:
-#          - "node.labels.role==backend"
-#          - "node.labels.iperf==yes"
-#        restart_policy:
-#          condition: on-failure
-#          max_attempts: 3
-#      volumes:
-#      - type: volume
-#        source: {workload_name}
-#        target: /opt/results/
-#        volume:
-#          nocopy: true
-#    
-#    iperf3-client:
-#      image: molguin/iperf3-alpine:latest
-#      command:
-#      - "-c"
-#      - "iperf"
-#      - "-p"
-#      - "1337"
-#      - "-b"
-#      - "iperf_rate"
-#      - "-t"
-#      - "0"
-#      - "--reverse"
-#      - "--logfile"
-#      - "/opt/results/iperf-client.log"
-#      - "--forceflush"
-#      deploy:
-#        replicas: 1
-#        placement:
-#          max_replicas_per_node: 1
-#          constraints:
-#          - "node.labels.role==client"
-#          - "node.labels.iperf==yes"
-#        restart_policy:
-#          condition: on-failure
-#          max_attempts: 3
-#      volumes:
-#      - type: volume
-#        source: {workload_name}
-#        target: /opt/results/
-#        volume:
-#          nocopy: true
-#      depends_on:
-#      - iperf3-server
-  
     server:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
@@ -231,6 +167,59 @@ compose:
           condition: none
       depends_on:
       - server
+      
+    iperfserver:
+      image: {IPERF_IMG}:latest
+      hostname: {IPERF_SERVER_HOST}
+      environment:
+        IPERF_LOGFILE: /opt/results/{IPERF_SERVER_HOST}.log
+      command: iperf-server.sh
+      deploy:
+        replicas: {num_iperf_clients:d}
+        placement:
+          max_replicas_per_node: {num_iperf_clients:d}
+          constraints:
+          - "node.labels.role==backend"
+          - "node.labels.iperf==yes"
+        restart_policy:
+          condition: any
+      volumes:
+        - type: volume
+          source: {workload_name}
+          target: /opt/results/
+          volume:
+            nocopy: true
+            
+    iperfclient:
+      image: {IPERF_IMG}:latest
+      hostname: {IPERF_CLIENT_HOST}
+      volumes:
+        - type: volume
+          source: {workload_name}
+          target: /opt/results/
+          volume:
+            nocopy: true
+      environment:
+        IPERF_SERVER_ADDR: {IPERF_SERVER_HOST}
+        IPERF_TIME: {iperf_time_seconds:d}
+        IPERF_BITRATE: {iperf_rate}
+        IPERF_CONN_TIMEOUT: 1000
+        IPERF_MAX_RETRIES: 600
+        IPERF_USE_UDP: true
+        IPERF_START_DELAY: {iperf_start_delay_seconds}
+        IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
+      command: iperf-client.sh
+      deploy:
+        replicas: {num_iperf_clients:d}
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.role==client"
+          - "node.labels.iperf==yes"
+        restart_policy:
+          condition: none
+      depends_on:
+      - iperfserver
 ...
 """
 
@@ -238,14 +227,26 @@ compose:
 # noinspection DuplicatedCode
 @click.command()
 @click.argument("workload-name", type=str)
-@click.argument(
-    "num-clients",
-    type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
-    nargs=-1,
-)
 @click.option(
     "-n",
-    "--neuroticism",
+    "--num-clients",
+    "num-clients",
+    type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
+    # multiple=True,
+    default=MAX_NUM_CLIENTS,
+    show_default=True,
+)
+@click.option(
+    "-p",
+    "--num-iperf-clients",
+    "num-iperf-clients",
+    type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
+    # multiple=True,
+    default=0,
+    show_default=True,
+)
+@click.option(
+    "--neuro",
     "neuroticisms",
     type=click.FloatRange(
         min=0,
@@ -283,22 +284,18 @@ compose:
     show_default=True,
     default=("naive", "empirical", "theoretical"),
 )
-# @click.option(
-#     "-i",
-#     "--interface",
-#     type=click.Choice(["wifi", "ethernet"]),
-#     default="ethernet",
-#     show_default=True,
-# )
+@click.option(
+    "-s",
+    "--sampling-strategy",
+    "sampling_strategies",
+    type=str,
+    multiple=True,
+    default=("zero-wait",),
+    show_default=True,
+)
 @click.option(
     "--noconfirm",
     is_flag=True,
-)
-@click.option(
-    "--swarm-size",
-    type=int,
-    default=10,
-    show_default=True,
 )
 @click.option(
     "-r",
@@ -312,63 +309,58 @@ compose:
     is_flag=True,
     help="Brings up everything up to the Swarm, but doesn't run workloads.",
 )
-# @click.option(
-#     "--iperf",
-#     is_flag=True,
-# )
-# @click.option(
-#     "--iperf-rate",
-#     "iperf_rates",
-#     type=str,
-#     multiple=True,
-#     default=("50M",),
-#     show_default=True,
-# )
 @click.option(
-    "-s",
-    "--sampling-strategy",
-    "sampling_strategies",
+    "--iperf-rate",
+    "iperf-rate",
     type=str,
-    multiple=True,
-    default=("zero-wait",),
+    # multiple=True,
+    default="50M",
+    show_default=True,
+)
+@click.option(
+    "--iperf-time-seconds",
+    "iperf-seconds",
+    type=int,
+    default=10,
+    show_default=True,
+)
+@click.option(
+    "--iperf-start-delay-seconds",
+    "iperf-delay",
+    type=int,
+    default=0,
     show_default=True,
 )
 def run_experiment(
     workload_name: str,
-    num_clients: Sequence[int],
+    num_clients: int,
+    num_iperf_clients: int,
     neuroticisms: Sequence[float],
     max_duration: str,
     tasks: Sequence[str],
     models: Sequence[str],
-    # interface: Literal["wifi", "ethernet"],
     noconfirm: bool,
-    swarm_size: int,
     repetitions: int,
     dry_run: bool,
-    # iperf: bool,
-    # iperf_rates: Sequence[str],
     sampling_strategies: Sequence[str],
-    # test: bool = False,
+    iperf_rate: str,
+    iperf_seconds: int,
+    iperf_delay: int,
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
     num_clients = set(num_clients)
 
-    # if iperf:
-    #     for n in num_clients:
-    #         if n > 9:
-    #             raise RuntimeError(
-    #                 "Maximum number of clients is 9 when running "
-    #                 "iperf instance concurrently."
-    #             )
+    total_clients = num_iperf_clients + num_clients
 
-    hosts = get_hosts(
-        client_count=swarm_size,
+    client_hosts = get_hosts(
+        client_count=total_clients,
         iface=interface,
         wifi_ssid="expeca_wlan_2",
         wifi_password="EXPECA-WLAN",
         wifi_hidden=True,
     )
+    # backend_hosts = {"elrond": EDGE_HOST}
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
     ip_layer = CompositeLayer3Network()
@@ -387,37 +379,43 @@ def run_experiment(
         # hack to make vlan including AP and elrond
         switch_ports = [
             AP_PORT,
-            hosts["elrond"].ethernets["enp4s0"].wire_spec.switch_port,
+            EDGE_HOST.ethernets["enp4s0"].wire_spec.switch_port,
         ]
         phy_layer._switch.make_vlan(switch_ports, name="edgedroid_vlan")
-        phy_layer._hosts = hosts.copy()
+        phy_layer._hosts = dict(**client_hosts, elrond=EDGE_HOST)
 
         # init layer 3 connectivity
         ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
         lan_layer.add_hosts(phy_layer)
 
-        # iperf label
-        worker_hosts = {
-            host: {"iperf": "no", "role": "client"}
-            for name, host in hosts.items()
-            if name.startswith("workload-client")
-        }
+        # iperf labels
+        iperf_host_names = random.sample(
+            client_hosts.keys(),
+            k=num_iperf_clients,
+        )
+        worker_host_names = set(client_hosts.keys()).difference(iperf_host_names)
 
-        # if iperf:
-        #     iperf_host = random.choice(list(worker_hosts))
-        #     worker_hosts[iperf_host]["iperf"] = "yes"
+        logger.info(f"Edgedroid hosts: {worker_host_names}")
+        logger.info(f"iPerf hosts: {iperf_host_names}")
+
+        client_swarm_labels = {}
+        for host_name in iperf_host_names:
+            host = client_hosts[host_name]
+            client_swarm_labels[host] = {"iperf": "yes", "role": "client"}
+
+        for host_name in worker_host_names:
+            host = client_hosts[host_name]
+            client_swarm_labels[host] = {"iperf": "no", "role": "client"}
 
         # init swarm
         swarm: DockerSwarm = stack.enter_context(DockerSwarm())
         swarm.deploy_managers(
-            hosts={hosts["elrond"]: {}},
+            hosts={EDGE_HOST: {}},
             location="edge",
             role="backend",
-            # iperf="yes" if iperf else "no",
-            iperf="no",
+            iperf="yes",
         ).deploy_workers(
-            hosts=worker_hosts,
-            role="client",
+            hosts=client_swarm_labels,
         )
         swarm.pull_image(image=IMAGE, tag=SERVER_TAG)
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
@@ -428,30 +426,24 @@ def run_experiment(
             neuroticisms,
             num_clients,
             sampling_strategies,
-            # tasks,
-            # iperf_rates,
             range(repetitions),
             models,
         ):
-            # if iperf:
-            #     wkld_name = (
-            #         f"{workload_name}_Clients{num}_iperf{iperf_rate}_Run{run + 1}"
-            #     )
-            # else:
-            #     wkld_name = f"{workload_name}_Clients{num}_Run{run + 1}"
-
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
                         num_clients=num,
+                        num_iperf_clients=num_iperf_clients,
                         run_n=run + 1,
                         task=task,
                         model=model,
                         workload_name=workload_name,
                         max_duration=max_duration,
                         neuroticism=neuro,
-                        # iperf_rate=iperf_rate,
                         sampling_strategy=sampling,
+                        iperf_rate=iperf_rate,
+                        iperf_start_delay_seconds=iperf_delay,
+                        iperf_time_seconds=iperf_seconds,
                     )
                 )
             )

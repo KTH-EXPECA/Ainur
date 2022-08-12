@@ -16,7 +16,8 @@ from ainur.hosts import (
 __all__ = [
     "get_hosts",
     "generate_cloud_host_configs",
-    "MAX_NUM_EDGE",
+    "EDGE_HOST",
+    # "MAX_NUM_EDGE",
     "MAX_NUM_CLIENTS",
 ]
 
@@ -344,34 +345,58 @@ CLIENT_HOSTS = {
     ),
 }
 
-EDGE_HOSTS = {
-    "elrond": LocalAinurHost(
-        management_ip=IPv4Interface("192.168.1.2/16"),
-        ansible_user="expeca",
-        ethernets=frozendict(
-            {
-                "enp4s0": EthernetCfg(
-                    ip_address=IPv4Interface("10.0.1.1/16"),
-                    routes=(  # VPN route
-                        IPRoute(
-                            to=IPv4Interface("172.16.1.0/24"),
-                            via=IPv4Address("10.0.1.0"),
-                        ),
+EDGE_HOST = LocalAinurHost(
+    management_ip=IPv4Interface("192.168.1.2/16"),
+    ansible_user="expeca",
+    ethernets=frozendict(
+        {
+            "enp4s0": EthernetCfg(
+                ip_address=IPv4Interface("10.0.1.1/16"),
+                routes=(  # VPN route
+                    IPRoute(
+                        to=IPv4Interface("172.16.1.0/24"),
+                        via=IPv4Address("10.0.1.0"),
                     ),
-                    mac="d8:47:32:a3:25:20",
-                    wire_spec=WireSpec(
-                        net_name="eth_net",
-                        switch_port=2,
-                    ),
-                )
-            }
-        ),
-        wifis=frozendict(),
+                ),
+                mac="d8:47:32:a3:25:20",
+                wire_spec=WireSpec(
+                    net_name="eth_net",
+                    switch_port=2,
+                ),
+            )
+        }
     ),
-}
+    wifis=frozendict(),
+)
+
+# EDGE_HOSTS = {
+#     "elrond": LocalAinurHost(
+#         management_ip=IPv4Interface("192.168.1.2/16"),
+#         ansible_user="expeca",
+#         ethernets=frozendict(
+#             {
+#                 "enp4s0": EthernetCfg(
+#                     ip_address=IPv4Interface("10.0.1.1/16"),
+#                     routes=(  # VPN route
+#                         IPRoute(
+#                             to=IPv4Interface("172.16.1.0/24"),
+#                             via=IPv4Address("10.0.1.0"),
+#                         ),
+#                     ),
+#                     mac="d8:47:32:a3:25:20",
+#                     wire_spec=WireSpec(
+#                         net_name="eth_net",
+#                         switch_port=2,
+#                     ),
+#                 )
+#             }
+#         ),
+#         wifis=frozendict(),
+#     ),
+# }
 
 MAX_NUM_CLIENTS = len(CLIENT_HOSTS)
-MAX_NUM_EDGE = len(EDGE_HOSTS)
+# MAX_NUM_EDGE = len(EDGE_HOSTS)
 
 
 # hosts is a mapping from host name to a LocalAinurHost object
@@ -393,7 +418,8 @@ def get_hosts(
         k=client_count,
     )
 
-    hosts = EDGE_HOSTS.copy()
+    # hosts = EDGE_HOSTS.copy()
+    hosts = {}
     for k in keys:
         hd = CLIENT_HOSTS[k].copy()
         if iface == "wifi":
