@@ -230,7 +230,7 @@ compose:
 @click.option(
     "-n",
     "--num-clients",
-    "num-clients",
+    "num_clients",
     type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
     # multiple=True,
     default=MAX_NUM_CLIENTS,
@@ -239,7 +239,7 @@ compose:
 @click.option(
     "-p",
     "--num-iperf-clients",
-    "num-iperf-clients",
+    "num_iperf_clients",
     type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
     # multiple=True,
     default=0,
@@ -311,7 +311,7 @@ compose:
 )
 @click.option(
     "--iperf-rate",
-    "iperf-rate",
+    "iperf_rate",
     type=str,
     # multiple=True,
     default="50M",
@@ -319,14 +319,14 @@ compose:
 )
 @click.option(
     "--iperf-time-seconds",
-    "iperf-seconds",
+    "iperf_seconds",
     type=int,
     default=10,
     show_default=True,
 )
 @click.option(
     "--iperf-start-delay-seconds",
-    "iperf-delay",
+    "iperf_delay",
     type=int,
     default=0,
     show_default=True,
