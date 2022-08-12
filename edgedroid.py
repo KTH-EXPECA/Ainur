@@ -349,7 +349,7 @@ def run_experiment(
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
-    num_clients = set(num_clients)
+    # num_clients = set(num_clients)
 
     total_clients = num_iperf_clients + num_clients
 
