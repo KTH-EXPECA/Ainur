@@ -205,7 +205,6 @@ compose:
         IPERF_BITRATE: {iperf_rate}
         IPERF_CONN_TIMEOUT: 1000
         IPERF_MAX_RETRIES: 600
-        IPERF_USE_UDP: true
         IPERF_START_DELAY: {iperf_start_delay_seconds}
         IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
       command: iperf-client.sh
