@@ -353,6 +353,7 @@ def run_experiment(
 
     total_clients = num_iperf_clients + num_clients
 
+    # noinspection PyTypeChecker
     client_hosts = get_hosts(
         client_count=total_clients,
         iface=interface,
@@ -421,10 +422,9 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for task, neuro, num, sampling, run, model in itertools.product(
+        for task, neuro, sampling, run, model in itertools.product(
             tasks,
             neuroticisms,
-            num_clients,
             sampling_strategies,
             range(repetitions),
             models,
@@ -432,7 +432,7 @@ def run_experiment(
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
-                        num_clients=num,
+                        num_clients=num_clients,
                         num_iperf_clients=num_iperf_clients,
                         run_n=run + 1,
                         task=task,
@@ -448,7 +448,7 @@ def run_experiment(
                 )
             )
             if dry_run:
-                logger.debug(f"Dry run: {num=} | {model=} | {run=}")
+                logger.debug(f"Dry run: {num_clients=} | {model=} | {run=}")
                 logger.debug(f"\n{workload.to_json(indent=4)}\n")
                 continue
 
