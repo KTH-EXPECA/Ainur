@@ -81,6 +81,7 @@ def generate_workload_def(
     iperf_rate: str,
     iperf_time_seconds: int,
     iperf_start_delay_seconds: int,
+    iperf_use_udp: bool,
 ) -> str:
     edgedroid_output = (
         f"/opt/results"
@@ -221,6 +222,7 @@ compose:
         IPERF_MAX_RETRIES: 600
         IPERF_START_DELAY: {iperf_start_delay_seconds}
         IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
+        IPERF_USE_UDP: {str(iperf_use_udp)}
       command: iperf-client.sh
       deploy:
         replicas: {num_iperf_clients:d}
@@ -344,6 +346,12 @@ compose:
     default=0,
     show_default=True,
 )
+@click.option(
+    "--iperf-use-udp",
+    "iperf_use_udp",
+    is_flag=False,
+    show_default=True,
+)
 def run_experiment(
     workload_name: str,
     num_clients: int,
@@ -359,6 +367,7 @@ def run_experiment(
     iperf_rate: str,
     iperf_seconds: int,
     iperf_delay: int,
+    iperf_use_udp: bool,
 ):
     # workload client count and swarm size are not related
     interface = "wifi"
@@ -457,6 +466,7 @@ def run_experiment(
                         iperf_rate=iperf_rate,
                         iperf_start_delay_seconds=iperf_delay,
                         iperf_time_seconds=iperf_seconds,
+                        iperf_use_udp=iperf_use_udp,
                     )
                 )
             )
