@@ -349,8 +349,7 @@ compose:
 @click.option(
     "--iperf-use-udp",
     "iperf_use_udp",
-    is_flag=False,
-    show_default=True,
+    is_flag=True,
 )
 def run_experiment(
     workload_name: str,
