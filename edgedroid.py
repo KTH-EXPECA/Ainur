@@ -222,7 +222,7 @@ compose:
         IPERF_MAX_RETRIES: 600
         IPERF_START_DELAY: {iperf_start_delay_seconds}
         IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
-        IPERF_USE_UDP: {str(iperf_use_udp)}
+        IPERF_USE_UDP: "{iperf_use_udp}"
       command: iperf-client.sh
       deploy:
         replicas: {num_iperf_clients:d}
