@@ -73,6 +73,7 @@ def generate_workload_def(
     num_iperf_clients: int,
     run_n: int,
     task: str,
+    truncate: int,
     model: str,
     workload_name: str,
     max_duration: str,
@@ -83,9 +84,14 @@ def generate_workload_def(
     iperf_start_delay_seconds: int,
     iperf_use_udp: bool,
 ) -> str:
+    task_name = task if truncate < 0 else f"{task}-{truncate}"
+
     edgedroid_output = (
         f"/opt/results"
-        f"/neuro-{neuroticism}_model-{model}_sampling-{sampling_strategy}_task-{task}"
+        f"/neuro-{neuroticism}_"
+        f"model-{model}_"
+        f"sampling-{sampling_strategy}_"
+        f"task-{task_name}"
         f"/clients-{num_clients}"
         f"/run-{run_n}"
         f"/loop{TASK_SLOT}"
@@ -110,6 +116,8 @@ compose:
         EDGEDROID_SERVER_OUTPUT_DIR: {edgedroid_output}
       command:
       - "--verbose"
+      - "--truncate"
+      - "{truncate}"
       - "0.0.0.0"
       - "5000"
       - "{task}"
@@ -140,12 +148,13 @@ compose:
       environment:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
+        EDGEDROID_CLIENT_TRACE: "{task}"
         EDGEDROID_CLIENT_OUTPUT_DIR: {edgedroid_output}
       command:
+        - "--truncate"
+        - "{truncate}"
         - "-n"
         - "{neuroticism}"
-        - "-t"
-        - "{task}"
         - "-f"
         - "8"
         - "-m"
@@ -284,11 +293,16 @@ compose:
 @click.option(
     "-t",
     "--task",
-    "tasks",
+    "task",
     type=str,
-    multiple=True,
     show_default=True,
-    default=("square00",),
+    default="square00",
+)
+@click.option(
+    "--truncate",
+    type=int,
+    default=-1,
+    show_default=False,
 )
 @click.option(
     "-m",
@@ -357,7 +371,8 @@ def run_experiment(
     num_iperf_clients: int,
     neuroticisms: Sequence[float],
     max_duration: str,
-    tasks: Sequence[str],
+    task: str,
+    truncate: int,
     models: Sequence[str],
     noconfirm: bool,
     repetitions: int,
@@ -443,8 +458,7 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for task, neuro, sampling, run, model in itertools.product(
-            tasks,
+        for neuro, sampling, run, model in itertools.product(
             neuroticisms,
             sampling_strategies,
             range(repetitions),
@@ -457,6 +471,7 @@ def run_experiment(
                         num_iperf_clients=num_iperf_clients,
                         run_n=run + 1,
                         task=task,
+                        truncate=truncate,
                         model=model,
                         workload_name=workload_name,
                         max_duration=max_duration,
