@@ -1,5 +1,6 @@
 import itertools
 import random
+import tempfile
 from pathlib import Path
 
 # from ainur import *
@@ -83,6 +84,7 @@ def generate_workload_def(
     iperf_time_seconds: int,
     iperf_start_delay_seconds: int,
     iperf_use_udp: bool,
+    env_file: Path,
 ) -> str:
     task_name = task if truncate < 0 else f"{task}-{truncate}"
 
@@ -112,6 +114,8 @@ compose:
     server:
       image: {IMAGE}:{SERVER_TAG}
       hostname: {SERVER_HOST}
+      env_file:
+      - {env_file.resolve()}
       environment:
         EDGEDROID_SERVER_OUTPUT_DIR: {edgedroid_output}
       command:
@@ -145,6 +149,8 @@ compose:
           target: /opt/results/
           volume:
             nocopy: true
+      env_file:
+      - {env_file.resolve()}
       environment:
         EDGEDROID_CLIENT_HOST: {SERVER_HOST}
         EDGEDROID_CLIENT_PORT: 5000
@@ -365,6 +371,14 @@ compose:
     "iperf_use_udp",
     is_flag=True,
 )
+@click.option(
+    "-e",
+    "--env",
+    "envvars",
+    type=str,
+    default=(),
+    multiple=True,
+)
 def run_experiment(
     workload_name: str,
     num_clients: int,
@@ -382,7 +396,14 @@ def run_experiment(
     iperf_seconds: int,
     iperf_delay: int,
     iperf_use_udp: bool,
+    envvars: Collection[str],
 ):
+
+    env_vars = {}
+    for envvar in envvars:
+        varname, value = envvar.split("=", 1)
+        env_vars[varname.strip()] = value
+
     # workload client count and swarm size are not related
     interface = "wifi"
     # num_clients = set(num_clients)
@@ -407,6 +428,14 @@ def run_experiment(
     )
 
     with ExitStack() as stack:
+        # vars
+        tmp_dir: Path = Path(stack.enter_context(tempfile.TemporaryDirectory()))
+        tmp_envfile = tmp_dir / f"EXPECA_{workload_name}.env"
+
+        with tmp_envfile.open("w") as fp:
+            for key, val in env_vars.items():
+                print(f"{key}={val}", file=fp)
+
         # cloud = stack.enter_context(cloud)
 
         # start phy layer
@@ -481,6 +510,7 @@ def run_experiment(
                         iperf_start_delay_seconds=iperf_delay,
                         iperf_time_seconds=iperf_seconds,
                         iperf_use_udp=iperf_use_udp,
+                        env_file=tmp_envfile,
                     )
                 )
             )
