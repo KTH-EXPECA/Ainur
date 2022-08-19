@@ -5,4 +5,4 @@
 
 
 python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -s adaptive-aperiodic --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm EmpiricalAperiodicWin5;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regulat-2.25 --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm EmpiricalAperiodicRegular225;
+python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regular-2.25 --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm TheoreticalRegular225;
