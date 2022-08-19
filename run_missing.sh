@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 
-#>>>     data/runs_aug18/neuro-0.5_model-empirical_sampling-zero-wait_task-square00-45/clients-10/run-2/loop7
-#>>>     data/runs_aug18/neuro-0.5_model-theoretical_sampling-regular-1.75_task-square00-45/clients-10/run-4/loop6
-#>>>     data/runs_aug18/neuro-0.5_model-theoretical_sampling-regular-2.0_task-square00-45/clients-10/run-2/loop8
-#>>>     data/runs_aug18/neuro-0.5_model-naive_sampling-regular-1.75_task-square00-45/clients-10/run-4/loop7
-#>>>     data/runs_aug18/neuro-0.5_model-empirical_sampling-adaptive-aperiodic_task-square00-45/clients-10/run-5/loop8
+#>>>     data/runs_aug18/neuro-0.5_model-empirical_sampling-adaptive-aperiodic-win5_task-square00-45/clients-10/run-1/loop5
+#>>>     data/runs_aug18/neuro-0.5_model-theoretical_sampling-regular-2.25_task-square00-45/clients-10/run-2/loop4
 
 
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -s zero-wait -r 1 --noconfirm EmpiricalZeroWait;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regular-1.75 -r 1 --noconfirm TheoreticalRegular175;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regular-2.0 -r 1 --noconfirm TheoreticalRegular20;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m naive -s regular-1.75 -r 1 --noconfirm NaiveRegular175;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -s adaptive-aperiodic -r 1 --noconfirm EmpiricalAperiodic;
+python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -s adaptive-aperiodic --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm EmpiricalAperiodicWin5;
+python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regulat-2.25 --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm EmpiricalAperiodicRegular225;
