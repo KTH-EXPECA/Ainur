@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-#>>>     data/runs_aug18/neuro-0.5_model-empirical_sampling-adaptive-aperiodic-win5_task-square00-45/clients-10/run-1/loop5
-#>>>     data/runs_aug18/neuro-0.5_model-theoretical_sampling-regular-2.25_task-square00-45/clients-10/run-2/loop4
 
+python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -m theoretical -m naive -s adaptive-aperiodic --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=10 -r 5 --noconfirm AperiodicWin10;
 
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m empirical -s adaptive-aperiodic --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm EmpiricalAperiodicWin5;
-python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -s regular-2.25 --env EDGEDROID_ADAPTIVE_SAMPLING_DELAY_COST_WINDOW=5 -r 1 --noconfirm TheoreticalRegular225;
+for dname in /opt/expeca/experiments/AperiodicWin10/*adaptive-aperiodic*; do
+  sudo mv "$dname" "${dname//adaptive-aperiodic/adaptive-aperiodic-win10}";
+done
+
+python edgedroid.py -n 10 -p 0 -d 1h -t square00 --truncate 45 -m theoretical -m empirical -m naive -s regular-1.875 -r 5 --noconfirm Regular1875;
