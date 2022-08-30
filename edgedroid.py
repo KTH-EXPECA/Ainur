@@ -488,12 +488,17 @@ def run_experiment(
         swarm.pull_image(image=IMAGE, tag=CLIENT_TAG)
         swarm.pull_image(image=IPERF_IMG, tag="latest")
 
-        for neuro, sampling, run, model in itertools.product(
-            neuroticisms,
-            sampling_strategies,
-            range(repetitions),
-            models,
-        ):
+        configs = list(
+            itertools.product(
+                neuroticisms,
+                sampling_strategies,
+                range(repetitions),
+                models,
+            )
+        )
+
+        # shuffle configs to help avoiding experimental flukes
+        for neuro, sampling, run, model in random.sample(configs, k=len(configs)):
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
