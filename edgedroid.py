@@ -87,6 +87,7 @@ def generate_workload_def(
     env_file: Path,
 ) -> str:
     task_name = task if truncate < 0 else f"{task}-{truncate}"
+    transport = "udp" if iperf_use_udp else "tcp"
 
     edgedroid_output = (
         f"/opt/results"
@@ -237,7 +238,7 @@ compose:
         IPERF_MAX_RETRIES: 600
         IPERF_START_DELAY: {iperf_start_delay_seconds}
         IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
-        IPERF_USE_UDP: "{iperf_use_udp}"
+        IPERF_TRANSPORT: {transport}
       command: iperf-client.sh
       deploy:
         replicas: {num_iperf_clients:d}
