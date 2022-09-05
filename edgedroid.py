@@ -85,6 +85,7 @@ def generate_workload_def(
     iperf_start_delay_seconds: int,
     iperf_use_udp: bool,
     iperf_saturate: bool,
+    iperf_streams: int,
     env_file: Path,
 ) -> str:
     task_name = task if truncate < 0 else f"{task}-{truncate}"
@@ -242,6 +243,7 @@ compose:
         IPERF_LOGFILE: /opt/results/{IPERF_CLIENT_HOST}.log
         IPERF_USE_UDP: "{use_udp}"
         IPERF_SATURATE: "{saturate}"
+        IPERF_STREAMS: {iperf_streams}
       command: iperf-client.sh
       deploy:
         replicas: {num_iperf_clients:d}
@@ -388,6 +390,13 @@ compose:
     "iperf_saturate",
     is_flag=True,
 )
+@click.option(
+    "--iperf-streams",
+    "iperf_streams",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+)
 def run_experiment(
     workload_name: str,
     num_clients: int,
@@ -406,6 +415,7 @@ def run_experiment(
     iperf_delay: int,
     iperf_use_udp: bool,
     iperf_saturate: bool,
+    iperf_streams: int,
     envvars: Collection[str],
 ):
 
@@ -527,6 +537,7 @@ def run_experiment(
                         iperf_use_udp=iperf_use_udp,
                         iperf_saturate=iperf_saturate,
                         env_file=tmp_envfile,
+                        iperf_streams=iperf_streams,
                     )
                 )
             )
