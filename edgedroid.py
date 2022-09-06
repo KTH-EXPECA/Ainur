@@ -87,10 +87,13 @@ def generate_workload_def(
     iperf_saturate: bool,
     iperf_streams: int,
     env_file: Path,
+    collocate_iperf: bool,
 ) -> str:
     task_name = task if truncate < 0 else f"{task}-{truncate}"
     use_udp = str(iperf_use_udp).lower()
     saturate = str(iperf_saturate).lower()
+
+    node_iperf = "yes" if collocate_iperf < 0 else "no"
 
     edgedroid_output = (
         f"/opt/results"
@@ -182,7 +185,7 @@ compose:
           max_replicas_per_node: 1
           constraints:
           - "node.labels.role==client"
-          - "node.labels.iperf==no"
+          - "node.labels.iperf=={node_iperf}"
         restart_policy:
           condition: none
       depends_on:
@@ -276,7 +279,7 @@ compose:
     "-p",
     "--num-iperf-clients",
     "num_iperf_clients",
-    type=click.IntRange(0, MAX_NUM_CLIENTS, max_open=False),
+    type=click.IntRange(-1, MAX_NUM_CLIENTS, max_open=False),
     # multiple=True,
     default=0,
     show_default=True,
@@ -428,6 +431,12 @@ def run_experiment(
     interface = "wifi"
     # num_clients = set(num_clients)
 
+    if num_iperf_clients < 0:
+        collocate_iperf = True
+        num_iperf_clients = 0
+    else:
+        collocate_iperf = False
+
     total_clients = num_iperf_clients + num_clients
 
     # noinspection PyTypeChecker
@@ -491,7 +500,10 @@ def run_experiment(
 
         for host_name in worker_host_names:
             host = client_hosts[host_name]
-            client_swarm_labels[host] = {"iperf": "no", "role": "client"}
+            client_swarm_labels[host] = {
+                "iperf": "yes" if collocate_iperf else "no",
+                "role": "client",
+            }
 
         # init swarm
         swarm: DockerSwarm = stack.enter_context(DockerSwarm())
@@ -538,6 +550,7 @@ def run_experiment(
                         iperf_saturate=iperf_saturate,
                         env_file=tmp_envfile,
                         iperf_streams=iperf_streams,
+                        collocate_iperf=collocate_iperf,
                     )
                 )
             )
