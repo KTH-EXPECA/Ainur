@@ -93,7 +93,7 @@ def generate_workload_def(
     use_udp = str(iperf_use_udp).lower()
     saturate = str(iperf_saturate).lower()
 
-    node_iperf = "yes" if collocate_iperf < 0 else "no"
+    node_iperf = "yes" if collocate_iperf else "no"
 
     edgedroid_output = (
         f"/opt/results"
@@ -205,7 +205,7 @@ compose:
         IPERF_LOGFILE: /opt/results/{IPERF_SERVER_HOST}.log
       command: iperf-server.sh
       deploy:
-        replicas: {num_iperf_clients:d}
+        replicas: {num_iperf_clients if not collocate_iperf else num_clients:d}
         placement:
           max_replicas_per_node: {num_iperf_clients:d}
           constraints:
@@ -249,7 +249,7 @@ compose:
         IPERF_STREAMS: {iperf_streams}
       command: iperf-client.sh
       deploy:
-        replicas: {num_iperf_clients:d}
+        replicas: {num_iperf_clients if not collocate_iperf else num_clients:d}
         placement:
           max_replicas_per_node: 1
           constraints:
@@ -491,7 +491,10 @@ def run_experiment(
         worker_host_names = set(client_hosts.keys()).difference(iperf_host_names)
 
         logger.info(f"Edgedroid hosts: {worker_host_names}")
-        logger.info(f"iPerf hosts: {iperf_host_names}")
+        logger.info(
+            f"iPerf hosts: "
+            f"{iperf_host_names if not collocate_iperf else worker_host_names}"
+        )
 
         client_swarm_labels = {}
         for host_name in iperf_host_names:
