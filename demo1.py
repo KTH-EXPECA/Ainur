@@ -17,7 +17,7 @@ from ainur.swarm import DockerSwarm, WorkloadSpecification
 from ainur_utils.hosts import EDGE_HOST, get_hosts
 from ainur_utils.resources import switch, get_aws_ami_id_for_region
 
-AWS_REGION = "eu-north-1"
+# AWS_REGION = "eu-north-1"
 
 CLOUD_HOST = AinurCloudHostConfig(
     management_ip=IPv4Interface("172.16.0.2/24"),
@@ -116,9 +116,17 @@ compose:
     show_default=True,
     help="Phy layer to deploy.",
 )
+@click.option(
+    "--region",
+    type=str,
+    default="eu-north-1",
+    show_default=True,
+    help="AWS Region to deploy to.",
+)
 def main(
     offload: Literal["local", "edge", "cloud"],
     phy: Literal["ethernet", "wifi"],
+    region: str,
 ):
     has_cloud = offload == "cloud"
 
@@ -134,7 +142,7 @@ def main(
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
 
     if has_cloud:
-        cloud = CloudInstances(region=AWS_REGION)
+        cloud = CloudInstances(region=region)
 
     # combines layer3 networks
     ip_layer = CompositeLayer3Network()
@@ -159,7 +167,7 @@ def main(
             cloud: CloudInstances = stack.enter_context(cloud)
             cloud.init_instances(
                 num_instances=1,
-                ami_id=get_aws_ami_id_for_region(AWS_REGION),
+                ami_id=get_aws_ami_id_for_region(region),
             )
 
         # start phy layer
