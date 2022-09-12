@@ -11,8 +11,8 @@ __all__ = ["get_aws_ami_id_for_region", "switch"]
 
 def get_aws_ami_id_for_region(region: str) -> str:
     ami_file = resources.files(res).joinpath("offload-ami-ids.yaml")
-    with resources.as_file(ami_file) as ami_path:
-        return yaml.safe_load(ami_path)[region]
+    with resources.as_file(ami_file) as ami_path, ami_path.open("r") as fp:
+        return yaml.safe_load(fp)[region]
 
 
 # the workload switch, no need to change this
