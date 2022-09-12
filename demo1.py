@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import click
+import yaml
 from frozendict import frozendict
 
 from ainur.ansible import AnsibleContext
@@ -12,7 +13,7 @@ from ainur.cloud import CloudInstances
 from ainur.hosts import AinurCloudHostConfig, EthernetCfg, LocalAinurHost, WireSpec
 from ainur.networks import CompositeLayer3Network, LANLayer, VPNCloudMesh
 from ainur.physical import PhysicalLayer
-from ainur.swarm import DockerSwarm
+from ainur.swarm import DockerSwarm, WorkloadSpecification
 from ainur_utils.hosts import EDGE_HOST, get_hosts
 from ainur_utils.resources import switch, get_aws_ami_id_for_region
 
@@ -45,7 +46,10 @@ VPN_GW = LocalAinurHost(
 
 AP_PORT = 5
 WORKLOAD_NAME = "EWDEMO1"
-DURATION = "1h"
+DURATION = "5m"
+
+CLIENT_IMG = "expeca/demo_ew22_client"
+SERVER_IMG = "expeca/demo_ew22_backend"
 
 
 def generate_workload_def(
@@ -64,7 +68,7 @@ compose:
   version: "3.9"
   services:
     server:
-      image: expeca/demo_ew22_backend
+      image: {SERVER_IMG}
       hostname: server
       deploy:
         replicas: 1
@@ -75,7 +79,7 @@ compose:
         restart_policy:
           condition: always
     client:
-      image: expeca/demo_ew22_client
+      image: {CLIENT_IMG}
       hostname: client
       ports:
       - "80:8080/tcp"
@@ -200,7 +204,17 @@ def main(
             hosts={CLOUD_HOST: dict(role="backend", location="cloud")}
         )
 
-        click.pause()
+        # pull images
+        swarm.pull_image(CLIENT_IMG)
+        swarm.pull_image(SERVER_IMG)
+
+        wkld_def = generate_workload_def(offload=offload)
+        swarm.deploy_workload(
+            specification=WorkloadSpecification.from_dict(
+                yaml.safe_load(generate_workload_def(offload))
+            ),
+            max_failed_health_checks=-1,
+        )
 
 
 if __name__ == "__main__":
