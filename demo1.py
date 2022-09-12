@@ -123,7 +123,7 @@ def main(
         wifi_ssid="expeca_wlan_2",
         wifi_password="EXPECA-WLAN",
         wifi_hidden=True,
-    )
+    ).values()
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
 
