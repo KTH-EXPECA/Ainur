@@ -77,7 +77,7 @@ compose:
           constraints:
           - "node.labels.location=={offload}"
         restart_policy:
-          condition: always
+          condition: any
     client:
       image: {CLIENT_IMG}
       hostname: client
@@ -92,7 +92,7 @@ compose:
           constraints:
           - "node.labels.role==client"
         restart_policy:
-          condition: always
+          condition: any
       depends_on:
       - server
 ...
