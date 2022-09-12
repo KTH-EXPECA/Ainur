@@ -120,6 +120,8 @@ def main(
     offload: Literal["local", "edge", "cloud"],
     phy: Literal["ethernet", "wifi"],
 ):
+    has_cloud = offload == "cloud"
+
     # get a random client host
     client_host, *_ = get_hosts(
         client_count=1,
@@ -131,7 +133,8 @@ def main(
 
     ansible_ctx = AnsibleContext(base_dir=Path("ansible_env"))
 
-    cloud = CloudInstances(region=AWS_REGION)
+    if has_cloud:
+        cloud = CloudInstances(region=AWS_REGION)
 
     # combines layer3 networks
     ip_layer = CompositeLayer3Network()
@@ -152,11 +155,12 @@ def main(
 
     with ExitStack() as stack:
         # prepare cloud layer
-        cloud: CloudInstances = stack.enter_context(cloud)
-        cloud.init_instances(
-            num_instances=1,
-            ami_id=get_aws_ami_id_for_region(AWS_REGION),
-        )
+        if has_cloud:
+            cloud: CloudInstances = stack.enter_context(cloud)
+            cloud.init_instances(
+                num_instances=1,
+                ami_id=get_aws_ami_id_for_region(AWS_REGION),
+            )
 
         # start phy layer
         phy_layer: PhysicalLayer = stack.enter_context(
@@ -183,11 +187,13 @@ def main(
         # init layer 3 connectivity
         ip_layer: CompositeLayer3Network = stack.enter_context(ip_layer)
         lan_layer.add_hosts(phy_layer)
-        # connect the cloud
-        vpn_mesh.connect_cloud(
-            cloud_layer=cloud,
-            host_configs=[CLOUD_HOST],
-        )
+
+        if has_cloud:
+            # connect the cloud
+            vpn_mesh.connect_cloud(
+                cloud_layer=cloud,
+                host_configs=[CLOUD_HOST],
+            )
 
         # init swarm
         swarm: DockerSwarm = stack.enter_context(DockerSwarm())
@@ -198,17 +204,17 @@ def main(
                     role="backend",
                 ),
             }
-        ).deploy_workers(
-            hosts={client_host: dict(role="client", location="local")}
-        ).deploy_workers(
-            hosts={CLOUD_HOST: dict(role="backend", location="cloud")}
-        )
+        ).deploy_workers(hosts={client_host: dict(role="client", location="local")})
+
+        if has_cloud:
+            swarm.deploy_workers(
+                hosts={CLOUD_HOST: dict(role="backend", location="cloud")}
+            )
 
         # pull images
         swarm.pull_image(CLIENT_IMG)
         swarm.pull_image(SERVER_IMG)
 
-        wkld_def = generate_workload_def(offload=offload)
         swarm.deploy_workload(
             specification=WorkloadSpecification.from_dict(
                 yaml.safe_load(generate_workload_def(offload))
