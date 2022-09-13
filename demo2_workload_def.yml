@@ -28,7 +28,7 @@ compose:
           max_replicas_per_node: 5 # change
           constraints:
 #          - "node.labels.location==edge"
-          - "node.label.role==backend"
+          - "node.labels.role==backend"
         restart_policy:
           condition: none
       volumes:
