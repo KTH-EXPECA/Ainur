@@ -1,0 +1,71 @@
+---
+name: EWDemo2
+author: "Manuel Olguín Muñoz, Vishnu N. Moothedath"
+email: "molguin@kth.se"
+version: "1.0a"
+url: "expeca.proj.kth.se"
+max_duration: "2m"  # duration of experiment
+cloud:
+  instance_count: 3
+  region: eu-north-1
+phy:
+  type: wifi  # wifi or ethernet
+compose:
+  version: "3.9"
+  services:
+    controller:
+      image: "expeca/cleave:cleave"
+      hostname: controller{{.Task.Slot}}
+      command:
+        - run-controller
+        - examples/inverted_pendulum/controller/config.py
+      environment:
+        PORT: "50000"
+        NAME: "controller{{.Task.Slot}}"
+      deploy:
+        replicas: 10
+        placement:
+          max_replicas_per_node: 10
+          constraints:
+          - "node.labels.location==edge"
+          - "node.label.role==backend"
+        restart_policy:
+          condition: none
+      volumes:
+        - type: volume
+          source: EWDemo2
+          target: /opt/controller_metrics/
+          volume:
+            nocopy: true
+
+    plant:
+      image: "expeca/cleave:cleave"
+      hostname: plant{{.Task.Slot}}
+      command:
+        - run-plant
+        - examples/inverted_pendulum/plant/config.py
+      environment:
+        NAME: "plant{{.Task.Slot}}"
+        CONTROLLER_ADDRESS: "controller{{.Task.Slot}}"
+        CONTROLLER_PORT: "50000"
+        TICK_RATE: "100"
+        EMU_DURATION: "1m"
+        FAIL_ANGLE_RAD: "-1"
+        SAMPLE_RATE: "50"
+      deploy:
+        replicas: 10
+        placement:
+          max_replicas_per_node: 1
+          constraints:
+          - "node.labels.role==client"
+        restart_policy:
+          condition: on-failure
+      volumes:
+        - type: volume
+          source: EWDemo2
+          target: /opt/plant_metrics/
+          volume:
+            nocopy: true
+      depends_on:
+      - controller
+...
