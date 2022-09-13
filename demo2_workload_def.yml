@@ -4,10 +4,10 @@ author: "Manuel Olguín Muñoz, Vishnu N. Moothedath"
 email: "molguin@kth.se"
 version: "1.0a"
 url: "expeca.proj.kth.se"
-max_duration: "2m"  # duration of experiment
+max_duration: "3m"  # duration of experiment
 cloud:
-  instance_count: 3
-  region: eu-north-1
+  instance_count: 1
+  region: eu-west-2
 phy:
   type: wifi  # wifi or ethernet
 compose:
@@ -25,9 +25,9 @@ compose:
       deploy:
         replicas: 10
         placement:
-          max_replicas_per_node: 10
+          max_replicas_per_node: 5 # change
           constraints:
-          - "node.labels.location==edge"
+#          - "node.labels.location==edge"
           - "node.label.role==backend"
         restart_policy:
           condition: none
@@ -49,7 +49,7 @@ compose:
         CONTROLLER_ADDRESS: "controller{{.Task.Slot}}"
         CONTROLLER_PORT: "50000"
         TICK_RATE: "100"
-        EMU_DURATION: "1m"
+        EMU_DURATION: "2m"
         FAIL_ANGLE_RAD: "-1"
         SAMPLE_RATE: "50"
       deploy:
