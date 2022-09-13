@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import io
+import itertools
 import os
 from collections import deque
 from pathlib import Path
@@ -58,7 +59,11 @@ def gen_cloud_host_cfgs(num_hosts: int) -> List[AinurCloudHostConfig]:
             workload_ip=IPv4Interface(f"{wkld_ip}/24"),
             ansible_user="ubuntu",
         )
-        for mgmt_ip, wkld_ip in zip(mgmt_hosts, wkld_hosts)
+        for mgmt_ip, wkld_ip, _ in zip(
+            mgmt_hosts,
+            wkld_hosts,
+            itertools.repeat(None, num_hosts),
+        )
     ]
 
 
