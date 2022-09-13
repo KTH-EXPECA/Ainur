@@ -211,6 +211,7 @@ def run_experiment(
         if dry_run:
             logger.debug("Dry run")
             logger.debug(f"\n{workload.to_json(indent=4)}\n")
+            click.pause("Pausing before shutdown!")
             return
 
         with ExperimentStorage(
