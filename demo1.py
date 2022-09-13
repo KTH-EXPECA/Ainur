@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 from contextlib import ExitStack
 from ipaddress import IPv4Address, IPv4Interface
