@@ -124,6 +124,11 @@ def run_experiment(
         )
     )
 
+    logger.info(
+        f"Running experiment with {num_clients} local clients and "
+        f"{num_cloud_insts} cloud compute instances!"
+    )
+
     with ExitStack() as stack:
         # prepare cloud layer
         if has_cloud:
