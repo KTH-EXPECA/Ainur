@@ -575,7 +575,7 @@ def local_deployment(ansible_ctx: AnsibleContext):
         )
 
         lan: LANLayer = stack.enter_context(
-            LANLayer(ansible_context=ansible_ctx, ansible_quiet=True)
+            LANLayer(ansible_context=ansible_ctx, ansible_quiet=False)
         )
         lan.add_hosts(phy)
 
