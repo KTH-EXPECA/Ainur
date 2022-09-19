@@ -450,7 +450,7 @@ max_duration: "{DURATION}"
 compose:
   version: "3.9"
   services:
-    server:
+    server_service:
       image: {SERVER_IMG}
       hostname: server
       deploy:
@@ -461,7 +461,7 @@ compose:
           - "node.labels.location=={offload}"
         restart_policy:
           condition: any
-    client:
+    client_service:
       image: {CLIENT_IMG}
       hostname: client
       ports:
