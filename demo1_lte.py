@@ -429,7 +429,7 @@ def create_lte_ue(host: LocalAinurHost):
 
 AP_PORT = 5
 WORKLOAD_NAME = "EWDEMO1"
-DURATION = "10m"
+DURATION = "5h"
 
 CLIENT_IMG = "expeca/demo_ew22_client"
 SERVER_IMG = "expeca/demo_ew22_backend"
@@ -695,44 +695,46 @@ def main(
 
                 lteue = stack.enter_context(create_lte_ue(LTE_UE))
 
-            # init swarm
-            swarm: DockerSwarm = stack.enter_context(DockerSwarm())
-            swarm.deploy_managers(
-                hosts={
-                    cloudlet: dict(
-                        location="edge",
-                        role="backend",
-                    ),
-                }
-            ).deploy_workers(
-                hosts={
-                    client: dict(
-                        role="client",
-                        location="local",
-                    ),
-                }
-            )
+            click.pause("Press any key to shut down.")
 
-            if offload == "cloud":
-                swarm.deploy_workers(
-                    hosts={
-                        CLOUD_HOST: dict(
-                            role="backend",
-                            location="cloud",
-                        )
-                    }
-                )
-
-            # pull images
-            swarm.pull_image(CLIENT_IMG)
-            swarm.pull_image(SERVER_IMG)
-
-            swarm.deploy_workload(
-                specification=WorkloadSpecification.from_dict(
-                    yaml.safe_load(generate_workload_def(offload))
-                ),
-                max_failed_health_checks=-1,
-            )
+            # # init swarm
+            # swarm: DockerSwarm = stack.enter_context(DockerSwarm())
+            # swarm.deploy_managers(
+            #     hosts={
+            #         cloudlet: dict(
+            #             location="edge",
+            #             role="backend",
+            #         ),
+            #     }
+            # ).deploy_workers(
+            #     hosts={
+            #         client: dict(
+            #             role="client",
+            #             location="local",
+            #         ),
+            #     }
+            # )
+            #
+            # if offload == "cloud":
+            #     swarm.deploy_workers(
+            #         hosts={
+            #             CLOUD_HOST: dict(
+            #                 role="backend",
+            #                 location="cloud",
+            #             )
+            #         }
+            #     )
+            #
+            # # pull images
+            # swarm.pull_image(CLIENT_IMG)
+            # swarm.pull_image(SERVER_IMG)
+            #
+            # swarm.deploy_workload(
+            #     specification=WorkloadSpecification.from_dict(
+            #         yaml.safe_load(generate_workload_def(offload))
+            #     ),
+            #     max_failed_health_checks=-1,
+            # )
 
 
 if __name__ == "__main__":
