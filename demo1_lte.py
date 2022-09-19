@@ -437,7 +437,21 @@ SERVER_IMG = "expeca/demo_ew22_backend"
 
 def generate_workload_def(
     offload: Literal["local", "edge", "cloud"],
+    client: LocalAinurHost,
+    cloudlet: LocalAinurHost,
+    cloud: AinurCloudHostConfig,
 ):
+
+    if offload == "local":
+        backend_address = str(client.workload_ips[0])
+    elif offload == "edge":
+        backend_address = str(cloudlet.workload_ips[0])
+    elif offload == "cloud":
+        assert cloud is not None
+        backend_address = str(cloud.workload_ip)
+    else:
+        raise RuntimeError(offload)
+
     # language=yaml
     return f"""
 ---
@@ -453,6 +467,9 @@ compose:
     server_service:
       image: {SERVER_IMG}
       hostname: server
+      command: "--host 0.0.0.0 --port 1337"
+      ports: 
+      - "1337:1337/tcp"
       deploy:
         replicas: 1
         placement:
@@ -467,7 +484,7 @@ compose:
       ports:
       - "80:8080/tcp"
       command:
-        - "server"
+        - "{backend_address} --server-port 1337"
       deploy:
         replicas: 1
         placement:
@@ -727,15 +744,21 @@ def main(
             swarm.pull_image(CLIENT_IMG)
             swarm.pull_image(SERVER_IMG)
 
-            click.pause("Press any key to shut down.")
+            # click.pause("Press any key to shut down.")
 
-            #
-            # swarm.deploy_workload(
-            #     specification=WorkloadSpecification.from_dict(
-            #         yaml.safe_load(generate_workload_def(offload))
-            #     ),
-            #     max_failed_health_checks=-1,
-            # )
+            swarm.deploy_workload(
+                specification=WorkloadSpecification.from_dict(
+                    yaml.safe_load(
+                        generate_workload_def(
+                            offload,
+                            client=client,
+                            cloudlet=cloudlet,
+                            cloud=CLOUD_HOST,
+                        )
+                    )
+                ),
+                max_failed_health_checks=-1,
+            )
 
 
 if __name__ == "__main__":
