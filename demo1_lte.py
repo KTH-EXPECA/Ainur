@@ -483,8 +483,7 @@ compose:
       hostname: client
       ports:
       - "80:8080/tcp"
-      command:
-        - "{backend_address} --server-port 1337"
+      command: "--server-port 1337 {backend_address}"
       deploy:
         replicas: 1
         placement:
