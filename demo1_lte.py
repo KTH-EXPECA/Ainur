@@ -7,6 +7,7 @@ from ipaddress import IPv4Address, IPv4Interface, IPv4Network
 from pathlib import Path
 from typing import Iterator, Literal, Optional, Tuple
 
+import ansible_runner
 import click
 import yaml
 from frozendict import frozendict
@@ -727,6 +728,31 @@ def main(
 
                 lteue = stack.enter_context(create_lte_ue(LTE_UE))
 
+                # hack to add route to UE to cloud through tunnel
+                inventory = {
+                    "all": {
+                        "hosts": {
+                            "LTE_UE": {
+                                "ansible_host": LTE_UE.ansible_host,
+                                "ansible_user": LTE_UE.ansible_user,
+                                "ansible_become": True,
+                            }
+                        }
+                    }
+                }
+
+                with ansible_ctx(inventory) as tmp_dir:
+                    res = ansible_runner.run(
+                        host_pattern="LTE_UE",
+                        module="shell",
+                        module_args="ip route add 172.16.1.0/24 dev tun0",
+                        private_data_dir=str(tmp_dir),
+                        quiet=False,
+                        json_mode=False,
+                    )
+
+                    if res.status == "failed":
+                        raise RuntimeError()
             # init swarm
             swarm: DockerSwarm = stack.enter_context(DockerSwarm())
             swarm.deploy_managers(
