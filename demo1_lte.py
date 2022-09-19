@@ -131,7 +131,7 @@ def gen_client_config(
                             ),
                             IPRoute(
                                 to=IPv4Interface("172.16.1.0/24"),
-                                via=IPv4Address("10.4.0.3"),
+                                via=IPv4Address("10.5.0.1"),
                             ),
                         ),
                         mac="dc:a6:32:b4:d8:b5",
@@ -185,7 +185,12 @@ LTE_BS = LocalAinurHost(
         {
             "enp5s0": EthernetCfg(
                 ip_address=IPv4Interface("10.4.0.1/24"),
-                routes=(),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface("172.16.1.0/24"),
+                        via=IPv4Address("10.4.0.3"),
+                    ),
+                ),
                 mac="00:d8:61:c6:1c:e1",
                 wire_spec=WireSpec(net_name="eth_net", switch_port=4),
             ),
@@ -201,7 +206,12 @@ LTE_UE = LocalAinurHost(
         {
             "enp4s0": EthernetCfg(
                 ip_address=IPv4Interface("10.5.0.1/24"),
-                routes=(),
+                routes=(
+                    IPRoute(
+                        to=IPv4Interface("172.16.1.0/24"),
+                        via=IPv4Address("10.4.0.1"),
+                    ),
+                ),
                 mac="00:d8:61:c6:1b:27",
                 wire_spec=WireSpec(net_name="eth_net", switch_port=3),
             ),
