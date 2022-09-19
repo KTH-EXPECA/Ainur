@@ -5,7 +5,7 @@ import time
 from contextlib import ExitStack
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import Iterator, Literal, Optional
+from typing import Iterator, Literal, Optional, Tuple
 
 import click
 import yaml
@@ -493,7 +493,7 @@ compose:
 @contextlib.contextmanager
 def build_physical_layer(
     phy: Literal["ethernet", "wifi", "lte"]
-) -> Iterator[PhysicalLayer, LocalAinurHost, LocalAinurHost, LocalAinurHost]:
+) -> Iterator[Tuple[PhysicalLayer, LocalAinurHost, LocalAinurHost, LocalAinurHost]]:
     client = gen_client_config(phy=phy)
     cloudlet = gen_cloudlet_config(lte=(phy == "lte"))
     vpn_gw = gen_vpn_gw_config(lte=(phy == "lte"))
