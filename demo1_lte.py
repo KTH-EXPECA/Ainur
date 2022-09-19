@@ -511,7 +511,7 @@ def build_physical_layer(
             )
             if phy == "lte":
                 # server/BS side
-                switch.make_vlan(
+                physical._switch.make_vlan(
                     [
                         LTE_BS.ethernets["enp5s0"].wire_spec.switch_port,
                         cloudlet.ethernets["enp4s0"].wire_spec.switch_port,
@@ -521,7 +521,7 @@ def build_physical_layer(
                 )
 
                 # client/UE side
-                switch.make_vlan(
+                physical._switch.make_vlan(
                     [
                         LTE_UE.ethernets["enp4s0"].wire_spec.switch_port,
                         client.ethernets["eth0"].wire_spec.switch_port,
@@ -539,7 +539,7 @@ def build_physical_layer(
                 )
             else:
                 # hack to make vlan including AP, elrond, and the VPN GW
-                switch.make_vlan(
+                physical._switch.make_vlan(
                     [
                         AP_PORT,
                         cloudlet.ethernets["enp4s0"].wire_spec.switch_port,
