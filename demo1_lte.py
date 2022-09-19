@@ -429,7 +429,7 @@ def create_lte_ue(host: LocalAinurHost):
 
 AP_PORT = 5
 WORKLOAD_NAME = "EWDEMO1"
-DURATION = "5h"
+DURATION = "5m"
 
 CLIENT_IMG = "expeca/demo_ew22_client"
 SERVER_IMG = "expeca/demo_ew22_backend"
