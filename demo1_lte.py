@@ -52,7 +52,12 @@ def gen_vpn_gw_config(lte: bool = False) -> LocalAinurHost:
                     ip_address=IPv4Interface("10.4.0.3/24")
                     if lte
                     else IPv4Interface("10.0.1.0/16"),
-                    routes=(),
+                    routes=(
+                        IPRoute(
+                            to=IPv4Interface("10.5.0.0/24"),
+                            via=IPv4Address("10.4.0.1"),
+                        ),
+                    ),
                     mac="dc:a6:32:bf:54:1b",
                     wire_spec=WireSpec(
                         net_name="eth_net",
@@ -651,6 +656,7 @@ def main(
                 vpn_psk=os.environ["vpn_psk"],
                 ansible_ctx=ansible_ctx,
                 ansible_quiet=False,
+                wkld_local_net=IPv4Network("10.0.0.0/8"),
             )
         )
 
