@@ -686,11 +686,12 @@ def main(
                 )
 
                 wait_s = 20
-                for _ in click.progressbar(
+                with click.progressbar(
                     length=wait_s,
                     label=f"Giving the LTE stack {wait_s} seconds to come online.",
-                ):
-                    time.sleep(1)
+                ) as bar:
+                    for _ in bar:
+                        time.sleep(1)
 
                 lteue = stack.enter_context(create_lte_ue(LTE_UE))
 
