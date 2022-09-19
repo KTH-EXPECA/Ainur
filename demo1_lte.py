@@ -448,7 +448,7 @@ def generate_workload_def(
         backend_address = str(cloudlet.workload_ips[0])
     elif offload == "cloud":
         assert cloud is not None
-        backend_address = str(cloud.workload_ip)
+        backend_address = str(cloud.workload_ip.ip)
     else:
         raise RuntimeError(offload)
 
