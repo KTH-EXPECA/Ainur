@@ -479,6 +479,14 @@ url: "expeca.proj.kth.se"
 max_duration: "{DURATION}"
 compose:
   version: "3.9"
+  networks:
+    swarmnet:
+      driver: overlay
+      attachable: true
+      ipam:
+        driver: default
+        config:
+        - subnet: 172.128.0.0/16
   services:
     server_service:
       image: {SERVER_IMG}
@@ -486,6 +494,8 @@ compose:
       command: "--host 0.0.0.0 --port 1337"
       ports: 
       - "1337:1337/tcp"
+      networks:
+      - swarmnet
       deploy:
         replicas: 1
         placement:
@@ -499,6 +509,8 @@ compose:
       hostname: client
       ports:
       - "80:8080/tcp"
+      networks:
+      - swarmnet
       command: "--server-port 1337 {backend_address}"
       deploy:
         replicas: 1
