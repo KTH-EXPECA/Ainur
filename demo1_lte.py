@@ -624,7 +624,14 @@ def local_deployment(ansible_ctx: AnsibleContext):
 
         swarm.deploy_workload(
             specification=WorkloadSpecification.from_dict(
-                yaml.safe_load(generate_workload_def("local"))
+                yaml.safe_load(
+                    generate_workload_def(
+                        "local",
+                        client=client,
+                        cloudlet=client,
+                        cloud=CLOUD_HOST,
+                    )
+                )
             ),
             max_failed_health_checks=-1,
         )
