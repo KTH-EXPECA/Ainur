@@ -68,15 +68,7 @@ def gen_vpn_gw_config(lte: bool = False) -> LocalAinurHost:
 def gen_client_config(
     phy: Optional[Literal["ethernet", "wifi", "lte"]] = None
 ) -> LocalAinurHost:
-    if phy is None:
-        # local setup, doesn't need anything
-        return LocalAinurHost(
-            management_ip=IPv4Interface("192.168.3.0/16"),
-            ansible_user="expeca",  # cloud instances have a different user
-            ethernets=frozendict(),
-            wifis=frozendict(),
-        )
-    elif phy == "ethernet":
+    if (phy is None) or (phy == "ethernet"):
         return LocalAinurHost(
             management_ip=IPv4Interface("192.168.3.0/16"),
             ansible_user="expeca",  # cloud instances have a different user
