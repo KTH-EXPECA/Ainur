@@ -168,8 +168,6 @@ compose:
         - "{truncate}"
         - "-n"
         - "{neuroticism}"
-        - "-f"
-        - "8"
         - "-m"
         - "{model}"
         - "-s"
@@ -326,7 +324,7 @@ compose:
     type=str,
     multiple=True,
     show_default=True,
-    default=("naive", "empirical", "theoretical"),
+    default=("fitted-naive", "empirical", "theoretical"),
 )
 @click.option(
     "-s",
