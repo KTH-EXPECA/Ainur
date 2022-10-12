@@ -26,3 +26,7 @@ def init_net():
         phy_layer._hosts = dict(elrond=EDGE_HOST)
 
         click.pause()
+
+
+if __name__ == "__main__":
+    init_net()
