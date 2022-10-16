@@ -3,9 +3,6 @@ import random
 import tempfile
 from pathlib import Path
 
-# from ainur import *
-from typing import Sequence
-
 import click
 
 from ainur.hosts import *
@@ -15,53 +12,13 @@ from ainur.swarm.storage import ExperimentStorage
 from ainur_utils.hosts import EDGE_HOST, MAX_NUM_CLIENTS, get_hosts
 from ainur_utils.resources import switch
 
+# from ainur import *
+
 AP_PORT = 5
-
-# SDR access point configurations for this workload scenario
-# note that SDRs are no longer associated to hosts, but rather to the network
-# as a whole.
-# The switch connects the port of the sdr to the rest of the network (
-# according to the net_name parameter) so that devices connected by wifi and
-# devices on the wire can talk to each other (and so devices connected by
-# wifi can reach the cloud! this is important).
-# sdr_aps = [
-#     APSoftwareDefinedRadio(
-#         name="RFSOM-00002",
-#         management_ip=IPv4Interface("172.16.2.12/24"),
-#         mac="02:05:f7:80:0b:19",
-#         switch_port=42,
-#         ssid="expeca_wlan_1",
-#         net_name="eth_net",
-#         channel=11,
-#         beacon_interval=100,
-#         ht_capable=True,
-#     )
-# ]
-#
-# # sdr STA configurations
-# sdr_stas = [
-#     # StationSoftwareDefinedRadio(
-#     #     name='RFSOM=00001',
-#     #     management_ip=IPv4Interface('172.16.2.11/24'),
-#     #     mac='02:05:f7:80:0b:72',
-#     #     ssid='eth_net',
-#     #     net_name='eth_net',
-#     #     switch_port=41
-#     # ),
-#     # StationSoftwareDefinedRadio(
-#     #     name='RFSOM=00003',
-#     #     management_ip=IPv4Interface('172.16.2.13/24'),
-#     #     mac='02:05:f7:80:02:c8',
-#     #     ssid='eth_net',
-#     #     net_name='eth_net',
-#     #     switch_port=43
-#     # ),
-# ]
-
 IMAGE = "molguin/edgedroid2"
 IPERF_IMG = "expeca/simple-network-load"
-SERVER_TAG = "server"
-CLIENT_TAG = "client"
+SERVER_TAG = "experiment-server"
+CLIENT_TAG = "experiment-client"
 TASK_SLOT = r"{{.Task.Slot}}"
 SERVER_HOST = f"server{TASK_SLOT}"
 CLIENT_HOST = f"client{TASK_SLOT}"
@@ -70,16 +27,14 @@ IPERF_CLIENT_HOST = f"iperfclient{TASK_SLOT}"
 
 
 def generate_workload_def(
+    workload_name: str,
     num_clients: int,
     num_iperf_clients: int,
     run_n: int,
     task: str,
     truncate: int,
-    model: str,
-    workload_name: str,
+    experiment_id: str,
     max_duration: str,
-    neuroticism: float,
-    sampling_strategy: str,
     iperf_rate: str,
     iperf_time_seconds: int,
     iperf_start_delay_seconds: int,
@@ -97,10 +52,7 @@ def generate_workload_def(
 
     edgedroid_output = (
         f"/opt/results"
-        f"/neuro-{neuroticism}_"
-        f"model-{model}_"
-        f"sampling-{sampling_strategy}_"
-        f"task-{task_name}"
+        f"/edgedroid-{experiment_id}-{task_name}"
         f"/clients-{num_clients}"
         f"/run-{run_n}"
         f"/loop{TASK_SLOT}"
@@ -166,17 +118,12 @@ compose:
       command:
         - "--truncate"
         - "{truncate}"
-        - "-n"
-        - "{neuroticism}"
-        - "-m"
-        - "{model}"
-        - "-s"
-        - "{sampling_strategy}"
         - "--verbose"
         - "--connect-timeout-seconds"
         - "5.0"
         - "--max-connection-attempts"
         - "0"
+        - "{experiment_id}"
       deploy:
         replicas: {num_clients:d}
         placement:
@@ -194,9 +141,7 @@ compose:
       hostname: {IPERF_SERVER_HOST}
       environment:
         IPERF_LOG_HEADER: >-
-            neuro-{neuroticism}
-            model-{model}
-            sampling-{sampling_strategy}
+            edgedroid-{experiment_id}
             task-{task}
             clients-{num_clients}
             run-{run_n}
@@ -229,9 +174,7 @@ compose:
             nocopy: true
       environment:
         IPERF_LOG_HEADER: >-
-            neuro-{neuroticism}
-            model-{model}
-            sampling-{sampling_strategy}
+            edgedroid-{experiment_id}
             task-{task}
             clients-{num_clients}
             run-{run_n}
@@ -264,6 +207,7 @@ compose:
 # noinspection DuplicatedCode
 @click.command()
 @click.argument("workload-name", type=str)
+@click.argument("experiment-ids", type=str, nargs=-1)
 @click.option(
     "-n",
     "--num-clients",
@@ -280,20 +224,6 @@ compose:
     type=click.IntRange(-1, MAX_NUM_CLIENTS, max_open=False),
     # multiple=True,
     default=0,
-    show_default=True,
-)
-@click.option(
-    "--neuro",
-    "neuroticisms",
-    type=click.FloatRange(
-        min=0,
-        max=1.0,
-        min_open=False,
-        max_open=False,
-        clamp=True,
-    ),
-    multiple=True,
-    default=(0.5,),
     show_default=True,
 )
 @click.option(
@@ -316,24 +246,6 @@ compose:
     type=int,
     default=-1,
     show_default=False,
-)
-@click.option(
-    "-m",
-    "--model",
-    "models",
-    type=str,
-    multiple=True,
-    show_default=True,
-    default=("fitted-naive", "empirical", "theoretical"),
-)
-@click.option(
-    "-s",
-    "--sampling-strategy",
-    "sampling_strategies",
-    type=str,
-    multiple=True,
-    default=("zero-wait",),
-    show_default=True,
 )
 @click.option(
     "--noconfirm",
@@ -400,17 +312,15 @@ compose:
 )
 def run_experiment(
     workload_name: str,
+    experiment_ids: Collection[str],
     num_clients: int,
     num_iperf_clients: int,
-    neuroticisms: Sequence[float],
     max_duration: str,
     task: str,
     truncate: int,
-    models: Sequence[str],
     noconfirm: bool,
     repetitions: int,
     dry_run: bool,
-    sampling_strategies: Sequence[str],
     iperf_rate: str,
     iperf_seconds: int,
     iperf_delay: int,
@@ -419,7 +329,6 @@ def run_experiment(
     iperf_streams: int,
     envvars: Collection[str],
 ):
-
     env_vars = {}
     for envvar in envvars:
         varname, value = envvar.split("=", 1)
@@ -522,15 +431,13 @@ def run_experiment(
 
         configs = list(
             itertools.product(
-                neuroticisms,
-                sampling_strategies,
+                experiment_ids,
                 range(repetitions),
-                models,
             )
         )
 
         # shuffle configs to help avoiding experimental flukes
-        for neuro, sampling, run, model in random.sample(configs, k=len(configs)):
+        for exp_id, run in random.sample(configs, k=len(configs)):
             workload: WorkloadSpecification = WorkloadSpecification.from_dict(
                 yaml.safe_load(
                     generate_workload_def(
@@ -539,11 +446,9 @@ def run_experiment(
                         run_n=run + 1,
                         task=task,
                         truncate=truncate,
-                        model=model,
+                        experiment_id=exp_id,
                         workload_name=workload_name,
                         max_duration=max_duration,
-                        neuroticism=neuro,
-                        sampling_strategy=sampling,
                         iperf_rate=iperf_rate,
                         iperf_start_delay_seconds=iperf_delay,
                         iperf_time_seconds=iperf_seconds,
@@ -556,7 +461,7 @@ def run_experiment(
                 )
             )
             if dry_run:
-                logger.debug(f"Dry run: {num_clients=} | {model=} | {run=}")
+                logger.debug(f"Dry run: {exp_id=} {task=} {truncate=} {run=}")
                 logger.debug(f"\n{workload.to_json(indent=4)}\n")
                 continue
 
