@@ -313,6 +313,12 @@ compose:
     default=1,
     show_default=True,
 )
+@click.option(
+    "--extra-server-delay",
+    type=float,
+    default=0.0,
+    show_default=True,
+)
 def run_experiment(
     workload_name: str,
     experiment_ids: Collection[str],
@@ -461,6 +467,7 @@ def run_experiment(
                         env_file=tmp_envfile,
                         iperf_streams=iperf_streams,
                         collocate_iperf=collocate_iperf,
+                        extra_server_delay=extra_server_delay,
                     )
                 )
             )
