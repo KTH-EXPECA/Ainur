@@ -43,6 +43,7 @@ def generate_workload_def(
     iperf_streams: int,
     env_file: Path,
     collocate_iperf: bool,
+    extra_server_delay: float,
 ) -> str:
     task_name = task if truncate < 0 else f"{task}-{truncate}"
     use_udp = str(iperf_use_udp).lower()
@@ -81,6 +82,8 @@ compose:
       - "--verbose"
       - "--truncate"
       - "{truncate}"
+      - "--delay-seconds"
+      - "{extra_server_delay:3f}"
       - "0.0.0.0"
       - "5000"
       - "{task}"
@@ -327,6 +330,7 @@ def run_experiment(
     iperf_use_udp: bool,
     iperf_saturate: bool,
     iperf_streams: int,
+    extra_server_delay: float,
     envvars: Collection[str],
 ):
     env_vars = {}
